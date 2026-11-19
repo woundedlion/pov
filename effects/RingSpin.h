@@ -15,6 +15,7 @@
 #include "core/animation/orientation.h"
 #include <array>
 #include "core/engine/engine.h"
+#include "core/render/filter/pipeline.h"
 
 // Unit-test accessor for the ring pool's orientations and stroke geometry.
 namespace hs_test {
@@ -110,13 +111,12 @@ public:
         TrailSlots trail_slots;
         int slots = 0;
         const float PIXEL_WIDTH = math::coarse_pixel_pitch<W, H>();
-        constexpr float MIN_SLOT_ALPHA = 0.001f;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];
           // Length-fade comes from the palette's alpha vignette, not a t term.
           Color4 c = ring.palette->get(1.0f - t);
           c.alpha = c.alpha * params.alpha;
-          if (c.alpha <= MIN_SLOT_ALPHA)
+          if (c.alpha <= Filter::TRAIL_EMIT_ALPHA_FLOOR)
             continue;
 
           // SDF::Ring takes a half-width; the band thickens at the trail

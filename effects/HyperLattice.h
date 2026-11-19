@@ -1036,7 +1036,7 @@ private:
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis) {
         float period = params.cell_size;
         if (params.pattern == Pattern::OCTET)
-          period *= 1.4142135623730951f;
+          period *= 2.0f * SDF::OctetFramework4::HALF_CUBE;
         trace_center[axis] = math::wrap(trace_center[axis], period);
       }
     } else

@@ -11,10 +11,10 @@ from docs_check_types import Fence, Issue, VisibleLine
 _FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 
-_REFERENCE_DEFINITION_RE = re.compile(r"^ {0,3}\[([^]]+)\]:[ \t]*(.*)$")
+REFERENCE_DEFINITION_RE = re.compile(r"^ {0,3}\[([^]]+)\]:[ \t]*(.*)$")
 
 
-_MARKDOWN_ESCAPE_RE = re.compile(r"\\([!\"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])")
+MARKDOWN_ESCAPE_RE = re.compile(r"\\([!\"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~])")
 
 
 _ATX_HEADING_RE = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+(.*?))?[ \t]*$")
@@ -39,7 +39,7 @@ _SLUG_DROP_RE = re.compile(r"[^\w\- ]", re.UNICODE)
 _DIRECTIVE_RE = re.compile(r"^ {0,3}<!--[ \t]*docs-check:[ \t]*(.*?)[ \t]*-->[ \t]*$")
 
 
-def _normalize_label(label: str) -> str:
+def normalize_label(label: str) -> str:
     return " ".join(label.split()).casefold()
 
 
@@ -52,7 +52,7 @@ def _is_escaped(text: str, index: int) -> bool:
     return backslashes % 2 == 1
 
 
-def _scan_code_spans(line: str) -> tuple[str, list[str]]:
+def scan_code_spans(line: str) -> tuple[str, list[str]]:
     """Blanks every code span and returns the masked line plus the span bodies."""
     masked = list(line)
     spans = []
@@ -112,24 +112,24 @@ def visible_lines(path: PurePosixPath,
             pending = directive.group(1)
         elif line.strip():
             pending = ""
-        masked, spans = _scan_code_spans(line)
+        masked, spans = scan_code_spans(line)
         visible.append(VisibleLine(line_number, line, masked, tuple(spans)))
     if fence:
         issues.append(Issue(path.as_posix(), fence[1], "unclosed fenced code block"))
     return visible, fences, issues
 
 
-def _slug(heading: str) -> str:
+def heading_slug(heading: str) -> str:
     """Slugifies heading text the way GitHub derives its anchor ids."""
     text = _INLINE_LINK_TEXT_RE.sub(lambda m: m.group(1) or m.group(2) or "", heading)
     text = re.sub(r"(`+)(.*?)\1", lambda m: m.group(2).replace("<", "").replace(">", ""), text)
     text = _HTML_TAG_RE.sub("", text).replace("`", "")
-    text = _MARKDOWN_ESCAPE_RE.sub(r"\1", text)
+    text = MARKDOWN_ESCAPE_RE.sub(r"\1", text)
     text = re.sub(r"[*~]", "", text).strip().casefold()
     return _SLUG_DROP_RE.sub("", text).replace(" ", "-")
 
 
-def _anchors(visible: list[VisibleLine]) -> set[str]:
+def collect_anchors(visible: list[VisibleLine]) -> set[str]:
     """Collects every fragment a link may target: heading slugs and HTML ids."""
     found: set[str] = set()
     seen: dict[str, int] = {}
@@ -144,7 +144,7 @@ def _anchors(visible: list[VisibleLine]) -> set[str]:
             found.add(explicit.group(1).casefold())
             heading = heading[:explicit.start()]
         heading = heading.rstrip("#").rstrip()
-        slug = _slug(heading)
+        slug = heading_slug(heading)
         if not slug:
             continue
         # Repeated headings get GitHub's -1, -2, ... disambiguating suffix.
@@ -188,7 +188,7 @@ def _find_closing_parenthesis(text: str, start: int) -> int:
     return -1
 
 
-def _destination(body: str) -> str | None:
+def link_destination(body: str) -> str | None:
     body = body.lstrip()
     if not body:
         return ""
@@ -213,7 +213,7 @@ def _destination(body: str) -> str | None:
     return body[:end]
 
 
-def _inline_links(line: str) -> tuple[list[str], list[str]]:
+def inline_links(line: str) -> tuple[list[str], list[str]]:
     destinations = []
     references = []
     index = 0
@@ -230,10 +230,10 @@ def _inline_links(line: str) -> tuple[list[str], list[str]]:
         if next_index < len(line) and line[next_index] == "(":
             end = _find_closing_parenthesis(line, next_index)
             if end != -1:
-                destination = _destination(line[next_index + 1:end])
+                destination = link_destination(line[next_index + 1:end])
                 if destination is not None:
                     destinations.append(destination)
-                nested_destinations, nested_references = _inline_links(label)
+                nested_destinations, nested_references = inline_links(label)
                 destinations.extend(nested_destinations)
                 references.extend(nested_references)
                 index = end + 1
@@ -242,8 +242,8 @@ def _inline_links(line: str) -> tuple[list[str], list[str]]:
             ref_close = _find_closing_bracket(line, next_index)
             if ref_close != -1:
                 reference = line[next_index + 1:ref_close] or label
-                references.append(_normalize_label(reference))
-                nested_destinations, nested_references = _inline_links(label)
+                references.append(normalize_label(reference))
+                nested_destinations, nested_references = inline_links(label)
                 destinations.extend(nested_destinations)
                 references.extend(nested_references)
                 index = ref_close + 1

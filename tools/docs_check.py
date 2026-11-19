@@ -30,15 +30,15 @@ from generated_paths import generated_path_pattern
 from git_files import git_nul_list
 from docs_check_types import Fence, Issue
 from docs_check_markdown import (
-    _REFERENCE_DEFINITION_RE,
-    _MARKDOWN_ESCAPE_RE,
-    _normalize_label,
-    _scan_code_spans,
+    REFERENCE_DEFINITION_RE,
+    MARKDOWN_ESCAPE_RE,
+    normalize_label,
+    scan_code_spans,
     visible_lines,
-    _slug,
-    _anchors,
-    _destination,
-    _inline_links,
+    heading_slug,
+    collect_anchors,
+    link_destination,
+    inline_links,
 )
 
 
@@ -225,7 +225,7 @@ def _stale_allowances(entries: set[PurePosixPath], used: set[str],
 
 
 def _resolved_target(source: PurePosixPath, target: str) -> PurePosixPath | None:
-    target = _MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip())
+    target = MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip())
     if not target or target.startswith("#"):
         return None
     parsed = urlsplit(target)
@@ -250,7 +250,7 @@ def _resolved_target(source: PurePosixPath, target: str) -> PurePosixPath | None
 
 def _checkout_link(target: str) -> tuple[str, PurePosixPath] | None:
     """Splits a sibling-repository GitHub URL into its checkout name and path."""
-    parsed = urlsplit(_MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip()))
+    parsed = urlsplit(MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip()))
     if parsed.scheme.casefold() not in ("http", "https"):
         return None
     if parsed.netloc.casefold() not in _SELF_REPO_HOSTS:
@@ -263,7 +263,7 @@ def _checkout_link(target: str) -> tuple[str, PurePosixPath] | None:
 
 
 def _fragment(target: str) -> str:
-    parsed = urlsplit(_MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip()))
+    parsed = urlsplit(MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip()))
     return unquote(parsed.fragment)
 
 
@@ -277,7 +277,7 @@ def _anchor_issue(source: PurePosixPath, line: int, target: str,
     if _LINE_FRAGMENT_RE.match(fragment):
         return None
     known = anchors[document]
-    if fragment.casefold() in known or _slug(fragment) in known:
+    if fragment.casefold() in known or heading_slug(fragment) in known:
         return None
     where = "this document" if document == source else document.as_posix()
     return Issue(source.as_posix(), line,
@@ -304,7 +304,7 @@ def _link_issue(source: PurePosixPath, line: int, target: str,
                      f"(resolved to {path.as_posix()!r})")
     resolved = _resolved_target(source, target)
     if resolved is None:
-        cleaned = _MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip())
+        cleaned = MARKDOWN_ESCAPE_RE.sub(r"\1", target.strip())
         if cleaned.startswith("#"):
             return _anchor_issue(source, line, target, source, anchors)
         return None
@@ -984,7 +984,7 @@ def scan_symbols(sources: dict[PurePosixPath, str]
         for line, comment in found:
             for offset, comment_line in enumerate(comment.splitlines()):
                 spans.extend((relative, line + offset, span)
-                             for span in _scan_code_spans(comment_line)[1])
+                             for span in scan_code_spans(comment_line)[1])
     return words, spans
 
 
@@ -1055,7 +1055,7 @@ def check_text(source: PurePosixPath, text: str,
     # The source's own anchors always resolve; cross-document ones need the
     # repository-wide map check_repository builds.
     anchors = dict(anchors or {})
-    anchors[source] = _anchors(visible)
+    anchors[source] = collect_anchors(visible)
 
     definitions: dict[str, tuple[str, int]] = {}
     body_lines = []
@@ -1064,14 +1064,14 @@ def check_text(source: PurePosixPath, text: str,
             issue = _path_span_issue(source, line.number, span, entries, used)
             if issue:
                 issues.append(issue)
-        match = _REFERENCE_DEFINITION_RE.match(line.masked)
+        match = REFERENCE_DEFINITION_RE.match(line.masked)
         if not match:
             body_lines.append((line.number, line.masked))
             continue
-        target = _destination(match.group(2))
+        target = link_destination(match.group(2))
         if target is not None:
             definitions.setdefault(
-                _normalize_label(match.group(1)), (target, line.number))
+                normalize_label(match.group(1)), (target, line.number))
 
     for target, line_number in definitions.values():
         issue = _link_issue(source, line_number, target, entries, anchors,
@@ -1080,7 +1080,7 @@ def check_text(source: PurePosixPath, text: str,
             issues.append(issue)
 
     for line_number, line in body_lines:
-        destinations, references = _inline_links(line)
+        destinations, references = inline_links(line)
         for target in destinations:
             issue = _link_issue(source, line_number, target, entries, anchors,
                                 checkouts, skipped)
@@ -1129,7 +1129,7 @@ def check_repository(
                                 f"cannot read tracked Markdown as UTF-8: {error}"))
 
     # Anchors first: a link may point at a heading in any other tracked document.
-    anchors = {relative: _anchors(visible_lines(relative, text)[0])
+    anchors = {relative: collect_anchors(visible_lines(relative, text)[0])
                for relative, text in sources.items()}
     seen_trees: set[tuple[PurePosixPath, TreeDirective]] = set()
     for relative, text in sources.items():

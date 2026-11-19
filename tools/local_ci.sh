@@ -167,7 +167,7 @@ check_table() {
 }
 
 run_jobs() {
-  local logs="build/local-ci/logs" job runner start
+  local logs="build/local-ci/logs" job
   for job in "$@"; do
     [ -n "$(runner_of "$job")" ] || { echo "local_ci: unknown job $job" >&2; return 2; }
   done

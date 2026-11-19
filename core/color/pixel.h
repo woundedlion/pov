@@ -232,8 +232,8 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
 /**
  * @brief Master-alpha gate: one 8-bit LSB of the user's opacity slider.
  * @details A whole-effect gate on the slider value, never a per-sample floor:
- * sRGB's toe lifts a fragment at this alpha visibly above black. Per-sample
- * cuts use MIN_ENCODABLE_ALPHA.
+ * sRGB's toe lifts a fragment at this alpha visibly above black.
+ * Use MIN_ENCODABLE_ALPHA for thresholds based on output quantization.
  */
 inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
 
