@@ -99,9 +99,18 @@ template <int W, typename SpecT> struct ComposedTraits {
                          FrameIntervalState<Params, PHASE_NOISE_CACHE>,
                          Pullback::FrameState<Params, PHASE_NOISE_CACHE>>;
   /// Frame context, including retained color resources when sampling time.
-  using FrameState =
+  using FrameState = std::conditional_t<
+      SpecT::HEX_MORPH_TABLE, Source::HexMorphFrame<SpatialFrame>,
       std::conditional_t<SOURCE_MORPH, Source::EndpointMorphFrame<SpatialFrame>,
-                         SpatialFrame>;
+                         SpatialFrame>>;
+
+  static_assert(
+      !SpecT::HEX_MORPH_TABLE ||
+      (SOURCE_MORPH &&
+       std::is_base_of_v<
+           Source::FixedTessellationParams<Pattern::TessellationKind::HEXAGONAL,
+                                           Pattern::TessellationFill::CELLS>,
+           SourceFamily>));
   using Binding = Pullback::Binding<FrameState, SpecT>; ///< Pipeline binding.
   /// Whether projection controls are present.
   static constexpr bool HAS_FRAME_PARAMS = Params::template HAS<"projection">;

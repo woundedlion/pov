@@ -144,6 +144,10 @@ template <typename Frame> struct EndpointMorphFrame : Frame {
   EndpointMorph<decltype(Frame::params)> source_morph; ///< Column field blend.
 };
 
+template <typename Frame> struct HexMorphFrame : EndpointMorphFrame<Frame> {
+  const HexMorphTables *hex_tables = nullptr;
+};
+
 } // namespace Source
 
 namespace ComposedDetail {
@@ -723,6 +727,17 @@ struct SourceProvider {
              Binding::Spec::SOURCE_MORPH && Key.view() == "source")
   {
     const auto &morph = frame.source_morph;
+    if constexpr (requires { frame.hex_tables; }) {
+      if (const auto *tables = frame.hex_tables) {
+        const float from = tables->tables[tables->first].sample(
+            input.coords + offsets.from,
+            morph.from->template get<Key>().cell_scale);
+        const float to = tables->tables[1 - tables->first].sample(
+            input.coords + offsets.to,
+            morph.to->template get<Key>().cell_scale);
+        return hs::lerp(from, to, morph.mix) * (2.0f / 65535.0f) - 1.0f;
+      }
+    }
     const auto sample = [&](const auto &params, math::Complex offset) {
       return Pattern::tessellation<Kind, Fill>(
           Pattern::PlanePosition{input.coords + offset},

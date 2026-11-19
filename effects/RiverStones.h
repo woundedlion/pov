@@ -19,6 +19,7 @@
 /** @brief Stage spec for `RiverStones`. */
 struct RiverStonesSpec : Pullback::Spec {
   static constexpr bool SOURCE_MORPH = true;
+  static constexpr bool HEX_MORPH_TABLE = true;
   static constexpr bool RIPPLE_RADIAL_TABLE = true;
   /// Samples animation at each column time.
   static constexpr auto TEMPORAL =

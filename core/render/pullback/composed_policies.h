@@ -136,6 +136,7 @@ struct Spec {
   static constexpr bool FACTORED_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.
   static constexpr bool RIPPLE_RADIAL_TABLE = false;
+  static constexpr bool HEX_MORPH_TABLE = false;
   /// Keeps each prepared shading frame in the runtime arena.
   static constexpr bool PERSISTENT_PREPARED_FRAME = true;
   /// Keeps the full-resolution gamut table in device persistent storage.

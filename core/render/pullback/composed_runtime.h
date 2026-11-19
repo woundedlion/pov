@@ -193,6 +193,12 @@ public:
     state = persistent_arena.make<State>();
     if constexpr (HAS_PLANAR)
       source_state().weights = params.template get<"source">().weights();
+    if constexpr (SpecT::HEX_MORPH_TABLE) {
+      if (Choreography::authored_preset_count() > 1)
+        state->Source::HexMorphTables::prepare(
+            Choreography::preset_row(0).params.template get<"source">(),
+            Choreography::preset_row(1).params.template get<"source">());
+    }
     if constexpr (Traits::CACHE_DODECAHEDRAL_MATRICES)
       std::memcpy(state->dodecahedral_matrices.data(),
                   lenses::DodecahedralTable::GROUP.values.data(),
@@ -514,6 +520,10 @@ protected:
         const auto departure =
             Choreography::preset_departure(transition.from_index);
         const auto &lerp = std::get<Segue::Preset::Lerp>(departure);
+        if constexpr (SpecT::HEX_MORPH_TABLE)
+          state->Source::HexMorphTables::prepare(
+              transition.from.template get<"source">(),
+              target.template get<"source">());
         morph.from = &transition.from;
         morph.to = &transition.to;
         morph.ease = lerp.easing;
@@ -718,7 +728,9 @@ private:
         IntervalCache::History,
         Registration::Storage,
         ComposedDetail::ResourcePlanarWeights<SourceResource>,
-        MorphStorage {
+        MorphStorage,
+        std::conditional_t<SpecT::HEX_MORPH_TABLE, Source::HexMorphTables,
+                           std::monostate> {
     OwnedResources resources;
     std::conditional_t<AUTHORED_PALETTE, AuthoredPaletteResources,
                        std::monostate>
@@ -854,6 +866,8 @@ private:
       if (!transition.active && state->source_morph.from)
         clear_source_morph();
       frame.source_morph = state->source_morph;
+      if constexpr (SpecT::HEX_MORPH_TABLE)
+        frame.hex_tables = state;
       state->source_morph.snapped = false;
     }
     if constexpr (HAS_PLANAR) {
