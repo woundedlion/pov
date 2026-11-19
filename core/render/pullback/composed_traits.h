@@ -13,6 +13,7 @@
 #include "core/memory.h"
 #include "core/render/pullback/composed_descriptors.h"
 #include "core/render/pullback/composed_interval.h"
+#include "core/render/pullback/composed_palette.h"
 #include "core/render/pullback/composed_spec_policies.h"
 
 /** @file composed_traits.h
@@ -175,7 +176,8 @@ template <int W, typename SpecT> struct ComposedTraits {
    * @details init() takes the palette cycler's generated arena, the external
    * ParamDef array, one State, qualified parameter names and, on device, the
    * full gamut LUT. An authored-palette effect's first draw bakes one palette;
-   * a temporal effect's clones one palette bake.
+   * a temporal effect clones one palette bake. The GUI bridge also budgets
+   * all palette fade allocations.
    * @tparam State The runtime's persistent aggregate.
    * @return Upper bound on the instance's persistent allocations.
    */
@@ -184,6 +186,7 @@ template <int W, typename SpecT> struct ComposedTraits {
                 ? gamut_lut_bytes(GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS)
                 : 0) +
            PaletteCycler::generated_arena_bytes() +
+           ComposedPalette<ComposedTraits>::source_fade_arena_bytes() +
            (AUTHORED_PALETTE ? BakedPalette::required_arena_bytes() : 0) +
            PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State) +
            (TEMPORAL_SAMPLING ? BakedPalette::required_arena_bytes() : 0) +

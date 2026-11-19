@@ -63,6 +63,18 @@ template <typename Traits> class ComposedPalette {
 #endif
 
 public:
+  /** @brief Persistent byte budget for all lazy palette fade resources.
+   * @return Upper bound including the alternate cycle and both baked tables. */
+  static constexpr size_t source_fade_arena_bytes() {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    if constexpr (PALETTE_SOURCE_FADE)
+      return sizeof(SourceFade) + alignof(SourceFade) +
+             PaletteCycler::generated_arena_bytes() +
+             2 * BakedPalette::required_arena_bytes();
+#endif
+    return 0;
+  }
+
   /** @brief Binds the effect's live color controls.
    * @param color Color controls the palette reads for its lifetime. */
   HS_HOT_INLINE explicit ComposedPalette(const ColorFamily &color)
