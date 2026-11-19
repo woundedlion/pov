@@ -367,6 +367,13 @@ public:
     return GenNoiseSingle(mSeed, x, y, z);
   }
 
+  /// Requires has_default_gradient_transform().
+  HS_HOT_INLINE float get_noise_single_unit_default(float x, float y,
+                                                     float z) const {
+    rotate_open_simplex2(x, y, z);
+    return GetNoiseSingleTransformed(x, y, z);
+  }
+
   /// Three independently accumulated gradient components.
   struct Gradient3 {
     float x;
@@ -383,18 +390,14 @@ public:
   template <bool InlineCore = false>
   HS_HOT_INLINE Gradient3 get_noise_gradient_unit_default(float x, float y,
                                                           float z) const {
-    constexpr float ROTATION = 2.0f / 3.0f;
-    const float coordinate_sum = (x + y + z) * ROTATION;
-    x = coordinate_sum - x;
-    y = coordinate_sum - y;
-    z = coordinate_sum - z;
+    rotate_open_simplex2(x, y, z);
     Gradient3 gradient;
     if constexpr (InlineCore)
       SingleOpenSimplex2GradientUnrolled(mSeed, x, y, z, gradient.x, gradient.y,
                                          gradient.z);
     else
       gradient = get_noise_gradient_transformed(x, y, z);
-    const float reflection = ROTATION * (gradient.x + gradient.y + gradient.z);
+    const float reflection = (2.0f / 3.0f) * (gradient.x + gradient.y + gradient.z);
     return {reflection - gradient.x, reflection - gradient.y,
             reflection - gradient.z};
   }
@@ -781,6 +784,15 @@ private:
   }
 
   template <typename FNfloat>
+  static HS_HOT_INLINE void rotate_open_simplex2(FNfloat &x, FNfloat &y,
+                                                  FNfloat &z) {
+    const FNfloat r = (x + y + z) * static_cast<FNfloat>(2.0 / 3.0);
+    x = r - x;
+    y = r - y;
+    z = r - z;
+  }
+
+  template <typename FNfloat>
   void TransformNoiseCoordinate(FNfloat &x, FNfloat &y, FNfloat &z) const {
     x *= mFrequency;
     y *= mFrequency;
@@ -803,13 +815,9 @@ private:
       z += s2 - y;
       y += xz * (FNfloat)0.577350269189626;
     } break;
-    case TransformType3D_DefaultOpenSimplex2: {
-      const FNfloat R3 = (FNfloat)(2.0 / 3.0);
-      FNfloat r = (x + y + z) * R3; // Rotation, not skew
-      x = r - x;
-      y = r - y;
-      z = r - z;
-    } break;
+    case TransformType3D_DefaultOpenSimplex2:
+      rotate_open_simplex2(x, y, z);
+      break;
     default:
       break;
     }
@@ -905,13 +913,9 @@ private:
       z += s2 - y;
       y += xz * (FNfloat)0.577350269189626;
     } break;
-    case TransformType3D_DefaultOpenSimplex2: {
-      const FNfloat R3 = (FNfloat)(2.0 / 3.0);
-      FNfloat r = (x + y + z) * R3; // Rotation, not skew
-      x = r - x;
-      y = r - y;
-      z = r - z;
-    } break;
+    case TransformType3D_DefaultOpenSimplex2:
+      rotate_open_simplex2(x, y, z);
+      break;
     default:
       break;
     }

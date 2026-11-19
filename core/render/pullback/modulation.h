@@ -275,10 +275,9 @@ inline float
 sample_unit_noise_origin(const Prepared &prepared,
                          const Pattern::SphereDirection &direction) {
   const auto &v = direction.value();
-  const float x = v.x + math::NOISE_LOOP_RADIUS;
-  const float r = (x + v.y + v.z) * (2.0f / 3.0f);
-  return std::get<0>(prepared.source)
-      .noise.GetNoiseSingleTransformed(r - x, r - v.y, r - v.z);
+  const math::Vector q{v.x + math::NOISE_LOOP_RADIUS, v.y, v.z};
+  return Pattern::SphereNoise::sample_coordinate(
+      q, std::get<0>(prepared.source), true);
 }
 /** @brief Samples an immutable source at its registered variant index.
  * @tparam Sampler Built-in sphere sampler.

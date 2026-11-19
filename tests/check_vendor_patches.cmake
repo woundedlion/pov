@@ -11,7 +11,7 @@ set(VENDORED_VERSION "1.1.1")
 #   cmake -E sha256sum core/vendor/FastNoiseLite.h
 # on a checkout whose line endings are LF.
 set(VENDORED_SHA256
-    "4764e475e65401225100c1426864fd1a58db90566bcdb731f4c6425edbe39e20")
+    "691a62965c17405f49c220bf6e66cc3efb2d078d90fe93f3cdd2cdb4be0d924e")
 
 file(READ "${HEADER}" _header)
 file(READ "${CONFIG}" _config)

@@ -112,8 +112,7 @@ struct SphereNoise {
                                  const Prepared &prepared, bool single) {
     if (!single)
       return sample_fallback(q, prepared);
-    const float r = (q.x + q.y + q.z) * (2.0f / 3.0f);
-    return prepared.noise.GetNoiseSingleTransformed(r - q.x, r - q.y, r - q.z);
+    return prepared.noise.get_noise_single_unit_default(q.x, q.y, q.z);
   }
 
   /** @brief Samples the selected configured or octave formula.
