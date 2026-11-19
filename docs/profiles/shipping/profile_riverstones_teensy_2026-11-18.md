@@ -54,6 +54,8 @@ On Teensy, the two hex fields use precomputed periodic triangles during an autho
 
 The two-preset scroll correction before the hue change peaked at 58.721 ms. With the hue blend and the earlier sector lookup, the peak was 59.963 ms. The earlier 58.703 ms result covered the one-preset, 30-second opener.
 
+In Daydream, manually selecting Orange Crush for preset 1 now blends the two baked palettes with the preset's easing. In the 96 by 20 reproduction, the largest mean RGB16 channel change in the final two transition frames fell from 3,103 to 512 for the named palette and from 5,599 to 512 when the palette type also changed. Both renderer paths passed the endpoint checks. The shipping ELF comparison after the palette change found identical executable sections and memory use. Twelve bytes changed in assertion source locations.
+
 ## Frame cadence
 
 The playlist assigns **105 s**. Show-frame peak render is **70.027 ms**, spilled **1/1668**. Setup frame 1 is **70.027 ms** and remains separate. Live show peak is **58.167 ms**, spilled **0/1667**.
