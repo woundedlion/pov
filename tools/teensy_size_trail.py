@@ -645,17 +645,20 @@ def cmd_backfill(args) -> int:
                 if env not in linked:
                     print(f"[size-trail] {sha[:8]}: '{env}' ELF not relinked - "
                           f"build failed; skipping.", file=sys.stderr)
-            if not linked:
-                continue
-            found = collect(build_dir, tuple(linked),
-                            warn=lambda m: print(f"[size-trail] {sha[:8]}: {m}",
-                                                 file=sys.stderr))
-            if not found:
-                continue
-            append_rows(trail, [TrailRow(sha=sha, date=date, env=env,
-                                         sizes=sizes, subject=subject)
-                                for env, sizes in sorted(found.items())])
-            print(f"[size-trail] {sha[:8]} recorded {', '.join(sorted(found))}")
+            found = collect(
+                build_dir, tuple(linked),
+                warn=lambda m: print(f"[size-trail] {sha[:8]}: {m}", file=sys.stderr),
+            ) if linked else {}
+            if found:
+                append_rows(trail, [TrailRow(sha=sha, date=date, env=env,
+                                             sizes=sizes, subject=subject)
+                                    for env, sizes in sorted(found.items())])
+                print(f"[size-trail] {sha[:8]} recorded {', '.join(sorted(found))}")
+            if tracked_changes(worktree):
+                print(f"[size-trail] {sha[:8]}: tracked changes in {worktree}; "
+                      "backfill stopped", file=sys.stderr)
+                status = 1
+                break
     finally:
         try:
             _git(["checkout", *restore], worktree)

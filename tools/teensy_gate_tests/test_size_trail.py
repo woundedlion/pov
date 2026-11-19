@@ -342,39 +342,43 @@ class BackfillSafety(unittest.TestCase):
                     self.assertFalse(any(call.args[0][0] == "pio" for call in run.call_args_list))
 
     def test_tracked_changes_left_by_a_build_stop_the_backfill(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+        for rev_range in ("HEAD", "HEAD~1..HEAD"):
+            with self.subTest(rev_range=rev_range), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
 
-            with git_fixture(root):
-                tst._git(["init", "--quiet"])
-                tracked = root / "platformio.ini"
-                for body in ("[env:holosphere]\n", "[env:holosphere]\n;two\n"):
-                    tracked.write_text(body, encoding="utf-8")
-                    tst._git(["add", "--", "platformio.ini"])
-                    tst._git(["commit", "-m", "commit"])
-                first = tst._git(["rev-parse", "HEAD~1"])
-                restore = tst.head_position(root)
-                args = types.SimpleNamespace(worktree=root, trail=root / "trail.tsv",
-                                             env=["holosphere"], build_dir=root / "build",
-                                             rev_range="HEAD")
-                original = subprocess.run
-                builds = []
+                with git_fixture(root):
+                    tst._git(["init", "--quiet"])
+                    tracked = root / "platformio.ini"
+                    for body in ("[env:holosphere]\n", "[env:holosphere]\n;two\n"):
+                        tracked.write_text(body, encoding="utf-8")
+                        tst._git(["add", "--", "platformio.ini"])
+                        tst._git(["commit", "-m", "commit"])
+                    first = tst._git(["rev-parse", "HEAD~1"])
+                    restore = tst.head_position(root)
+                    args = types.SimpleNamespace(worktree=root, trail=root / "trail.tsv",
+                                                 env=["holosphere"], build_dir=root / "build",
+                                                 rev_range=rev_range)
+                    original = subprocess.run
+                    builds = []
 
-                def dirtying_pio(cmd, **kwargs):
-                    if cmd[0] == "pio":
-                        builds.append(cmd)
-                        tracked.write_text("built", encoding="utf-8")
-                        return subprocess.CompletedProcess(cmd, 1)
-                    return original(cmd, **kwargs)
+                    def dirtying_pio(cmd, **kwargs):
+                        if cmd[0] == "pio":
+                            builds.append(cmd)
+                            tracked.write_text("built", encoding="utf-8")
+                            return subprocess.CompletedProcess(cmd, 1)
+                        return original(cmd, **kwargs)
 
-                with mock.patch.object(tst.subprocess, "run", side_effect=dirtying_pio):
-                    with contextlib.redirect_stderr(io.StringIO()) as errors:
-                        self.assertEqual(tst.cmd_backfill(args), 1)
-                self.assertEqual(len(builds), 1)
-                self.assertIn("tracked changes", errors.getvalue())
-                self.assertEqual(tracked.read_text(encoding="utf-8"), "built")
-                self.assertEqual(tst.head_stamp(root)[0], first)
-                self.assertNotEqual(tst.head_position(root), restore)
+                    with mock.patch.object(tst.subprocess, "run", side_effect=dirtying_pio):
+                        with contextlib.redirect_stderr(io.StringIO()) as errors:
+                            self.assertEqual(tst.cmd_backfill(args), 1)
+                    self.assertEqual(len(builds), 1)
+                    self.assertIn("tracked changes", errors.getvalue())
+                    self.assertEqual(tracked.read_text(encoding="utf-8"), "built")
+                    if rev_range == "HEAD":
+                        self.assertEqual(tst.head_stamp(root)[0], first)
+                        self.assertNotEqual(tst.head_position(root), restore)
+                    else:
+                        self.assertEqual(tst.head_position(root), restore)
 
 
 class Backfill(unittest.TestCase):
