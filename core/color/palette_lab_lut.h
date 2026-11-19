@@ -279,16 +279,9 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
     midpoint_active = false;
     if (!base.active)
       return;
-    float difference = 0.0f;
-    for (int value = 0; value < PaletteLabLut::VALUES; ++value) {
-      const auto &a = base.nodes[value];
-      const auto &b =
-          base.nodes[(PaletteLabLut::TIMES - 1) * PaletteLabLut::VALUES +
-                     value];
-      difference = std::max(
-          difference,
-          std::max({fabsf(a.L - b.L), fabsf(a.a - b.a), fabsf(a.b - b.b)}));
-    }
+    const float difference = max_lab_delta(
+        base.nodes.data(),
+        base.nodes.data() + (PaletteLabLut::TIMES - 1) * PaletteLabLut::VALUES);
     base.rgb_midpoint = difference <= MAX_INTERVAL_DELTA;
     base.rgb_midpoint_row = MIDPOINT_ROW;
     if constexpr (MidpointOnly)
@@ -301,13 +294,9 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
     if (base.rgb_midpoint && previous_base && previous && previous != this &&
         previous->midpoint_active &&
         previous_base->rgb_nodes == previous->nodes.data()) {
-      float delta = 0.0f;
-      for (int value = 0; value < PaletteLabLut::VALUES; ++value) {
-        const auto &a = base.nodes[PaletteLabLut::VALUES + value];
-        const auto &b = previous->baked_midpoint[value];
-        delta = std::max(delta, std::max({fabsf(a.L - b.L), fabsf(a.a - b.a),
-                                          fabsf(a.b - b.b)}));
-      }
+      const float delta =
+          max_lab_delta(base.nodes.data() + PaletteLabLut::VALUES,
+                        previous->baked_midpoint.data());
       if (delta <= MAX_REUSE_DELTA) {
         std::memcpy(nodes.data() + MIDPOINT_ROW * HueRotationLutView::SIZE,
                     previous->nodes.data() +
@@ -397,6 +386,18 @@ template <bool MidpointOnly> struct PaletteRgbHueLutImpl {
     const Pixel high_rgb =
         sample_hue_rotation_lut({time.rgb_high, true}, coordinate, rotation);
     return low_rgb.lerp16(high_rgb, frac_to_q16(time.weight));
+  }
+
+private:
+  static float max_lab_delta(const OKLab *first, const OKLab *second) {
+    float maximum = 0.0f;
+    for (int value = 0; value < PaletteLabLut::VALUES; ++value) {
+      const auto &a = first[value];
+      const auto &b = second[value];
+      maximum = std::max(maximum, std::max({fabsf(a.L - b.L), fabsf(a.a - b.a),
+                                            fabsf(a.b - b.b)}));
+    }
+    return maximum;
   }
 };
 
