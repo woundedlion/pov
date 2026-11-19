@@ -155,13 +155,16 @@ sample_fused_scalars(const FieldSample &sample,
     return {sample.path_length, sample.path_length};
   HS_AUDIT_CHECK(modulation.previous && modulation.current);
   const auto direction = Pattern::SphereDirection::admit(sample.sphere);
-  if (modulation.paired_cube_ready) {
-    const auto tap = Pattern::prepare_sphere_lut_sample(direction);
-    return {Pattern::bounded_scalar(tap.sample(modulation.previous->cube)),
-            Pattern::bounded_scalar(tap.sample(modulation.current->cube))};
-  }
-  const auto pair = Modulation::sample_pair(*modulation.previous,
-                                            *modulation.current, direction);
+  const auto pair = [&] {
+    if (modulation.paired_cube_ready) {
+      const auto tap = Pattern::prepare_sphere_lut_sample(direction);
+      return std::pair{
+          Pattern::bounded_scalar(tap.sample(modulation.previous->cube)),
+          Pattern::bounded_scalar(tap.sample(modulation.current->cube))};
+    }
+    return Modulation::sample_pair(*modulation.previous, *modulation.current,
+                                   direction);
+  }();
   if constexpr (MixPath)
     return {modulation.scalar<MixPath>(pair.first, sample.path_length),
             modulation.scalar<MixPath>(pair.second, sample.path_length)};

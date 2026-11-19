@@ -362,6 +362,20 @@ inline void test_pullback_prepared_cube_pair() {
       HS_EXPECT_TRUE(std::get<2>(pipeline_frame.prepared).paired_cube_ready);
     }
   }
+  auto prepared = Layer::prepare(frame);
+  prepared.mechanic = {ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                       1.0f};
+  prepared.path_mix = {0.25f, 0.75f, 0.4f, false};
+  const FieldSample field{0.13f, 0.47f, math::Y_AXIS, 0.3f};
+  const auto direction = Pattern::SphereDirection::admit(field.sphere);
+  const auto expected_scalar = [&](const Modulation::Prepared &endpoint) {
+    const float spatial =
+        hs::clamp(Modulation::sample_cube(endpoint, direction), 0.0f, 1.0f);
+    return 0.6f * 0.25f * spatial + 0.4f * 0.75f * field.path_length;
+  };
+  const auto actual = Color::sample_fused_scalars(field, prepared);
+  HS_EXPECT_NEAR(actual.first, expected_scalar(a), 1e-6f);
+  HS_EXPECT_NEAR(actual.second, expected_scalar(b), 1e-6f);
   static int calls;
   const auto custom_value = [](const Modulation::Prepared &prepared,
                                const Pattern::SphereDirection &) {
