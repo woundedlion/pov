@@ -1879,17 +1879,31 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param ctx Column frame.
    * @param prepared Prepared nodes.
    * @return Bound endpoint or phase evaluator. */
-  template <size_t... Offsets>
+  template <typename Owner, size_t... Offsets>
   static auto bind_stack(const FrameState &ctx, const PreparedTuple &prepared,
                          std::index_sequence<Offsets...>) {
     using Palette = typename NodeAt<STACK_BEGIN>::Descriptor::ColorPolicy;
+    constexpr bool phase = requires { ctx.temporal.fraction; } &&
+                           phase_tail_supported<STACK_BEGIN + 1>();
     const auto bind = [&] {
-      return Palette::bind_modulation_stack(
-          ctx, std::get<STACK_BEGIN>(prepared),
-          std::get<STACK_BEGIN + 1 + Offsets>(prepared)...);
+      if constexpr (!phase && requires {
+                      Palette::template bind_modulation_stack<
+                          NodeAt<STACK_BEGIN + 1 + Offsets>::Descriptor::
+                              ColorPolicy::template source_layout<Owner>()...>(
+                          ctx, std::get<STACK_BEGIN>(prepared),
+                          std::get<STACK_BEGIN + 1 + Offsets>(prepared)...);
+                    })
+        return Palette::template bind_modulation_stack<
+            NodeAt<STACK_BEGIN + 1 + Offsets>::Descriptor::ColorPolicy::
+                template source_layout<Owner>()...>(
+            ctx, std::get<STACK_BEGIN>(prepared),
+            std::get<STACK_BEGIN + 1 + Offsets>(prepared)...);
+      else
+        return Palette::bind_modulation_stack(
+            ctx, std::get<STACK_BEGIN>(prepared),
+            std::get<STACK_BEGIN + 1 + Offsets>(prepared)...);
     };
-    if constexpr (requires { ctx.temporal.fraction; } &&
-                  phase_tail_supported<STACK_BEGIN + 1>()) {
+    if constexpr (phase) {
       const auto &base = std::get<STACK_BEGIN>(prepared);
       const bool cached = Palette::Core::shared_base_ready(base);
       const auto bind_phase = [&] {
@@ -2452,10 +2466,11 @@ public:
   /** @brief Binds the terminal modulation stack for the prepared frame.
    * @param frame Prepared column or fixed frame.
    * @return Evaluator borrowing its palette and layer states. */
+  template <typename Owner = void>
   static auto bind_modulation_stack(const Frame &frame)
     requires(MODULATION_STACK)
   {
-    return Core::bind_stack(
+    return Core::template bind_stack<Owner>(
         frame.ctx, frame.prepared,
         std::make_index_sequence<NODE_COUNT - Core::STACK_BEGIN - 1>{});
   }
@@ -2466,7 +2481,7 @@ public:
    * @param column Bound color evaluator.
    * @return Final straight-alpha color. */
   template <typename Column>
-  HS_HOT_FLASH_MEMBER static Color4
+  HS_HOT_ITCM_MEMBER static Color4
   shade(const math::Vector &view, const Frame &frame, const Column &column)
     requires(MODULATION_STACK)
   {
@@ -2578,7 +2593,7 @@ public:
    * @param column Bound color evaluator.
    * @return Final straight-alpha color. */
   template <typename Column>
-  HS_HOT_FLASH_MEMBER static Color4
+  HS_HOT_ITCM_MEMBER static Color4
   shade_column(float sine, float cosine, const Frame &frame,
                const ColumnBasis &basis, const Column &column)
     requires(LINEAR_COLUMNS && MODULATION_STACK)

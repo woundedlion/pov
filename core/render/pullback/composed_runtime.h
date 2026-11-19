@@ -326,7 +326,7 @@ public:
     else if constexpr (stacked_columns())
       return stacked_column_shader(
           frame, x,
-          [column = RenderPipeline::bind_modulation_stack(
+          [column = RenderPipeline::template bind_modulation_stack<Derived>(
                frame)]() -> const auto & { return column; });
     else if constexpr (factored_columns())
       return
@@ -344,7 +344,8 @@ public:
     if constexpr (stacked_columns() &&
                   !requires { Derived::prepare_column_shader(frame, 0); })
       return [&frame,
-              column = RenderPipeline::bind_modulation_stack(frame)](int x) {
+              column = RenderPipeline::template bind_modulation_stack<Derived>(
+                  frame)](int x) {
         return stacked_column_shader(
             frame, x, [&column]() -> const auto & { return column; });
       };

@@ -858,6 +858,22 @@ struct ModulationProvider {
       return FrameState::PHASE_NOISE_CACHE && SourceParams::DIRECT_NOISE;
     return false;
   }(); ///< Whether this source borrows chamber patches.
+  /// Source and mechanic declared by this effect's initial preset.
+  template <typename Owner>
+  static consteval Color::LayerLayout source_layout() {
+    if constexpr (!SourceParams::DYNAMIC && requires {
+                    typename std::integral_constant<
+                        ColorModulation::Mechanic,
+                        Owner::initial_params()
+                            .template get<Key>()
+                            .modulation.mechanic.kind>;
+                  })
+      return {
+          SourceParams::CUBE_NOISE ? Color::LayerSampling::BYTE_CUBE
+                                   : Color::LayerSampling::DIRECT,
+          Owner::initial_params().template get<Key>().modulation.mechanic.kind};
+    return {};
+  }
   /// Whether endpoint noise cubes may share the column color tail.
   static constexpr bool CUBE_PHASE = SourceParams::CUBE_NOISE;
   using PhasePrepared = std::conditional_t<

@@ -9,6 +9,7 @@
  */
 
 #include "tests/composed_effect/context.h"
+#include <algorithm>
 
 namespace hs_test::composed_effect_tests {
 
@@ -2092,6 +2093,71 @@ inline void test_modulation_stack_cube_corners() {
     HS_EXPECT_EQ(actual.color, expected.color);
     HS_EXPECT_EQ(actual.alpha, expected.alpha);
   }
+
+  // A shared cube can feed a signed mechanic even when its peer only feeds lift.
+  first.fill(-110);
+  second.fill(-110);
+  lift.current = &retained;
+  lift.previous = &current;
+  auto hue = mask;
+  hue.mechanic = {ColorModulation::Mechanic::HUE_ROTATION, 0.41f};
+  hue.current = hue.previous = &current;
+  const std::array<const Color::ModulationState *, 3> inputs{&lift, &mask,
+                                                             &hue};
+  std::array<unsigned, 3> order{0, 1, 2};
+  do {
+    const std::array<const Color::ModulationState *, 3> ordered{
+        inputs[order[0]], inputs[order[1]], inputs[order[2]]};
+    auto previous = Color::apply_generated_palette(field, palette.previous);
+    auto next = Color::apply_generated_palette(field, palette.current);
+    for (const auto *layer : ordered) {
+      Color::apply_modulation_in_place(previous, *layer, true);
+      Color::apply_modulation_in_place(next, *layer, false);
+    }
+    blend_color_samples_in_place(previous, next, palette.fraction);
+    const auto expected = finish_color_sample(next);
+    const auto actual =
+        Color::ModulationStack<3>(palette, true, ordered).shade(field);
+    HS_EXPECT_EQ(actual.color, expected.color);
+    HS_EXPECT_EQ(actual.alpha, expected.alpha);
+  } while (std::next_permutation(order.begin(), order.end()));
+
+  // Repeated mechanics must accumulate each endpoint before temporal blending.
+  std::array<int8_t, Pattern::SphereLutView::SIZE> third{}, fourth{};
+  third.fill(85);
+  fourth.fill(-45);
+  first.fill(105);
+  second.fill(-80);
+  auto other_retained = retained, other_current = current;
+  other_retained.cube = {third.data(), true};
+  other_current.cube = {fourth.data(), true};
+  lift.previous = &retained;
+  lift.current = &current;
+  mask.previous = &other_retained;
+  mask.current = &other_current;
+  const auto compare_repeated = [&]<ColorModulation::Mechanic M>() {
+    constexpr Color::LayerLayout kind{Color::LayerSampling::BYTE_CUBE, M};
+    lift.mechanic = {M, 0.6f};
+    mask.mechanic = {M, 0.4f};
+    const auto stack =
+        Color::ModulationStack<2, kind, kind>(palette, true, layers);
+    auto previous = Color::apply_generated_palette(field, palette.previous);
+    auto next = Color::apply_generated_palette(field, palette.current);
+    for (const auto *layer : layers) {
+      Color::apply_modulation_in_place(previous, *layer, true);
+      Color::apply_modulation_in_place(next, *layer, false);
+    }
+    blend_color_samples_in_place(previous, next, palette.fraction);
+    const auto expected = finish_color_sample(next);
+    const auto actual = stack.shade(field);
+    HS_EXPECT_EQ(actual.color, expected.color);
+    HS_EXPECT_EQ(actual.alpha, expected.alpha);
+  };
+  compare_repeated
+      .template operator()<ColorModulation::Mechanic::HUE_ROTATION>();
+  compare_repeated.template
+  operator()<ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT>();
+  compare_repeated.template operator()<ColorModulation::Mechanic::OPACITY>();
 }
 
 /** @brief Static direct noise shares a sample across the two color endpoints. */

@@ -19,6 +19,15 @@ namespace Pullback::Color {
 /// Maximum number of ordered layers in the bounded column kernel.
 inline constexpr size_t MAX_ORDERED_MODULATION_LAYERS = 3;
 
+/// Scalar storage expected by a concrete source provider.
+enum class LayerSampling : uint8_t { DYNAMIC, DIRECT, BYTE_CUBE };
+
+/// Source storage and mechanic in a generated preset.
+struct LayerLayout {
+  LayerSampling source = LayerSampling::DYNAMIC;
+  ColorModulation::Mechanic mechanic = ColorModulation::Mechanic::HUE_ROTATION;
+};
+
 namespace StackDetail {
 /** @brief Identifies the effective interpolation data of two borrowed cubes. */
 inline bool same_cube(const Pattern::SphereLutView &a,
@@ -101,21 +110,22 @@ HS_SIZE_FLASH_MEMBER bool same_modulation_phase(const Left &a, const Right &b) {
 class OrderedModulationKernel {
   static constexpr uint8_t SOURCE_CAPACITY = 2 * MAX_ORDERED_MODULATION_LAYERS;
   static constexpr uint8_t PATH = SOURCE_CAPACITY;
-  enum HueLiftMaskSlot : uint8_t {
-    HUE,
-    LIFT,
-    PREVIOUS_LIFT,
-    MASK,
-    PREVIOUS_MASK
+  enum class SourceKind : uint8_t {
+    DIRECT,
+    TABLE_TAP,
+    BYTE_CUBE,
+    POSITIVE_CUBE,
+    FLOAT_CUBE
   };
-  enum class SourceKind : uint8_t { DIRECT, BYTE_CUBE, FLOAT_CUBE };
   struct Source {
     union {
       const Modulation::Prepared *value;
       const int8_t *bytes;
+      const float *linear;
     };
     SourceKind kind;
     uint8_t peer;
+    bool positive_only;
   };
   struct Operation {
     ColorModulation::Params mechanic;
@@ -135,8 +145,9 @@ class OrderedModulationKernel {
   uint16_t rgb_weight;
   float constant_alpha = -1.0f;
   bool uses_cube = false;
-  bool hue_lift_mask = false;
-  Modulation::ImmutableTable::TapEvaluator hue_tap = nullptr;
+  bool varying_hue = false;
+  bool varying_lift = false;
+  bool varying_alpha = false;
   uint8_t source_count = 0;
   uint8_t op_count = 0;
   std::array<Source, SOURCE_CAPACITY> sources;
@@ -174,7 +185,11 @@ class OrderedModulationKernel {
 
   static SourceKind kind(const Modulation::Prepared &endpoint) {
     if (endpoint.evaluate != Modulation::sample_cube || !endpoint.cube.active)
-      return SourceKind::DIRECT;
+      return endpoint.immutable_table &&
+                     endpoint.immutable_table->evaluator == endpoint.evaluate &&
+                     endpoint.immutable_table->sample_tap
+                 ? SourceKind::TABLE_TAP
+                 : SourceKind::DIRECT;
     return endpoint.cube.linear_data ? SourceKind::FLOAT_CUBE
                                      : SourceKind::BYTE_CUBE;
   }
@@ -199,67 +214,39 @@ class OrderedModulationKernel {
       if (type == SourceKind::FLOAT_CUBE &&
           value.cube.linear_data == other.cube.linear_data)
         return i;
-      if (type == SourceKind::DIRECT &&
+      if ((type == SourceKind::DIRECT || type == SourceKind::TABLE_TAP) &&
           Modulation::same_direct_sample(value, other))
         return i;
     }
     const uint8_t i = source_count++;
     HS_AUDIT_CHECK(i < SOURCE_CAPACITY);
-    sources[i] = {{&value}, type, peer};
+    sources[i] = {{&value}, type, peer, true};
     uses_cube |= type != SourceKind::DIRECT;
     return i;
   }
 
-  bool byte_pair(const Operation &op) const {
-    return op.current != PATH && op.previous != PATH &&
-           sources[op.current].kind == SourceKind::BYTE_CUBE &&
-           sources[op.previous].kind == SourceKind::BYTE_CUBE;
-  }
-
-  HS_SIZE_FLASH_MEMBER bool bind_hue_lift_mask() {
-    if (op_count != 3)
-      return false;
-    const auto &[hue, lift, mask] = ops;
-    using Mechanic = ColorModulation::Mechanic;
-    const bool matches =
-        hue.mechanic.kind == Mechanic::HUE_ROTATION &&
-        lift.mechanic.kind == Mechanic::POSITIVE_LIGHTNESS_LIFT &&
-        mask.mechanic.kind == Mechanic::OPACITY && hue.current != PATH &&
-        hue.current == hue.previous &&
-        sources[hue.current].kind == SourceKind::DIRECT && byte_pair(lift) &&
-        byte_pair(mask) && lift.current != mask.current &&
-        lift.current != mask.previous && lift.previous != mask.current &&
-        lift.previous != mask.previous;
-    if (!matches)
-      return false;
-    const auto *direct_hue = sources[hue.current].value;
-    if (direct_hue->immutable_table &&
-        direct_hue->evaluate == direct_hue->immutable_table->evaluator)
-      hue_tap = direct_hue->immutable_table->sample_tap;
-    const std::array tables = {sources[lift.current].value->cube.data,
-                               sources[lift.previous].value->cube.data,
-                               sources[mask.current].value->cube.data,
-                               sources[mask.previous].value->cube.data};
-    sources[HUE].value = direct_hue;
-    for (size_t i = 0; i < tables.size(); ++i)
-      sources[LIFT + i].bytes = tables[i];
-    if (simple_palette)
-      constant_alpha = base.palette->constant_alpha().value_or(-1.0f);
-    return true;
+  /** @brief Resolves direct table pointers after every consumer has been interned. */
+  void finish_sources() {
+    for (uint8_t i = 0; i < source_count; ++i) {
+      auto &source = sources[i];
+      if (source.kind == SourceKind::BYTE_CUBE) {
+        source.bytes = source.value->cube.data;
+        if (source.positive_only)
+          source.kind = SourceKind::POSITIVE_CUBE;
+        if (source.peer != PATH) {
+          const auto peer = sources[source.peer].kind;
+          if (peer != SourceKind::BYTE_CUBE &&
+              !(source.positive_only && peer == SourceKind::POSITIVE_CUBE))
+            source.peer = PATH;
+        }
+      } else if (source.kind == SourceKind::FLOAT_CUBE)
+        source.linear = source.value->cube.linear_data;
+    }
   }
 
   static HS_HOT_INLINE float sample_bytes(const Pattern::SphereLutSample &tap,
                                           const int8_t *cube) {
     return Pattern::bounded_scalar(tap.sample_data(cube));
-  }
-
-  static HS_HOT_INLINE float paired_bytes(const Pattern::SphereLutSample &tap,
-                                          const int8_t *cube,
-                                          const int8_t *peer,
-                                          float peer_value) {
-    if (tap.same_byte_corners(cube, peer))
-      return peer_value;
-    return sample_bytes(tap, cube);
   }
 
   /** @brief Samples the positive lobe of a signed-byte cube. */
@@ -307,78 +294,32 @@ class OrderedModulationKernel {
     return result;
   }
 
-  HS_HOT_INLINE float mask_alpha(float current, float previous, float scalar,
-                                 float old_scalar, float amount) const {
-    const float alpha = opacity(current, scalar, amount);
-    return blend ? hs::lerp(opacity(previous, old_scalar, amount), alpha,
-                            fraction)
-                 : alpha;
-  }
-
-  HS_HOT_FLASH_MEMBER Color4 finish_blended_palette(const FieldSample &field,
-                                                    float hue, float lift,
-                                                    float mask,
-                                                    float old_mask) const {
-    float old_alpha;
-    auto sample = palette_base(field, old_alpha);
-    sample.pending_hue = hue;
-    sample.pending_lift = lift;
-    sample.color.alpha = mask_alpha(sample.color.alpha, old_alpha, mask,
-                                    old_mask, ops[2].mechanic.amount);
-    return finish_color_sample(sample);
-  }
-
-  HS_HOT_ITCM_MEMBER Color4
-  shade_hue_lift_mask(const FieldSample &field) const {
-    const auto &[hue, lift, mask] = ops;
-    const auto direction = sample_direction(field.sphere);
-    const auto tap = Pattern::prepare_sphere_lut_sample(direction);
-    const auto &hue_source = *sources[HUE].value;
-    const float value = hue_tap
-                            ? Pattern::bounded_scalar(hue_tap(hue_source, tap))
-                            : Modulation::sample(hue_source, direction);
-    const float rotation = math::wrap_t(hue.mechanic.amount * value);
-    const auto *lift_cube = sources[LIFT].bytes;
-    const auto *mask_cube = sources[MASK].bytes;
-    const float l = positive_bytes(tap, lift_cube);
-    const float m = sample_bytes(tap, mask_cube);
-    float lightness = lift.mechanic.amount * l;
-    float old_mask = m;
-    if (blend) {
-      const auto *old_cube = sources[PREVIOUS_LIFT].bytes;
-      const float old_l =
-          old_cube == lift_cube ? l : positive_bytes(tap, old_cube);
-      const auto *old_mask_cube = sources[PREVIOUS_MASK].bytes;
-      old_mask =
-          old_mask_cube == mask_cube ? m : sample_bytes(tap, old_mask_cube);
-      lightness = hs::lerp(lift.mechanic.amount * old_l, lightness, fraction);
-    }
-    if (!simple_palette)
-      return finish_blended_palette(field, rotation, lightness, m, old_mask);
-    const float alpha =
-        (constant_alpha >= 0.0f ? constant_alpha
-                                : base.palette->get_alpha(field.value)) *
-        field.coverage;
-    const float result_alpha =
-        mask_alpha(alpha, alpha, m, old_mask, mask.mechanic.amount);
-    if (lightness == 0.0f && rotation != 0.0f && base.hue_rotation.active) {
+  HS_HOT_ITCM_MEMBER Color4 finish_simple(const FieldSample &field, float hue,
+                                          float lift, float alpha) const {
+    if (lift == 0.0f && hue != 0.0f && base.hue_rotation.active) {
       Pixel rotated;
       if (sample_guarded_hue_lut(base.hue_rotation.data,
-                                 base.hue_rotation.gamut_mask, field.value,
-                                 rotation, rotated))
-        return Color4(rotated, result_alpha);
+                                 base.hue_rotation.gamut_mask, field.value, hue,
+                                 rotated))
+        return Color4(rotated, alpha);
     }
-    const Pixel color = base.palette->get_color(field.value);
-    if (lightness == 0.0f && rotation == 0.0f)
-      return Color4(color, result_alpha);
-    return Color4(
-        finish_hue_lift_pixel(color, nullptr, lightness, rotation, 1.0f),
-        result_alpha);
+    const Pixel rgb = base.palette->get_color(field.value);
+    if (lift == 0.0f && hue == 0.0f)
+      return Color4(rgb, alpha);
+    return Color4(finish_hue_lift_pixel(rgb, nullptr, lift, hue, 1.0f), alpha);
   }
 
-  HS_HOT_FLASH_MEMBER Color4 shade_ordered(const FieldSample &field) const {
+  HS_HOT_ITCM_MEMBER Color4 shade_ordered(const FieldSample &field) const {
     float previous_alpha;
-    auto result = palette_base(field, previous_alpha);
+    ColorSample result;
+    if (simple_palette) {
+      previous_alpha =
+          (constant_alpha >= 0.0f ? constant_alpha
+                                  : base.palette->get_alpha(field.value)) *
+          field.coverage;
+      result.color.alpha = previous_alpha;
+    } else
+      result = palette_base(field, previous_alpha);
     std::array<float, SOURCE_CAPACITY + 1> values;
     values[PATH] = field.path_length;
     if (source_count) {
@@ -388,23 +329,26 @@ class OrderedModulationKernel {
         tap = Pattern::prepare_sphere_lut_sample(direction);
       for (uint8_t i = 0; i < source_count; ++i) {
         const auto &source = sources[i];
-        const auto &value = *source.value;
         switch (source.kind) {
         case SourceKind::DIRECT:
-          values[i] = Modulation::sample(value, direction);
+          values[i] = Modulation::sample(*source.value, direction);
+          break;
+        case SourceKind::TABLE_TAP:
+          values[i] = Pattern::bounded_scalar(
+              source.value->immutable_table->sample_tap(*source.value, tap));
           break;
         case SourceKind::BYTE_CUBE:
+        case SourceKind::POSITIVE_CUBE:
           if (source.peer != PATH &&
-              sources[source.peer].kind == SourceKind::BYTE_CUBE)
-            values[i] = paired_bytes(tap, value.cube.data,
-                                     sources[source.peer].value->cube.data,
-                                     values[source.peer]);
+              tap.same_byte_corners(source.bytes, sources[source.peer].bytes))
+            values[i] = values[source.peer];
           else
-            values[i] = sample_bytes(tap, value.cube.data);
+            values[i] = source.kind == SourceKind::POSITIVE_CUBE
+                            ? positive_bytes(tap, source.bytes)
+                            : sample_bytes(tap, source.bytes);
           break;
         case SourceKind::FLOAT_CUBE:
-          values[i] =
-              Pattern::bounded_scalar(tap.sample_data(value.cube.linear_data));
+          values[i] = Pattern::bounded_scalar(tap.sample_data(source.linear));
           break;
         }
       }
@@ -418,34 +362,38 @@ class OrderedModulationKernel {
       case ColorModulation::Mechanic::HUE_ROTATION:
         result.pending_hue =
             accumulate_hue(result.pending_hue, scalar, op.mechanic);
-        if (blend)
+        if (varying_hue)
           previous_hue =
               accumulate_hue(previous_hue, values[op.previous], op.mechanic);
         break;
       case ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT:
         result.pending_lift =
             accumulate_lift(result.pending_lift, scalar, op.mechanic);
-        if (blend)
+        if (varying_lift)
           previous_lift =
               accumulate_lift(previous_lift, values[op.previous], op.mechanic);
         break;
       case ColorModulation::Mechanic::OPACITY:
         result.color.alpha =
             opacity(result.color.alpha, scalar, op.mechanic.amount);
-        if (blend)
+        if (varying_alpha)
           previous_alpha =
               opacity(previous_alpha, values[op.previous], op.mechanic.amount);
         break;
       }
     }
-    if (blend) {
+    if (varying_hue)
       result.pending_hue =
           blend_unit_hue(previous_hue, result.pending_hue, fraction);
+    if (varying_lift)
       result.pending_lift =
           hs::lerp(previous_lift, result.pending_lift, fraction);
+    if (varying_alpha)
       result.color.alpha =
           hs::lerp(previous_alpha, result.color.alpha, fraction);
-    }
+    if (simple_palette)
+      return finish_simple(field, result.pending_hue, result.pending_lift,
+                           result.color.alpha);
     return finish_color_sample(result);
   }
 
@@ -471,6 +419,17 @@ class OrderedModulationKernel {
         previous = blend && layer->previous != selected
                        ? bind_source(*layer->previous, current)
                        : current;
+      }
+      using Mechanic = ColorModulation::Mechanic;
+      const auto mechanic = layer->mechanic.kind;
+      if (current != PATH && mechanic != Mechanic::POSITIVE_LIGHTNESS_LIFT) {
+        sources[current].positive_only = false;
+        sources[previous].positive_only = false;
+      }
+      if (previous != current) {
+        varying_hue |= mechanic == Mechanic::HUE_ROTATION;
+        varying_lift |= mechanic == Mechanic::POSITIVE_LIGHTNESS_LIFT;
+        varying_alpha |= mechanic == Mechanic::OPACITY;
       }
       ops[op_count++] = {layer->mechanic, current, previous};
     }
@@ -506,25 +465,173 @@ protected:
         rgb_weight(blend && !same ? frac_to_q16(t) : 0) {
     const bool bound = bind_layers(layers);
     HS_CHECK(bound, "invalid ordered modulation column");
+    varying_alpha |= blend && !same_palette;
+    if (simple_palette)
+      constant_alpha = base.palette->constant_alpha().value_or(-1.0f);
+    finish_sources();
   }
 
-  template <size_t N> void bind_specialization() {
-    if constexpr (N == 3)
-      hue_lift_mask = bind_hue_lift_mask();
+  /** @brief Tests whether each declared source can be sampled at its own layer. */
+  HS_SIZE_FLASH_MEMBER bool
+  bind_independent_sources(std::span<const LayerLayout> layout) {
+    if (!simple_palette || layout.size() != op_count)
+      return false;
+    unsigned seen = 0;
+    for (size_t i = 0; i < layout.size(); ++i) {
+      const auto &op = ops[i];
+      if (op.mechanic.kind != layout[i].mechanic || op.current == PATH ||
+          op.previous == PATH)
+        return false;
+      const auto compatible = [&](uint8_t source) {
+        const auto k = sources[source].kind;
+        return layout[i].source == LayerSampling::DIRECT
+                   ? k == SourceKind::DIRECT || k == SourceKind::TABLE_TAP
+                   : k == SourceKind::BYTE_CUBE ||
+                         k == SourceKind::POSITIVE_CUBE;
+      };
+      const unsigned consumers = (1u << op.current) | (1u << op.previous);
+      if ((seen & consumers) || !compatible(op.current) ||
+          !compatible(op.previous))
+        return false;
+      seen |= consumers;
+    }
+    // Independent sources are interned in layer order. Expand pairs backwards.
+    for (size_t i = op_count; i > 0; --i) {
+      const auto &op = ops[i - 1];
+      const auto current = sources[op.current];
+      sources[2 * i - 1] = sources[op.previous];
+      sources[2 * i - 2] = current;
+    }
+    return true;
   }
 
-  template <size_t N>
+  struct Adjustments {
+    float hue = 0.0f, lift = 0.0f, alpha;
+  };
+
+  template <LayerLayout Layout, bool Unique, size_t I>
+  HS_HOT_INLINE void
+  apply_source(const Operation &op, const Pattern::SphereDirection &direction,
+               const Pattern::SphereLutSample &tap, Adjustments &current,
+               Adjustments &previous) const {
+    const auto read = [&](uint8_t index) HS_HOT_INLINE {
+      const auto &source = sources[index];
+      if constexpr (Layout.source == LayerSampling::DIRECT) {
+        const auto &prepared = *source.value;
+        return source.kind == SourceKind::TABLE_TAP
+                   ? Pattern::bounded_scalar(
+                         prepared.immutable_table->sample_tap(prepared, tap))
+                   : Modulation::sample(prepared, direction);
+      } else {
+        if constexpr (Layout.mechanic ==
+                      ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
+          return positive_bytes(tap, source.bytes);
+        else
+          return sample_bytes(tap, source.bytes);
+      }
+    };
+    using M = ColorModulation::Mechanic;
+    const auto accumulate = [&](float prior, float scalar) HS_HOT_INLINE {
+      if constexpr (Layout.mechanic == M::HUE_ROTATION) {
+        if constexpr (Unique)
+          return math::wrap_t(op.mechanic.amount * scalar);
+        return accumulate_hue(prior, scalar, op.mechanic);
+      } else if constexpr (Layout.mechanic == M::POSITIVE_LIGHTNESS_LIFT) {
+        const float positive = Layout.source == LayerSampling::BYTE_CUBE
+                                   ? scalar
+                                   : hs::clamp(scalar, 0.0f, 1.0f);
+        const float lift = op.mechanic.amount * positive;
+        if constexpr (Unique)
+          return lift;
+        return prior + (1.0f - prior) * lift;
+      } else
+        return prior *
+               hs::lerp(1.0f, 0.5f * (scalar + 1.0f), op.mechanic.amount);
+    };
+    constexpr auto member =
+        Layout.mechanic == M::HUE_ROTATION ? &Adjustments::hue
+        : Layout.mechanic == M::OPACITY    ? &Adjustments::alpha
+                                           : &Adjustments::lift;
+    const float scalar = read(2 * I);
+    const float value = accumulate(current.*member, scalar);
+    if constexpr (Unique) {
+      bool same = op.previous == op.current;
+      if constexpr (Layout.source == LayerSampling::BYTE_CUBE)
+        same |= tap.same_byte_corners(sources[2 * I].bytes,
+                                      sources[2 * I + 1].bytes);
+      if (same)
+        current.*member = value;
+      else {
+        const float old = accumulate(current.*member, read(2 * I + 1));
+        if constexpr (Layout.mechanic == M::HUE_ROTATION)
+          current.*member = blend_unit_hue(old, value, fraction);
+        else
+          current.*member = hs::lerp(old, value, fraction);
+      }
+    } else {
+      current.*member = value;
+      const float old = op.previous == op.current ? scalar : read(2 * I + 1);
+      previous.*member = accumulate(previous.*member, old);
+    }
+  }
+
+  template <ColorModulation::Mechanic Mechanic, LayerLayout... Layout>
+  static constexpr size_t uses =
+      (size_t{0} + ... + size_t(Layout.mechanic == Mechanic));
+
+  /** @brief Samples each independent source using its provider's storage layout. */
+  template <LayerLayout... Layout, size_t... I>
+  HS_HOT_ITCM_MEMBER Color4 shade_independent(const FieldSample &field,
+                                              std::index_sequence<I...>) const {
+    const auto direction = sample_direction(field.sphere);
+    Pattern::SphereLutSample tap{};
+    if constexpr (((Layout.source == LayerSampling::BYTE_CUBE) || ...))
+      tap = Pattern::prepare_sphere_lut_sample(direction);
+    else if (uses_cube)
+      tap = Pattern::prepare_sphere_lut_sample(direction);
+    const float alpha =
+        (constant_alpha >= 0.0f ? constant_alpha
+                                : base.palette->get_alpha(field.value)) *
+        field.coverage;
+    Adjustments current{0.0f, 0.0f, alpha}, previous = current;
+    (apply_source<Layout, uses<Layout.mechanic, Layout...> == 1, I>(
+         ops[I], direction, tap, current, previous),
+     ...);
+    if constexpr (uses<ColorModulation::Mechanic::HUE_ROTATION, Layout...> > 1)
+      if (varying_hue)
+        current.hue = blend_unit_hue(previous.hue, current.hue, fraction);
+    if constexpr (uses<ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT,
+                       Layout...> > 1)
+      if (varying_lift)
+        current.lift = hs::lerp(previous.lift, current.lift, fraction);
+    if constexpr (uses<ColorModulation::Mechanic::OPACITY, Layout...> > 1)
+      if (varying_alpha)
+        current.alpha = hs::lerp(previous.alpha, current.alpha, fraction);
+    return finish_simple(field, current.hue, current.lift, current.alpha);
+  }
+
   HS_HOT_INLINE Color4 shade_bound(const FieldSample &field) const {
-    if constexpr (N == 3)
-      if (hue_lift_mask)
-        return shade_hue_lift_mask(field);
     return shade_ordered(field);
   }
 };
 
 /** @brief Column binding for a typed sequence of modulation stages.
  * @tparam N Number of consecutive stages. */
-template <size_t N> struct ModulationStack : OrderedModulationKernel {
+template <size_t N, LayerLayout... Layout>
+struct ModulationStack : OrderedModulationKernel {
+private:
+  static constexpr bool typed =
+      sizeof...(Layout) == N &&
+      ((Layout.source != LayerSampling::DYNAMIC) && ...);
+  bool independent = [&] {
+    if constexpr (typed) {
+      static constexpr std::array layout{Layout...};
+      return bind_independent_sources(layout);
+    } else
+      return false;
+  }();
+
+public:
   /** @brief Binds the ordered modulation stages to a generated palette.
    * @param palette Prepared temporal palette.
    * @param same_palette Whether the palette entries match.
@@ -533,24 +640,24 @@ template <size_t N> struct ModulationStack : OrderedModulationKernel {
                   bool same_palette,
                   std::array<const ModulationState *, N> layers)
       : OrderedModulationKernel(palette.current, palette.previous,
-                                palette.fraction, same_palette, layers) {
-    bind_specialization<N>();
-  }
+                                palette.fraction, same_palette, layers) {}
 
   /** @brief Binds consecutive layers on one non-temporal palette.
    * @param palette Current palette.
    * @param layers Prepared layer endpoints. */
   ModulationStack(const GeneratedPaletteState &palette,
                   std::array<const ModulationState *, N> layers)
-      : OrderedModulationKernel(palette, palette, 1.0f, true, layers) {
-    bind_specialization<N>();
-  }
+      : OrderedModulationKernel(palette, palette, 1.0f, true, layers) {}
 
   /** @brief Evaluates the bound column at one field sample.
    * @param field Shared source direction, coverage and displacement.
    * @return Finished straight-alpha color. */
   HS_HOT_INLINE Color4 shade(const FieldSample &field) const {
-    return shade_bound<N>(field);
+    if constexpr (typed)
+      if (independent)
+        return shade_independent<Layout...>(field,
+                                            std::make_index_sequence<N>{});
+    return shade_bound(field);
   }
 };
 

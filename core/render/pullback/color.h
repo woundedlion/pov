@@ -96,7 +96,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
    * @param prepared Prepared palette.
    * @param layers Modulation layers in authored order.
    * @return Shared evaluator borrowing the prepared resources. */
-  template <typename FrameState, typename... Layers>
+  template <LayerLayout... Layout, typename FrameState, typename... Layers>
   static auto bind_modulation_stack(const FrameState &frame,
                                     const Prepared &prepared,
                                     const Layers &...layers)
@@ -108,10 +108,10 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     const std::array<const ModulationState *, sizeof...(Layers)> sources{
         &layers...};
     if constexpr (TEMPORAL)
-      return ModulationStack<sizeof...(Layers)>{
+      return ModulationStack<sizeof...(Layers), Layout...>{
           prepared, frame.temporal.same_palette, sources};
     else
-      return ModulationStack<sizeof...(Layers)>{prepared, sources};
+      return ModulationStack<sizeof...(Layers), Layout...>{prepared, sources};
   }
   /** @brief Binds modulation layers sampled at the interpolated column phase.
    * @tparam Policies Canonical layer policies in authored order.
@@ -296,6 +296,11 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
 /** @brief Ordered color modulation policy.
  * @tparam State Layer resource provider. */
 template <typename State> struct Modulate : ApproximationDefaults {
+  template <typename Owner> static consteval LayerLayout source_layout() {
+    if constexpr (requires { State::template source_layout<Owner>(); })
+      return State::template source_layout<Owner>();
+    return {};
+  }
   using PairedOwner = Modulate; ///< Policy admitting paired endpoint updates.
   static constexpr bool APPROXIMATE =
       true; ///< Uses scalar and hue lookup tables.

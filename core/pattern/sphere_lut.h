@@ -93,10 +93,16 @@ struct SphereLutSample {
   template <typename T> HS_HOT_INLINE float sample_data(const T *table) const {
     const auto *row = table + offset;
     const auto *next = row + SphereLutView::FACE_STEPS;
-    const float low = hs::lerp(static_cast<float>(row[0]),
-                               static_cast<float>(row[1]), x_fraction);
-    const float high = hs::lerp(static_cast<float>(next[0]),
-                                static_cast<float>(next[1]), x_fraction);
+    const auto across = [&](const T *pair) HS_HOT_INLINE {
+      // Signed-byte corner differences are exact before conversion to float.
+      if constexpr (std::is_same_v<T, int8_t>)
+        return static_cast<float>(pair[0]) +
+               static_cast<float>(pair[1] - pair[0]) * x_fraction;
+      else
+        return hs::lerp(pair[0], pair[1], x_fraction);
+    };
+    const float low = across(row);
+    const float high = across(next);
     return hs::lerp(low, high, y_fraction) * (1.0f / 127.0f);
   }
   /** @brief Samples a table using these cube-map coordinates.
