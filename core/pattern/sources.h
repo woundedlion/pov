@@ -358,13 +358,20 @@ HS_HOT_INLINE inline float cell_primitive(float x, float y,
  * @param v Plane y in lattice periods.
  * @param x Receives the offset's x, in periods.
  * @param y Receives the offset's y, in periods. */
+template <bool Reflected = false>
 HS_HOT_INLINE inline float nearest_hexagonal_offset(float u, float v, float &x,
                                                     float &y) {
+  const auto centered = [](float value) HS_HOT_INLINE {
+    // A fraction rounded to one flips only the sign of a half-cell offset.
+    if constexpr (Reflected)
+      return (value - floorf(value)) - 0.5f;
+    return math::wrap_t(value) - 0.5f;
+  };
   const float row = v * INV_SQRT_3;
-  const float ax = math::wrap_t(u + 0.5f) - 0.5f;
-  const float ay = SQRT_3 * (math::wrap_t(row + 0.5f) - 0.5f);
-  const float bx = math::wrap_t(u) - 0.5f;
-  const float by = SQRT_3 * (math::wrap_t(row) - 0.5f);
+  const float ax = centered(u + 0.5f);
+  const float ay = SQRT_3 * centered(row + 0.5f);
+  const float bx = centered(u);
+  const float by = SQRT_3 * centered(row);
   const float a_squared = ax * ax + ay * ay, b_squared = bx * bx + by * by;
   const bool first = a_squared <= b_squared;
   x = first ? ax : bx;
@@ -419,9 +426,9 @@ template <typename Params>
 HS_HOT_ITCM_MEMBER inline float hexagonal_cells(const PlanePosition &coordinate,
                                                 const Params &params) {
   float x, y;
-  const float squared =
-      nearest_hexagonal_offset(params.cell_scale * coordinate.value.re,
-                               params.cell_scale * coordinate.value.im, x, y);
+  const float squared = nearest_hexagonal_offset<true>(
+      params.cell_scale * coordinate.value.re,
+      params.cell_scale * coordinate.value.im, x, y);
   return cell_primitive<TessellationKind::HEXAGONAL>(x, y, squared, params);
 }
 
