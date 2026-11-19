@@ -15,9 +15,12 @@ namespace Pullback::Modulation {
 /** @brief Immutable cubic coefficients for each cell on a cube face. */
 struct StationaryCubicNoise : ImmutableTable {
   static constexpr int N = Pattern::SphereLutView::FACE_STEPS;
+  static constexpr int CELLS_PER_EDGE = N - 1;
   using Cell = std::array<int16_t, 10>;
   using Edges = std::array<std::array<float, 3 * N - 2>, 4>;
-  std::array<Cell, Pattern::SphereLutView::SIZE> cells;
+  std::array<Cell, Pattern::SphereLutView::FACE_COUNT * CELLS_PER_EDGE *
+                       CELLS_PER_EDGE>
+      cells;
   /// Highest spatial frequency resolved by the 23-cell cubic face.
   static constexpr float MAX_SCALE = 1.25f;
   struct Key {
@@ -40,7 +43,7 @@ struct StationaryCubicNoise : ImmutableTable {
   sample_byte_tap(const Prepared &p, const Pattern::SphereLutSample &tap) {
     const auto &cache =
         *static_cast<const StationaryCubicNoise *>(p.immutable_table);
-    const auto &c = cache.cells[tap.offset];
+    const auto &c = cache.cells[tap.cell_offset];
     const float x = tap.x_fraction, y = tap.y_fraction;
     const float base = c[0] + x * c[1] + y * (c[2] + x * c[3]);
     const float horizontal = c[4] + x * c[5] + y * c[6];
@@ -106,7 +109,8 @@ struct StationaryCubicNoise : ImmutableTable {
           }
         }
         for (int x = 0; x < N - 1; ++x)
-          fit(cells[(face * N + y) * N + x], edges, 3 * x);
+          fit(cells[(face * CELLS_PER_EDGE + y) * CELLS_PER_EDGE + x], edges,
+              3 * x);
         edges[0] = edges[3];
       }
     }

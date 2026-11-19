@@ -70,9 +70,10 @@ inline math::Vector sphere_face_direction(int face, float u, float v) {
 
 /** @brief Bilinear coordinates shared by cube-map scalar samples. */
 struct SphereLutSample {
-  int offset;       ///< Lower-left tap's offset within the table.
-  float x_fraction; ///< Horizontal interpolation fraction.
-  float y_fraction; ///< Vertical interpolation fraction.
+  uint16_t offset;      ///< Lower-left sample in the face-major point table.
+  uint16_t cell_offset; ///< Corresponding cell in the packed face grid.
+  float x_fraction;     ///< Horizontal interpolation fraction.
+  float y_fraction;     ///< Vertical interpolation fraction.
 
   /** @brief Tests the four signed-byte taps used by this bilinear sample.
    * @param a First cube's face-major data.
@@ -122,8 +123,10 @@ HS_HOT_INLINE inline SphereLutSample prepare_sphere_lut_face(int face, float u,
       std::min(static_cast<int>(x), SphereLutView::FACE_STEPS - 2);
   const int y_low =
       std::min(static_cast<int>(y), SphereLutView::FACE_STEPS - 2);
-  return {face * SphereLutView::FACE_SIZE + y_low * SphereLutView::FACE_STEPS +
-              x_low,
+  constexpr int N = SphereLutView::FACE_STEPS;
+  static_assert(SphereLutView::SIZE <= UINT16_MAX);
+  return {static_cast<uint16_t>((face * N + y_low) * N + x_low),
+          static_cast<uint16_t>((face * (N - 1) + y_low) * (N - 1) + x_low),
           x - x_low, y - y_low};
 }
 
