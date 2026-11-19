@@ -136,6 +136,27 @@ struct FeedbackWhiteBox {
     HS_EXPECT_EQ(lane.read.x, static_cast<float>(X));
   }
 
+  /** @brief Column-time blending caps forward offsets after seam wrapping. */
+  static void test_blended_warp_caps_forward_offsets() {
+    constexpr int W = 288, H = 32, DOWNSAMPLE = 8, COLUMNS = W / DOWNSAMPLE;
+    using Feedback = Filter::Pixel::Feedback<W, H>;
+    constexpr int16_t FORWARD = Feedback::WRAP_PERIOD * 0.25f;
+    constexpr int16_t BACKWARD = -Feedback::WRAP_PERIOD * 0.5f;
+    const Feedback::CoarseGrid grid{DOWNSAMPLE,
+                                    Feedback::SphereField{DOWNSAMPLE},
+                                    COLUMNS,
+                                    1,
+                                    {0, 0, 1, 0, 0, 1}};
+    const Feedback::RenderBand band{};
+    std::array<int16_t, COLUMNS> prior_x, now_x, prior_y{}, now_y{};
+    prior_x.fill(FORWARD);
+    now_x.fill(BACKWARD);
+    Feedback::blend_lit_times(grid, band, {now_x.data(), now_y.data(), nullptr},
+                              {prior_x.data(), prior_y.data(), nullptr});
+    for (int16_t x : prior_x)
+      HS_EXPECT_EQ(x, FORWARD);
+  }
+
   template <int W, int H>
   static bool holds(const Filter::Pixel::Feedback<W, H> &feedback,
                     const Canvas &canvas) {

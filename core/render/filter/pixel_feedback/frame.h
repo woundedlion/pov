@@ -466,7 +466,8 @@ Feedback<W, H>::blend_lit_times(const CoarseGrid &grid, const RenderBand &band,
       const float from =
           unwrap_near(static_cast<float>(prior.x_offsets[i]), x, WRAP_PERIOD);
       prior.x_offsets[i] = static_cast<int16_t>(
-          unwrap_near(x + lag * (from - x), 0.0f, WRAP_PERIOD));
+          hs::clamp(unwrap_near(x + lag * (from - x), 0.0f, WRAP_PERIOD),
+                    -WRAP_PERIOD * 0.5f, WRAP_PERIOD * 0.25f));
       prior.y_offsets[i] = static_cast<int16_t>(
           now.y_offsets[i] + lag * (prior.y_offsets[i] - now.y_offsets[i]));
       if (polar) {

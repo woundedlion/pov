@@ -138,6 +138,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_warp_cache_matches_uncached);
   HS_RUN(test_feedback_polar_rows_hit_their_targets);
   HS_RUN(test_feedback_flush_straddled_taps_stay_on_branch);
+  HS_RUN(FeedbackWhiteBox::test_blended_warp_caps_forward_offsets);
   HS_RUN(test_feedback_column_time_reads);
   HS_RUN(test_feedback_fade_table_entries);
   HS_RUN(test_feedback_fade_table_invalidates_stored_entries);
