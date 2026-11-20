@@ -219,7 +219,7 @@
       },
       {
         "classification": "preset",
-        "default": 0.6200000047683716,
+        "default": 1,
         "domain": {
           "maximum": 1,
           "minimum": 0
@@ -316,7 +316,7 @@
       },
       {
         "classification": "preset",
-        "default": "linear",
+        "default": "cup",
         "domain": {
           "values": [
             "cup",
@@ -334,7 +334,7 @@
       },
       {
         "classification": "preset",
-        "default": "triadic",
+        "default": "analogous",
         "domain": {
           "values": [
             "triadic",
@@ -365,7 +365,7 @@
       },
       {
         "classification": "preset",
-        "default": "dark-rainbow",
+        "default": "algae",
         "domain": {
           "values": [
             "dark-rainbow",
@@ -461,7 +461,7 @@
       },
       {
         "classification": "preset",
-        "default": "cycling-generated",
+        "default": "procedural",
         "domain": {
           "values": [
             "cycling-generated",
@@ -480,7 +480,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 1,
         "domain": {
           "maximum": 1,
           "minimum": 0
@@ -494,7 +494,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 0.007017543539404869,
         "domain": {
           "maximum": 0.009999999776482582,
           "minimum": -0.009999999776482582
@@ -568,7 +568,7 @@
       },
       {
         "classification": "preset",
-        "default": 1,
+        "default": 1.2462962865829468,
         "domain": {
           "maximum": 64,
           "minimum": 0.015625
@@ -582,7 +582,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": -0.00009999999747378752,
         "domain": {
           "maximum": 0.015625,
           "minimum": -0.015625
@@ -596,7 +596,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 0.18088234961032867,
         "domain": {
           "maximum": 0.5,
           "minimum": 0
@@ -610,7 +610,7 @@
       },
       {
         "classification": "preset",
-        "default": 0.5,
+        "default": 1.3980540037155151,
         "domain": {
           "maximum": 10,
           "minimum": 0.05000000074505806
@@ -624,7 +624,7 @@
       },
       {
         "classification": "preset",
-        "default": 1,
+        "default": 0,
         "domain": {
           "maximum": 10,
           "minimum": 0
@@ -654,7 +654,7 @@
       },
       {
         "classification": "preset",
-        "default": "truncated-icosahedron",
+        "default": "truncated-icosahedron-truncate50d-ambo-dual",
         "domain": {
           "values": [
             "tetrahedron",
@@ -777,7 +777,7 @@
   "document_id": "jade-filigree",
   "effect_id": "jade-filigree",
   "effect_metadata": {
-    "description": "A golden mesh gives way to a flowing green filigree.",
+    "description": "A flowing green filigree warped by a Direct Lens.",
     "display_name": "Jade Filigree"
   },
   "preset_bank": {
@@ -790,77 +790,14 @@
     },
     "choreography": {
       "dwell": {
-        "golden-mesh": 600,
         "jade-weave": 600
       },
       "generated_order": [
-        "golden-mesh",
         "jade-weave"
       ]
     },
-    "edges": [
-      {
-        "duration": 480,
-        "easing": "EASE_IN_OUT_SIN",
-        "from": "golden-mesh",
-        "path_policy": "parallel",
-        "to": "jade-weave"
-      },
-      {
-        "duration": 480,
-        "easing": "EASE_IN_OUT_SIN",
-        "from": "jade-weave",
-        "path_policy": "parallel",
-        "to": "golden-mesh"
-      }
-    ],
+    "edges": [],
     "presets": [
-      {
-        "display_name": "Golden Mesh",
-        "preset_id": "golden-mesh",
-        "values": {
-          "colorize.brightness-bottom": 0,
-          "colorize.brightness-envelope": "none",
-          "colorize.brightness-top": 1,
-          "colorize.gradient-end-b": 1,
-          "colorize.gradient-end-g": 0.20000000298023224,
-          "colorize.gradient-end-r": 0.10000000149011612,
-          "colorize.gradient-middle-b": 0.4000000059604645,
-          "colorize.gradient-middle-g": 1,
-          "colorize.gradient-middle-r": 0.10000000149011612,
-          "colorize.gradient-start-b": 0,
-          "colorize.gradient-start-g": 0.15000000596046448,
-          "colorize.gradient-start-r": 1,
-          "colorize.mapping-frequency": 1,
-          "colorize.mapping-phase": 0,
-          "colorize.palette-chroma": 0.792397677898407,
-          "colorize.palette-harmony": "triadic",
-          "colorize.palette-hue": 0,
-          "colorize.palette-lightness": 0.6200000047683716,
-          "colorize.palette-lightness-curve": "constant",
-          "colorize.palette-lightness-range": 0,
-          "colorize.palette-mapping": "linear",
-          "colorize.palette-mode": "triadic",
-          "colorize.palette-mutation": 0,
-          "colorize.palette-name": "bruised-banana",
-          "colorize.palette-name-b": "fire-and-ice",
-          "colorize.palette-spread": 0.07000000029802322,
-          "colorize.palette-type": "procedural",
-          "colorize.phase-oscillation-depth": 0,
-          "colorize.phase-oscillation-speed": 0,
-          "colorize.value-opacity-high": 1,
-          "colorize.value-opacity-low": 1,
-          "displace.basis": "simplex",
-          "displace.direction": 0,
-          "displace.scale": 1,
-          "displace.speed": 0,
-          "displace.strength": 0,
-          "sample.line-softness": 0.5,
-          "sample.line-thickness": 1,
-          "sample.output": "edges",
-          "sample.solid": "truncated-icosahedron"
-        }
-      },
       {
         "display_name": "Jade Weave",
         "preset_id": "jade-weave",

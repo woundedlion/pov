@@ -738,11 +738,11 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
 | `river-stones` | `RiverStones` | 2 |
-| `jade-filigree` | `JadeFiligree` | 2 |
+| `jade-filigree` | `JadeFiligree` | 1 |
 | `ember-tracery` | `EmberTracery` | 1 |
 
-Jade Filigree uses a Direct Lens and Tiling Edges to move from Golden Mesh to
-Jade Weave, with 600-frame dwells and a 480-frame segue. Ember Tracery uses
+Jade Filigree uses a Direct Lens and Tiling Edges to animate its Jade Weave
+preset. Ember Tracery uses
 one preset, Ember Lattice, with camera wander, directional lightness and hue
 driven by lens displacement.
 

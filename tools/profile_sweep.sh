@@ -129,7 +129,7 @@ g5_ship)
   run GridWarp profile 30 32
   run Iridescence profile 30 32
   run RiverStones profile 34 32
-  run JadeFiligree profile 105 16
+  run JadeFiligree profile 38 32
   run EmberTracery profile 38 32
   ;;
 g6_ship)
