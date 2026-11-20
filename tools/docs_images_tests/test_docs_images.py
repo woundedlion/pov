@@ -39,6 +39,12 @@ class TestDocsImagesStage(unittest.TestCase):
         copied = self.html / "docs" / "screenshots" / "IslamicStars.png"
         self.assertEqual(copied.read_bytes(), b"pixels")
 
+    def test_stage_uses_the_displayed_image(self):
+        self.write_page('<img data-src="preview.png" alt=\'src="text.png"\' src\n = "full.png">')
+        self.write_asset("full.png", b"full")
+        self.assertEqual(di.stage(self.html, self.repo), ([], 1, 1))
+        self.assertEqual((self.html / "full.png").read_bytes(), b"full")
+
     def test_image_already_in_the_artifact_is_not_restaged(self):
         self.write_page('<img src="inherit_graph_0.png" alt="">')
         (self.html / "inherit_graph_0.png").write_bytes(b"generated")
@@ -138,6 +144,14 @@ class TestDocsImagesVerify(unittest.TestCase):
         else:
             path.write_text(data, encoding="utf-8")
         self.git("add", "--", relative)
+
+    def test_preview_cannot_satisfy_a_missing_displayed_image(self):
+        self.track("README.md", '<img data-src="preview.png" src\n = "full.png">')
+        self.track("preview.png", b"preview")
+        errors, checked = di.verify(self.repo)
+        self.assertEqual(checked, 1)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("full.png", errors[0])
 
     def test_tracked_reference_to_a_tracked_image_resolves(self):
         self.track("docs/screenshots/A.png", b"pixels")

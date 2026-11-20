@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import posixpath
-import re
 import shutil
 import subprocess
 import sys
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
@@ -17,9 +17,27 @@ from git_files import git_nul_list
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_HTML_ROOT = ROOT / "build" / "docs" / "html"
 
-_IMG_SRC_RE = re.compile(
-    r"<img\b[^>]*?\bsrc[ \t]*=[ \t]*[\"']([^\"']*)[\"']", re.IGNORECASE)
 _MARKDOWN_SUFFIXES = (".md", ".markdown")
+
+
+class ImageSources(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.sources = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "img":
+            for name, value in attrs:
+                if name == "src":
+                    self.sources.append(value or "")
+                    break
+
+
+def image_sources(text: str) -> list[str]:
+    parser = ImageSources()
+    parser.feed(text)
+    parser.close()
+    return parser.sources
 
 
 def references(html_root: Path) -> list[tuple[Path, str]]:
@@ -27,7 +45,7 @@ def references(html_root: Path) -> list[tuple[Path, str]]:
     found: list[tuple[Path, str]] = []
     for path in sorted(html_root.rglob("*.html")):
         text = path.read_text(encoding="utf-8", errors="replace")
-        found.extend((path, src) for src in _IMG_SRC_RE.findall(text))
+        found.extend((path, src) for src in image_sources(text))
     return found
 
 
@@ -53,7 +71,7 @@ def markdown_references(
             errors.append(
                 f"{relative.as_posix()}: tracked Markdown is unreadable: {error}")
             continue
-        found.extend((relative, src) for src in _IMG_SRC_RE.findall(text))
+        found.extend((relative, src) for src in image_sources(text))
     return found, errors, set(names)
 
 
