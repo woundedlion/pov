@@ -14,6 +14,7 @@
 #include "core/math/cube_projection.h"
 #include "core/math/scalar_kernels.h"
 #include "core/math/vector.h"
+#include "core/platform/attributes.h"
 
 namespace Pullback::Source {
 
@@ -185,23 +186,13 @@ struct SphereTilingEdgeView {
    * @param projection Dominant cube face for the unit direction.
    * @param narrow_cell Cell in the fixed-resolution narrow index.
    * @return Edge palette coordinate and coverage. */
-  SphereTilingEdgeValue sample(const math::Vector &unit_direction,
-                               const SphereTilingEdgeBand &band,
-                               const math::CubeFaceProjection &projection,
-                               int narrow_cell) const {
-    using namespace tiling_edges_detail;
+  HS_HOT_INLINE SphereTilingEdgeValue
+  sample(const math::Vector &unit_direction, const SphereTilingEdgeBand &band,
+         const math::CubeFaceProjection &projection, int narrow_cell) const {
     if (edges.empty())
       return {};
-    std::span<const uint16_t> candidates;
-    const bool use_narrow =
-        !narrow.cells.empty() && band.outer <= SphereTilingNarrowIndex::OUTER;
-    // Squared sine orders distances within the admitted band below 90 degrees.
-    float best = band.sine_squared;
-    float plane_limit = best * 1.00001f + 1.0e-9f;
-    const SphereTilingEdge *selected = nullptr;
-    bool selected_interior = false;
     uint16_t direct = 0;
-    if (use_narrow) {
+    if (!narrow.cells.empty() && band.outer <= SphereTilingNarrowIndex::OUTER) {
       direct = narrow.cells[narrow_cell];
       if (direct == 0)
         return {};
@@ -211,12 +202,38 @@ struct SphereTilingEdgeView {
         const auto &edge = edges[direct & ~SINGLE_INTERIOR];
         const float sin_distance = math::dot(edge.normal, unit_direction);
         const float distance = sin_distance * sin_distance;
-        if (distance >= best)
+        if (distance >= band.sine_squared)
           return {};
-        best = distance;
-        selected = &edge;
-        selected_interior = true;
-      } else if (direct & SphereTilingNarrowIndex::LAST)
+        return finish(edge, unit_direction, band, distance, true, true);
+      }
+    }
+    return sample_candidates(unit_direction, band, projection, direct);
+  }
+
+private:
+  HS_HOT_INLINE SphereTilingEdgeValue finish(const SphereTilingEdge &edge,
+                                             const math::Vector &unit_direction,
+                                             const SphereTilingEdgeBand &band,
+                                             float distance_squared,
+                                             bool use_narrow,
+                                             bool interior) const {
+    const float sine = sqrtf(distance_squared);
+    const float angle =
+        use_narrow ? sine * (1.0f + distance_squared / 6.0f) : asinf(sine);
+    const float distance = std::min(band.outer, angle);
+    return {tiling_edges_detail::edge_position(edge, unit_direction, vertices,
+                                               use_narrow, interior),
+            1.0f - math::smooth_ramp(band.half_width, band.outer, distance)};
+  }
+
+  HS_HOT_FLASH_MEMBER SphereTilingEdgeValue sample_candidates(
+      const math::Vector &unit_direction, const SphereTilingEdgeBand &band,
+      const math::CubeFaceProjection &projection, uint16_t direct) const {
+    using namespace tiling_edges_detail;
+    std::span<const uint16_t> candidates;
+    const bool use_narrow = direct != 0;
+    if (use_narrow) {
+      if (direct & SphereTilingNarrowIndex::LAST)
         candidates = std::span<const uint16_t>(&direct, 1);
       else
         candidates = narrow.candidates.subspan(direct - 1);
@@ -226,6 +243,11 @@ struct SphereTilingEdgeView {
       candidates = candidate_ids.subspan(begin, offsets[cell + 1] - begin);
     }
 
+    // Squared sine orders distances within the admitted band below 90 degrees.
+    float best = band.sine_squared;
+    float plane_limit = best * 1.00001f + 1.0e-9f;
+    const SphereTilingEdge *selected = nullptr;
+    bool selected_interior = false;
     const uint16_t interior_flag =
         use_narrow ? SphereTilingNarrowIndex::INTERIOR : 0;
     const uint16_t last_flag = use_narrow ? SphereTilingNarrowIndex::LAST : 0;
@@ -254,12 +276,8 @@ struct SphereTilingEdgeView {
     }
     if (!selected)
       return {};
-    const float sine = sqrtf(best);
-    const float angle = use_narrow ? sine * (1.0f + best / 6.0f) : asinf(sine);
-    const float distance = std::min(band.outer, angle);
-    return {edge_position(*selected, unit_direction, vertices, use_narrow,
-                          selected_interior),
-            1.0f - math::smooth_ramp(band.half_width, band.outer, distance)};
+    return finish(*selected, unit_direction, band, best, use_narrow,
+                  selected_interior);
   }
 };
 
