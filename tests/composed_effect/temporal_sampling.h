@@ -1905,6 +1905,97 @@ inline void test_river_stones_source_morph() {
   }
 }
 
+/// Both Filigree departures blend the authored tiling arcs at column time.
+inline void test_filigree_source_morph() {
+  using namespace Pullback;
+  using FX = Filigree<SMALL_W, SMALL_H>;
+  using Pipeline = FX::RenderPipeline;
+  using Tiling = Pipeline::NodeAt<2>;
+
+  reset_globals();
+  pin_frame_clock(0);
+  FX effect;
+  effect.set_clip(0, 1, 0, 1);
+  effect.init();
+  int clock = 0;
+  const auto draw = [&] {
+    pin_frame_clock(++clock);
+    effect.draw_frame();
+    effect.advance_display();
+    return ComposedFrameWhiteBox::current_frame(effect);
+  };
+
+  auto live = effect.frame_for_test();
+  const auto compare = [&](const FX::FrameState &frame, size_t from,
+                           float mix) {
+    auto outgoing = live;
+    auto incoming = live;
+    outgoing.params = FX::test_preset_params(from);
+    incoming.params = FX::test_preset_params(1 - from);
+    const auto from_stages = Pipeline::prepare_stages(outgoing);
+    const auto to_stages = Pipeline::prepare_stages(incoming);
+    const auto stages = Pipeline::prepare_stages(frame);
+    bool differs = false;
+    for (int y = -4; y <= 4; ++y) {
+      for (int x = -4; x <= 4; ++x) {
+        const SphereSample input{
+            Pattern::SphereDirection::admit(
+                {0.137f + 0.37f * x, 0.267f + 0.43f * y, 1.0f})
+                .value(),
+            0.3f};
+        const auto a = Tiling::run(input, outgoing, std::get<2>(from_stages));
+        const auto b = Tiling::run(input, incoming, std::get<2>(to_stages));
+        const auto actual = Tiling::run(input, frame, std::get<2>(stages));
+        differs |= std::abs(a.coverage - b.coverage) > 1e-3f;
+        const float coverage = hs::lerp(a.coverage, b.coverage, mix);
+        HS_EXPECT_NEAR(actual.coverage, coverage, 1e-6f);
+        HS_EXPECT_EQ(actual.path_length, input.path_length);
+        if (mix == 0.0f || mix == 1.0f) {
+          const auto &expected = mix == 0.0f ? a : b;
+          HS_EXPECT_EQ(actual.value, expected.value);
+          HS_EXPECT_EQ(actual.coverage, expected.coverage);
+        } else if (coverage > 1e-5f) {
+          const float weighted =
+              hs::lerp(a.coverage * a.value, b.coverage * b.value, mix);
+          HS_EXPECT_NEAR(actual.value, weighted / coverage, 1e-5f);
+        }
+      }
+    }
+    HS_EXPECT_TRUE(differs);
+  };
+
+  for (size_t from : {0u, 1u}) {
+    HS_CONTEXT("departing preset", static_cast<int>(from));
+    const auto edge = std::get<Segue::Preset::Lerp>(FX::preset_departure(from));
+    HS_EXPECT_TRUE(effect.selectPreset(from));
+    const auto start = effect.frame_for_test();
+    compare(start, from, 0.0f);
+    HS_EXPECT_TRUE(effect.start_document_transition(from, 1 - from));
+    auto previous = start;
+    for (unsigned tick = 1; tick <= edge.frames; ++tick) {
+      const auto current = draw();
+      if (tick == 1 || tick == edge.frames / 2 || tick == edge.frames) {
+        HS_CONTEXT("transition tick", static_cast<int>(tick));
+        const auto column = FrameInterval(previous, current).at(0.25f);
+        const float mix = edge.easing((tick - 0.75f) / edge.frames);
+        HS_EXPECT_NEAR(column.source_morph.mix, mix, 1e-6f);
+        compare(column, from, mix);
+      }
+      previous = current;
+    }
+    compare(previous, from, 1.0f);
+
+    HS_EXPECT_TRUE(effect.start_document_transition(from, 1 - from));
+    const auto mixed = draw();
+    HS_EXPECT_TRUE(mixed.source_morph.mixed());
+    HS_EXPECT_TRUE(effect.selectPreset(from));
+    const auto snapped = effect.frame_for_test();
+    const auto column = FrameInterval(mixed, snapped).at(0.25f);
+    HS_EXPECT_FALSE(column.source_morph.mixed());
+    compare(column, from, 0.0f);
+  }
+}
+
 /** @brief Both scheduled departures blend the authored noise and displacement hue contributions. */
 inline void test_river_stones_modulation_morph() {
   using namespace Pullback;
