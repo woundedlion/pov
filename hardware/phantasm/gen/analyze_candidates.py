@@ -39,7 +39,7 @@ import tempfile
 import fab_gates
 from revision_policy import DEFAULT_REVISION
 import sexp
-from kicad_common import F, circle_arc, kicad_cli, net_name, property_value
+from kicad_common import F, circle_arc, kicad_cli, net_name_resolver, property_value
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CANDIDATES = os.path.join(os.path.dirname(HERE), DEFAULT_REVISION, "candidates")
@@ -189,6 +189,7 @@ def analyze(path):
     if revision not in ("1.1", "1.2"):
         raise ValueError(f"{path}: unsupported board revision: {revision}")
     required = CRIT if revision == "1.2" else [n for n in CRIT if n != "SYNC_TX"]
+    resolve_net = net_name_resolver(root)
     segs = F(root, "segment")
     arcs = F(root, "arc")
     vias = F(root, "via")
@@ -204,7 +205,7 @@ def analyze(path):
             mid = xy(b, "mid")
             if mid:
                 dl = arc_length(st, mid, en)
-        n = net_name(b)
+        n = resolve_net(b)
         ly = field(b, "layer")
         netlen[n] = netlen.get(n, 0) + dl
         netseg[n] = netseg.get(n, 0) + 1
@@ -214,7 +215,7 @@ def analyze(path):
     netvias, gnd_pts, crit_via_pts = {}, [], []
     small_vias = []
     for b in vias:
-        n = net_name(b)
+        n = resolve_net(b)
         p = xy(b, "at")
         netvias[n] = netvias.get(n, 0) + 1
         try:

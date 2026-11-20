@@ -184,6 +184,18 @@ class AnalyzeTests(unittest.TestCase):
         self.assertAlmostEqual(r["crit_len"], 19.0)
         self.assertEqual(r["netvias"]["GND"], 1)
 
+    def test_resolves_board_declared_net_ids_for_tracks_and_vias(self):
+        source = SYNTHETIC_BOARD.rstrip()[:-1] + '(via (at 3.1 4) (size 0.6) (drill 0.3) (net "/DATA")))'
+        declarations = []
+        for number, name in enumerate(["GND", *("/" + n for n in analyze_candidates.CRIT)], 1):
+            source = source.replace(f'(net "{name}")', f'(net {number})')
+            declarations.append(f'(net {number} "{name}")')
+        result = self.analyze_source(source.replace("(kicad_pcb", "(kicad_pcb " + " ".join(declarations), 1))
+        self.assertEqual(result["crit_len"], 19.0)
+        self.assertEqual(result["netlen"]["DATA"], 10.0)
+        self.assertEqual(result["netvias"], {"GND": 1, "DATA": 1})
+        self.assertEqual(result["crit_vias_stitched"], 1)
+
     def test_rejects_a_board_whose_nets_are_ids_only(self):
         source = SYNTHETIC_BOARD
         for net in analyze_candidates.CRIT:
