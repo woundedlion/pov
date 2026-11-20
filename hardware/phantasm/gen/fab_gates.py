@@ -184,6 +184,13 @@ def validate_plot_origin(pcb_path, board=None):
     return origin
 
 
+def finite_mm(value):
+    mm = float(value)
+    if not math.isfinite(mm):
+        raise ValueError("nonfinite measurement")
+    return mm
+
+
 def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
     root = board if board is not None else read_board(
         pcb_path, ViaGeometryError, "PCB vias")
@@ -202,14 +209,14 @@ def validate_via_geometry(pcb_path, min_vias=MIN_BOARD_VIAS, board=None):
         drill = sexp.val(via, "drill", [])
         location = ",".join(str(value) for value in at[:2]) or f"index {index}"
         try:
-            diameter_mm = float(size[0])
-            drill_mm = float(drill[0])
+            diameter_mm = finite_mm(size[0])
+            drill_mm = finite_mm(drill[0])
         except (IndexError, TypeError, ValueError):
             diagnostics.append(f"via at {location}: size or drill is invalid")
             continue
         try:
-            x_mm = float(at[0])
-            y_mm = float(at[1])
+            x_mm = finite_mm(at[0])
+            y_mm = finite_mm(at[1])
         except (IndexError, TypeError, ValueError):
             diagnostics.append(f"via at {location}: position is invalid")
             continue
@@ -311,7 +318,7 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None,
         for key, node in features:
             value = sexp.val(node, key, [])
             try:
-                feature_mm = float(value[0])
+                feature_mm = finite_mm(value[0])
             except (IndexError, TypeError, ValueError):
                 diagnostics.append(f"zone {label}: {key} is missing or invalid")
                 continue

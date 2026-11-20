@@ -123,6 +123,13 @@ class ViaGeometryTests(unittest.TestCase):
     def test_accepts_standard_cost_via(self):
         self.assertEqual(self.validate("0.45", "0.20"), 1)
 
+    def test_rejects_nonfinite_via_measurements(self):
+        for size, drill, x, y in (("nan", "0.2", "1", "2"), ("0.45", "inf", "1", "2"),
+                                  ("0.45", "0.2", "-inf", "2"), ("0.45", "0.2", "1", "nan")):
+            with self.subTest(size=size, drill=drill, x=x, y=y):
+                with self.assertRaisesRegex(fab.ViaGeometryError, "invalid"):
+                    self.validate_source(f"(kicad_pcb (via (at {x} {y}) (size {size}) (drill {drill})))")
+
     def test_rejects_small_via_diameter(self):
         with self.assertRaisesRegex(
                 fab.ViaGeometryError, "0.25 mm diameter is below 0.45 mm"):
@@ -209,6 +216,12 @@ class ZoneGeometryTests(unittest.TestCase):
                 + fill.format(gap=thermal_gap, bridge=bridge_width) + ")" + footprint + ")",
                 encoding="utf-8")
             return fab.validate_zone_geometry(pcb, min_pours=1, plane_layers=())
+
+    def test_rejects_nonfinite_zone_features(self):
+        for features in (("nan", "0.3", "0.4"), ("0.13", "inf", "0.4"), ("0.13", "0.3", "-inf")):
+            with self.subTest(features=features):
+                with self.assertRaisesRegex(fab.ZoneGeometryError, "invalid"):
+                    self.validate(*features)
 
     def test_generator_defaults_meet_each_fabrication_floor(self):
         for field in fields(ZONE_FAB_MINIMUMS):
