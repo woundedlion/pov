@@ -75,11 +75,13 @@ template <typename State> struct BakedTilingEdges : ApproximationDefaults {
                                           const Prepared &source) {
     const auto direction = Pattern::SphereDirection::admit(input.dir);
     const auto projection = math::project_cube_face(direction.value());
-    auto edge = sample_endpoint(direction.value(), source.first, projection);
+    const int narrow_cell = SphereTilingNarrowIndex::cell_for(projection);
+    auto edge = sample_endpoint(direction.value(), source.first, projection,
+                                narrow_cell);
     if constexpr (MORPHS) {
       if (source.morph.mix > 0.0f) {
         const auto incoming = sample_endpoint(
-            direction.value(), source.morph.incoming, projection);
+            direction.value(), source.morph.incoming, projection, narrow_cell);
         edge = blend_tiling_edges(edge, incoming, source.morph.mix);
       }
     }
@@ -94,8 +96,9 @@ private:
 
   static HS_HOT_ITCM_MEMBER SphereTilingEdgeValue
   sample_endpoint(const math::Vector &direction, const Endpoint &endpoint,
-                  const math::CubeFaceProjection &projection) {
-    return endpoint.edges.sample(direction, endpoint.band, projection);
+                  const math::CubeFaceProjection &projection, int narrow_cell) {
+    return endpoint.edges.sample(direction, endpoint.band, projection,
+                                 narrow_cell);
   }
 };
 
