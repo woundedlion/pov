@@ -53,9 +53,9 @@ struct ShaderChainParameterWrite {
   ///< Explicit transition blend for a blended enum.
 };
 
-/** @brief Endpoint parameters and timing for a planar source preview. */
+/** @brief Endpoint parameters and timing for a source preview. */
 struct ShaderChainSourceMorphWrite {
-  std::string_view instance; ///< The planar source instance.
+  std::string_view instance;                       ///< The source instance.
   std::span<const ShaderChainParameterWrite> from; ///< Outgoing source values.
   std::span<const ShaderChainParameterWrite> to;   ///< Incoming source values.
   Pullback::Interp::SourceMorphTime time; ///< Edge timing and evaluation.
@@ -324,7 +324,7 @@ public:
         ++source_index;
       if (source_index == ops.size())
         return ParamSetResult::UNKNOWN_PARAM;
-      if (ops[source_index].op->runtime.sample_source == nullptr)
+      if (!Pullback::Interp::supports_source_morph(*ops[source_index].op))
         return ParamSetResult::INADMISSIBLE;
     }
     bool animated = false;

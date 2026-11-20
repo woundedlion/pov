@@ -1014,6 +1014,7 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_spherical_noise_policy);
   HS_RUN(test_shader_chain_spherical_cells_policy);
   HS_RUN(test_shader_chain_spherical_tiling);
+  HS_RUN(test_shader_chain_spherical_tiling_morph);
   HS_RUN(test_shader_chain_baked_tiling_edges);
   HS_RUN(test_shader_chain_spherical_source_pipeline);
   HS_RUN(test_shader_chain_spherical_noise_lifecycle);

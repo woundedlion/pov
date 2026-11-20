@@ -1145,6 +1145,30 @@ test('fixed tessellation morphs endpoint fields only when its policy opts in', (
   assert.equal(evaluate(frame).sourceMorph, undefined);
 });
 
+test('Filigree preview morphs spherical tiling endpoints in both directions', async () => {
+  const source = JSON.parse(await readFile(
+    new URL('../patterns/filigree.shader.json', import.meta.url), 'utf8'));
+  const { descriptor, preset_bank: bank } = compile(source).document;
+  const slot = descriptor.chain.find(({ operator }) => operator === 'sample.spherical-tiling.v1');
+  assert.equal(slot.source_morph, true);
+  const endpoints = (row) => Object.fromEntries(Object.entries(row.values)
+    .filter(([id]) => id.startsWith('sample.')));
+  for (const edge of bank.edges) {
+    const from = endpoints(bank.presets.find(row => row.preset_id === edge.from));
+    const to = endpoints(bank.presets.find(row => row.preset_id === edge.to));
+    assert.notEqual(from['sample.solid'], to['sample.solid']);
+    for (const frame of [0, edge.duration / 4, edge.duration]) {
+      const { sourceMorph } = evaluateTransition(descriptor, bank, edge.from, edge.to, frame, CATALOG);
+      assert.deepEqual(sourceMorph, { instance: 'sample', from, to, evaluation: frame,
+        duration: edge.duration, easing: edge.easing });
+    }
+  }
+  delete slot.source_morph;
+  const [edge] = bank.edges;
+  const { sourceMorph } = evaluateTransition(descriptor, bank, edge.from, edge.to, edge.duration / 2, CATALOG);
+  assert.equal(sourceMorph, undefined);
+});
+
 test('RiverStones preview blends the first modulation source in both directions', async () => {
   const { descriptor, preset_bank: bank } = JSON.parse(await readFile(
     new URL('../patterns/river_stones.shader.json', import.meta.url), 'utf8'));

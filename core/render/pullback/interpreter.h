@@ -43,6 +43,11 @@ inline constexpr size_t MAX_FIELD_ID = 31;
 inline constexpr size_t PER_PARAM_NAME_BYTES =
     MAX_INSTANCE_ID + 1 + MAX_FIELD_ID + 1;
 
+inline constexpr bool supports_source_morph(const OperatorDescriptor &op) {
+  return op.runtime.sample_source ||
+         std::string_view(op.operator_id) == Op::SampleSphericalTiling::ID;
+}
+
 namespace Detail {
 
 /** @brief Size and alignment of a slot that holds any carrier of @p List.
@@ -743,8 +748,8 @@ public:
         *std::launder(reinterpret_cast<const ColorSample *>(in)));
   }
 
-  /** @brief Stores a validated planar preview's endpoint parameters.
-   * @param index Index of the planar sample operator.
+  /** @brief Stores a validated source preview's endpoint parameters.
+   * @param index Index of the sample operator.
    * @param from Authored outgoing parameter block.
    * @param to Authored incoming parameter block.
    * @param time Evaluation frame and edge timing. */
@@ -758,7 +763,7 @@ public:
     source_morph.distinct = !same_source_fields(op, from, to);
   }
 
-  /** @brief Clears the transient planar preview.
+  /** @brief Clears the transient source preview.
    * @return Whether a source morph was active. */
   bool clear_source_morph() {
     source_prepared = false;
@@ -860,7 +865,7 @@ private:
   static constexpr size_t SOURCE_PARAM_BYTES = [] {
     size_t largest = 0;
     for (const auto &op : OPERATOR_TABLE)
-      if (op.runtime.sample_source)
+      if (supports_source_morph(op))
         largest = std::max(largest, static_cast<size_t>(op.runtime.param.size));
     return largest;
   }();
@@ -868,7 +873,7 @@ private:
   static constexpr size_t SOURCE_PREPARED_BYTES = [] {
     size_t largest = 0;
     for (const auto &op : OPERATOR_TABLE)
-      if (op.runtime.sample_source)
+      if (supports_source_morph(op))
         largest =
             std::max(largest, static_cast<size_t>(op.runtime.prepared.size));
     return largest;
@@ -1011,6 +1016,23 @@ private:
     const auto &runtime = sides[active].ops[index].op->runtime;
     if (!source_prepared || index != source_morph.index) {
       runtime.run(in, out, ctx, params, prepared);
+      return;
+    }
+    if (!runtime.sample_source) {
+      if (!sample_both_sources()) {
+        runtime.run(in, out, ctx, source_primary_params(), prepared);
+        return;
+      }
+      FieldSample from;
+      FieldSample to;
+      runtime.run(in, &from, ctx, source_morph.from.data(), prepared);
+      runtime.run(in, &to, ctx, source_morph.to.data(),
+                  source_prepared_to.data());
+      const auto blended =
+          Source::blend_tiling_edges({from.value, from.coverage},
+                                     {to.value, to.coverage}, source_progress);
+      ::new (out) FieldSample{blended.value, blended.coverage, from.sphere,
+                              from.path_length};
       return;
     }
     const auto &input = *std::launder(static_cast<const PlaneSample *>(in));

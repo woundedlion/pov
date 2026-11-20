@@ -11,6 +11,7 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
+#include <array>
 #include <memory>
 
 #include "core/math/scalar_kernels.h"
@@ -21,11 +22,15 @@
 
 namespace Pullback::Interp::Op {
 
-/** @brief Per-instance cache of projected geometry for the selected solid. */
+struct SphericalTilingGeometryCache {
+  std::array<std::shared_ptr<const Source::SphereTilingGeometry>, 2> geometry{};
+  std::array<uint8_t, 2> solids{};
+};
+
+/** @brief Projected geometry for both endpoints of a source morph. */
 struct SphericalTilingState {
-  mutable std::shared_ptr<const Source::SphereTilingGeometry>
-      geometry;              ///< Immutable index shared by migrated instances.
-  mutable uint8_t solid = 0; ///< Registry ordinal stored in geometry.
+  mutable std::shared_ptr<const SphericalTilingGeometryCache> cache;
+  mutable uint8_t active = 0;
 };
 
 /** @brief Sphere-to-field crossing for tile fills and seams. */
@@ -49,14 +54,10 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
 
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
-    if (!state.geometry || state.solid != params.solid) {
-      state.geometry =
-          std::make_shared<const Source::SphereTilingGeometry>(params.solid);
-      state.solid = params.solid;
-    }
+    const auto &geometry = geometry_for(state, params.solid);
     const Source::SphereTilingEdgeBand edge{params.line_thickness,
                                             params.line_softness};
-    return {state.geometry.get(), edge, edge.half_width,
+    return {&geometry, edge, edge.half_width,
             params.line_softness / Params::MAX_SOFTNESS};
   }
 
@@ -89,6 +90,27 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
   }
 
 private:
+  static const Source::SphereTilingGeometry &geometry_for(const State &state,
+                                                          uint8_t solid) {
+    if (state.cache)
+      for (uint8_t index = 0; index < state.cache->geometry.size(); ++index)
+        if (state.cache->geometry[index] &&
+            state.cache->solids[index] == solid) {
+          state.active = index;
+          return *state.cache->geometry[index];
+        }
+    auto cache =
+        state.cache
+            ? std::make_shared<SphericalTilingGeometryCache>(*state.cache)
+            : std::make_shared<SphericalTilingGeometryCache>();
+    state.active ^= 1;
+    cache->geometry[state.active] =
+        std::make_shared<const Source::SphereTilingGeometry>(solid);
+    cache->solids[state.active] = solid;
+    state.cache = std::move(cache);
+    return *state.cache->geometry[state.active];
+  }
+
   static float integrated_fade(float depth, float softness) {
     if (depth <= 0.0f)
       return 0.0f;

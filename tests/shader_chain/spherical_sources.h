@@ -378,6 +378,91 @@ inline void test_shader_chain_spherical_tiling() {
   HS_EXPECT_NEAR(square_coverage, triangle_coverage, 1.0e-4f);
 }
 
+/** @brief A spherical tiling preview blends coverage and the palette position. */
+inline void test_shader_chain_spherical_tiling_morph() {
+  using WB = ShaderChainWhiteBox;
+  using Model = In::Op::SampleSphericalTiling;
+  using Seed = Solids::BaseMesh;
+  reset_globals();
+  auto effect = std::make_unique<WB::FX>();
+  effect->init();
+  const In::ChainEntryRequest chain[] = {
+      {"source", Model::ID},
+      {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID},
+  };
+  if (!expect_compiled(effect->set_chain(chain)))
+    return;
+  auto &program = WB::program(*effect);
+  Model::Params from, to;
+  from.solid = static_cast<uint8_t>(Seed::CUBE);
+  to.solid = static_cast<uint8_t>(Seed::OCTAHEDRON);
+  from.line_softness = 6.0f;
+  to.line_softness = 8.0f;
+  const ShaderChainParameterWrite from_writes[] = {
+      {"source.solid", static_cast<float>(from.solid)},
+      {"source.line-softness", from.line_softness},
+  };
+  const ShaderChainParameterWrite to_writes[] = {
+      {"source.solid", static_cast<float>(to.solid)},
+      {"source.line-softness", to.line_softness},
+  };
+  const std::span<const ShaderChainParameterWrite> a = from_writes;
+  const std::span<const ShaderChainParameterWrite> b = to_writes;
+  Model::State state;
+  const auto ctx = WB::frame_context(*effect);
+  const auto prepared_a = Model::prepare(ctx, from, state);
+  const auto prepared_b = Model::prepare(ctx, to, state);
+  HS_EXPECT_NE(prepared_a.geometry, prepared_b.geometry);
+  HS_EXPECT_EQ(Model::prepare(ctx, from, state).geometry, prepared_a.geometry);
+  const math::Vector views[] = {
+      math::Vector(1.0f, 1.0f, .19f).normalized(),
+      math::Vector(1.0f, 1.0f, .5f).normalized(),
+      math::Vector(1.0f, .5f, 0.0f).normalized(),
+      math::Vector(1.0f, .5f, .5f).normalized(),
+  };
+  for (bool reverse : {false, true}) {
+    bool overlapping = false;
+    bool exclusive = false;
+    for (uint16_t frame : {0, 1, 4}) {
+      const ShaderChainSourceMorphWrite morph{
+          "source", reverse ? b : a, reverse ? a : b, {frame, 4, true, true}};
+      const auto result = effect->update_parameters({}, true, &morph);
+      HS_EXPECT_EQ(result, ParamSetResult::APPLIED);
+      if (result != ParamSetResult::APPLIED)
+        return;
+      program.prepare(ctx);
+      const float mix = math::ease_in_out_sin(static_cast<float>(frame) / 4.0f);
+      for (const auto &view : views) {
+        const PB::SphereSample point{view, 0.0f};
+        const auto first = Model::run(point, ctx, from, prepared_a);
+        const auto second = Model::run(point, ctx, to, prepared_b);
+        const auto outgoing = reverse ? second : first;
+        const auto incoming = reverse ? first : second;
+        auto field = frame == 4 ? incoming : outgoing;
+        if (frame == 1) {
+          overlapping |= first.coverage > 0.0f && second.coverage > 0.0f &&
+                         std::abs(first.value - second.value) > 0.1f;
+          exclusive |= (first.coverage > 0.0f) != (second.coverage > 0.0f);
+          const float old_alpha = (1.0f - mix) * outgoing.coverage;
+          const float new_alpha = mix * incoming.coverage;
+          field.coverage = old_alpha + new_alpha;
+          field.value =
+              field.coverage > 0.0f
+                  ? (old_alpha * outgoing.value + new_alpha * incoming.value) /
+                        field.coverage
+                  : 0.0f;
+        }
+        const auto expected = run_entry<Color4>(program, ctx, 1, field);
+        const auto actual = program.evaluate(view, ctx);
+        HS_EXPECT_EQ(actual.color, expected.color);
+        HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
+      }
+    }
+    HS_EXPECT_TRUE(overlapping);
+    HS_EXPECT_TRUE(exclusive);
+  }
+}
+
 /** @brief A spherical source reaches cutout and palette without a projection. */
 inline void test_shader_chain_spherical_source_pipeline() {
   auto fixture = std::make_unique<ProgramFixture>();
