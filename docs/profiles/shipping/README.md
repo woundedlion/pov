@@ -19,11 +19,11 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [Millefiori](profile_millefiori_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 52.832 | 79.856 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:35 |
 | [Raymarch](profile_raymarch_teensy_2026-11-17.md) ● | `rm_shader_draw` | 🟢 52.759 | 94.040 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:52 |
 | [JewelMelt](profile_jewelmelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 52.547 | 79.906 | 🟢 0/959 (0.00%) | COM4 | 2026-11-17 09:45 |
-| [JadeFiligree](profile_jadefiligree_teensy_2026-11-19.md) § ● | `fx_shader_draw`<br>worst: Jade Weave, 52.181 ms / 16 fps budget tier | 🟢 52.181 (2) | 46.193 | 🟢 0/1670 (0.00%) | COM3 | 2026-11-19 19:58 |
 | [DreamBalls](profile_dreamballs_teensy_2026-11-17.md) § ● | `db_timeline_step`<br>worst: 9, 51.363 ms / 16 fps | 🟢 51.363 (10) | 49.416 | 🟢 0/3199 (0.00%) | COM3 | 2026-11-17 09:19 |
 | [RingSpin](profile_ringspin_teensy_2026-11-17.md) ● | `rs_draw_rings` | 🟢 51.117 | 3.279 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:54 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-11-17.md) § ● | `msp_draw_particles`<br>worst: 7, 50.810 ms / 16 fps | 🟢 50.810 (8) | 0.372 | 🟢 0/1279 (0.00%) | COM3 | 2026-11-17 09:03 |
 | [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 50.074 | 78.699 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:45 |
+| [JadeFiligree](profile_jadefiligree_teensy_2026-11-19.md) ? | `fx_shader_draw` | 🟢 48.421 | 95.949 | 🟢 0/598 (0.00%) | COM3 | 2026-11-19 22:09 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Kaleidoscope Hex Oil 2, 48.354 ms / 16 fps | 🟢 48.354 (2) | 68.013 | 🟢 0/1679 (0.00%) | COM3 | 2026-11-17 09:26 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-11-17.md) ● | `grd_render` | 🟢 47.331 | 24.651 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:43 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 45.898 | 68.306 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:37 |
