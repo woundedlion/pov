@@ -637,10 +637,15 @@ protected:
     const float scalar = read(2 * I);
     const float value = accumulate(current.*member, scalar);
     if constexpr (Unique) {
-      bool same = op.previous == op.current;
-      if constexpr (Layout.source == LayerSampling::BYTE_CUBE)
-        same |= tap.same_byte_corners(sources[2 * I].bytes,
-                                      sources[2 * I + 1].bytes);
+      bool same;
+      if constexpr (Layout.source == LayerSampling::BYTE_CUBE) {
+        const auto *current_bytes = sources[2 * I].bytes;
+        const auto *previous_bytes = sources[2 * I + 1].bytes;
+        same = current_bytes == previous_bytes ||
+               tap.same_byte_corners(current_bytes, previous_bytes);
+      } else {
+        same = op.previous == op.current;
+      }
       if (same)
         current.*member = value;
       else {
