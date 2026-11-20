@@ -40,9 +40,9 @@ template <typename State> struct BakedTilingEdges : ApproximationDefaults {
             SphereTilingEdgeBand(p.line_thickness, p.line_softness)};
   }
 
-  static HS_HOT_FLASH_MEMBER FieldSample sample(const SphereSample &input,
-                                                const FrameState &,
-                                                const Prepared &source) {
+  static HS_HOT_ITCM_MEMBER FieldSample sample(const SphereSample &input,
+                                               const FrameState &,
+                                               const Prepared &source) {
     const auto direction = Pattern::SphereDirection::admit(input.dir);
     const auto edge = source.edges.sample(direction.value(), source.band);
     return {edge.value, edge.coverage, input.dir, input.path_length};

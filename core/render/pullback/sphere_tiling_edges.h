@@ -35,9 +35,9 @@ struct SphereTilingEdgeValue {
 
 /// Prepared angular limits for an edge and its coverage fringe.
 struct SphereTilingEdgeBand {
-  float half_width; ///< Opaque half-width in radians.
-  float outer;      ///< Angular distance beyond which coverage is zero.
-  float chord;      ///< Squared chord length at the outer limit.
+  float half_width;   ///< Opaque half-width in radians.
+  float outer;        ///< Angular distance beyond which coverage is zero.
+  float sine_squared; ///< Squared sine of the outer angle.
 
   /** @brief Prepares the edge width and outward fade.
    * @param line_thickness Full edge width in degrees.
@@ -67,17 +67,40 @@ inline int cell_at(const math::Vector &direction, int steps) {
   return (face * steps + y) * steps + x;
 }
 
+inline bool projects_to_arc(const SphereTilingEdge &edge,
+                            const math::Vector &direction) {
+  return edge.inv_length > 0.0f && math::dot(edge.from_a, direction) >= 0.0f &&
+         math::dot(edge.from_b, direction) >= 0.0f;
+}
+
+inline float endpoint_chord_squared(const SphereTilingEdge &edge,
+                                    const math::Vector &direction,
+                                    std::span<const math::Vector> vertices) {
+  return std::min(math::distance_squared(direction, vertices[edge.a]),
+                  math::distance_squared(direction, vertices[edge.b]));
+}
+
 inline float edge_chord_squared(const SphereTilingEdge &edge,
                                 const math::Vector &direction,
                                 std::span<const math::Vector> vertices) {
-  if (edge.inv_length > 0.0f && math::dot(edge.from_a, direction) >= 0.0f &&
-      math::dot(edge.from_b, direction) >= 0.0f) {
+  if (projects_to_arc(edge, direction)) {
     const float sine = math::dot(edge.normal, direction);
     const float sine_sq = std::min(1.0f, sine * sine);
     return 2.0f * sine_sq / (1.0f + sqrtf(1.0f - sine_sq));
   }
-  return std::min(math::distance_squared(direction, vertices[edge.a]),
-                  math::distance_squared(direction, vertices[edge.b]));
+  return endpoint_chord_squared(edge, direction, vertices);
+}
+
+inline float edge_sine_squared(const SphereTilingEdge &edge,
+                               const math::Vector &direction,
+                               std::span<const math::Vector> vertices) {
+  if (projects_to_arc(edge, direction)) {
+    const float sine = math::dot(edge.normal, direction);
+    return sine * sine;
+  }
+  const float chord =
+      std::min(2.0f, endpoint_chord_squared(edge, direction, vertices));
+  return chord * (1.0f - 0.25f * chord);
 }
 
 inline float edge_position(const SphereTilingEdge &edge,
@@ -101,7 +124,8 @@ inline SphereTilingEdgeBand::SphereTilingEdgeBand(float line_thickness,
   const float half_width_degrees = 0.5f * line_thickness;
   half_width = half_width_degrees * DEGREES_TO_RADIANS;
   outer = (half_width_degrees + line_softness) * DEGREES_TO_RADIANS;
-  chord = tiling_edges_detail::chord_squared(outer);
+  const float sine = sinf(outer);
+  sine_squared = sine * sine;
 }
 
 /// Non-owning cubemap index over projected mesh edges.
@@ -121,14 +145,15 @@ struct SphereTilingEdgeView {
     using namespace tiling_edges_detail;
     if (edges.empty())
       return {};
-    float best = band.chord;
+    // Squared sine orders distances within the admitted band below 90 degrees.
+    float best = band.sine_squared;
     const SphereTilingEdge *selected = nullptr;
     const int cell = cell_at(unit_direction, steps);
     const auto candidates =
         candidate_ids.subspan(offsets[cell], offsets[cell + 1] - offsets[cell]);
     for (uint16_t id : candidates) {
       const auto &edge = edges[id];
-      const float distance = edge_chord_squared(edge, unit_direction, vertices);
+      const float distance = edge_sine_squared(edge, unit_direction, vertices);
       if (distance < best) {
         best = distance;
         selected = &edge;
@@ -136,7 +161,7 @@ struct SphereTilingEdgeView {
     }
     if (!selected)
       return {};
-    const float distance = std::min(band.outer, chord_angle(best));
+    const float distance = std::min(band.outer, asinf(sqrtf(best)));
     return {edge_position(*selected, unit_direction, vertices),
             1.0f - math::smooth_ramp(band.half_width, band.outer, distance)};
   }
