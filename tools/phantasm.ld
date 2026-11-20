@@ -67,6 +67,9 @@ SECTIONS
 		*(.text.unlikely*)
 		/* Selectively optimized hot leaves intentionally executed from cache. */
 		*(.text.hot*)
+		/* Out-of-line column dispatch and per-column reaction center lookup. */
+		*(.text._ZZN4Scan6Shader12draw_columnsI*HyperLattice*ENKUliE_clEi*)
+		*(.text._ZN21ReactionDiffusionBaseI19BZReactionDiffusion*20refine_render_center*)
 		/* Authored topology specializations execute from cached flash. */
 		*(.text.*Authored*)
 		*(.text.*Involution*)
