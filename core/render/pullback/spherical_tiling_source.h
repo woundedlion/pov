@@ -9,11 +9,30 @@
 
 #include "core/mesh/solids.h"
 #include "core/render/pullback/fields.h"
+#include "core/render/pullback/sphere_tiling_edges.h"
 
 namespace Pullback::Source {
 
 /** @brief Scalar output of a spherical tiling. */
 enum class TilingOutput : uint8_t { EDGES, FACES };
+
+/// Blends coverage and its contribution to the palette coordinate.
+HS_HOT_INLINE inline SphereTilingEdgeValue
+blend_tiling_edges(SphereTilingEdgeValue from, SphereTilingEdgeValue to,
+                   float mix) {
+  if (mix <= 0.0f)
+    return from;
+  if (mix >= 1.0f)
+    return to;
+  const float a = from.coverage * (1.0f - mix);
+  const float b = to.coverage * mix;
+  if (a == 0.0f)
+    return {to.value, b};
+  if (b == 0.0f)
+    return {from.value, a};
+  const float coverage = a + b;
+  return {(a * from.value + b * to.value) / coverage, coverage};
+}
 
 namespace detail {
 
