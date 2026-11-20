@@ -16,22 +16,38 @@ from git_files import git_nul_list
 ALL_SKIPPED = 77
 
 
+class CaseResult(unittest.TextTestResult):
+    executed = False
+
+    def addSuccess(self, test):
+        self.executed = True
+        super().addSuccess(test)
+
+    def addExpectedFailure(self, test, err):
+        self.executed = True
+        super().addExpectedFailure(test, err)
+
+    def addSubTest(self, test, subtest, err):
+        self.executed = True
+        super().addSubTest(test, subtest, err)
+
+
 def run_suite(parser, root, suite, only):
     paths = sorted((root / suite).glob(only or "test*.py"))
     if not paths:
         parser.error(f"no test files discovered in {suite}")
     failed = False
-    executed = 0
+    executed = False
     for path in paths:
         tests = unittest.defaultTestLoader.discover(str(path.parent), pattern=path.name)
         if tests.countTestCases() == 0:
             parser.error(f"no test cases discovered in {path}")
-        result = unittest.TextTestRunner(verbosity=2).run(tests)
-        executed += result.testsRun - len(result.skipped)
+        result = unittest.TextTestRunner(verbosity=2, resultclass=CaseResult).run(tests)
+        executed |= result.executed
         failed |= not result.wasSuccessful()
     if failed:
         return 1
-    if executed == 0:
+    if not executed:
         if only:
             return ALL_SKIPPED
         print(f"no unskipped test cases in {suite}", file=sys.stderr)

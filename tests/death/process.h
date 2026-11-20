@@ -8,6 +8,7 @@
  * @brief Death child processes, coverage and shard records. */
 
 #include "tests/death/registry.h"
+#include <charconv>
 
 namespace hs_test::death_tests {
 
@@ -18,22 +19,18 @@ namespace hs_test::death_tests {
  *          concurrently cannot overwrite each other's capture.
  */
 inline const char *child_capture_path() {
-  static char path[512];
-  if (path[0] == '\0') {
+  static const std::string path = [] {
 #if defined(_WIN32)
     const char *dir = hs_test::env_var("TEMP");
-    if (!dir || dir[0] == '\0')
-      dir = ".";
-    std::snprintf(path, sizeof(path), "%s\\hs_death_%d.out", dir, _getpid());
+    return std::string(dir && *dir ? dir : ".") + "\\hs_death_" +
+           std::to_string(_getpid()) + ".out";
 #else
     const char *dir = hs_test::env_var("TMPDIR");
-    if (!dir || dir[0] == '\0')
-      dir = "/tmp";
-    std::snprintf(path, sizeof(path), "%s/hs_death_%d.out", dir,
-                  static_cast<int>(getpid()));
+    return std::string(dir && *dir ? dir : "/tmp") + "/hs_death_" +
+           std::to_string(getpid()) + ".out";
 #endif
-  }
-  return path;
+  }();
+  return path.c_str();
 }
 
 /**
@@ -522,17 +519,17 @@ inline void write_shard_record(const ShardSpec &shard, int n,
  * @return True iff the row holds exactly @p count integers.
  */
 inline bool parse_record_row(const char *row, int *out, int count) {
+  const char *end = row + std::strlen(row);
   for (int k = 0; k < count; ++k) {
-    char *end = nullptr;
-    const long value = std::strtol(row, &end, 10);
-    if (end == row)
+    const size_t spaces = std::strspn(row, " \t");
+    if (k > 0 && spaces == 0)
       return false;
-    out[k] = static_cast<int>(value);
-    row = end;
+    const auto parsed = std::from_chars(row + spaces, end, out[k]);
+    if (parsed.ec != std::errc{})
+      return false;
+    row = parsed.ptr;
   }
-  while (*row == ' ' || *row == '\r' || *row == '\n')
-    ++row;
-  return *row == '\0';
+  return row + std::strspn(row, " \t\r\n") == end;
 }
 
 /**

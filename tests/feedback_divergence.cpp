@@ -28,6 +28,7 @@
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
 
+#include <charconv>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -319,14 +320,26 @@ void usage() {
 
 int main(int argc, char **argv) {
   if (argc >= 3 && std::strcmp(argv[1], "--dump") == 0) {
-    const int frames = argc > 3 ? atoi(argv[3]) : 1000;
-    if (frames <= 0) {
-      usage();
-      return 1;
+    int frames = 1000;
+    if (argc > 3) {
+      const char *end = argv[3] + std::strlen(argv[3]);
+      const auto parsed = std::from_chars(argv[3], end, frames);
+      if (argc != 4 || parsed.ec != std::errc{} || parsed.ptr != end ||
+          frames <= 0) {
+        usage();
+        return 1;
+      }
     }
     return dump(argv[2], frames);
   }
   if (argc >= 4 && std::strcmp(argv[1], "--check-comparator") == 0) {
+    std::error_code error;
+    if (std::filesystem::equivalent(argv[2], argv[3], error) || error) {
+      std::fprintf(
+          stderr,
+          "comparator self-check requires two distinct capture files\n");
+      return 1;
+    }
     if (compare(argv[2], argv[3]) != 0)
       return 1;
     FILE *file = fopen(argv[3], "r+b");

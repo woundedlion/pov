@@ -156,6 +156,12 @@ add_test(NAME unit_feedback_compare COMMAND feedback_divergence --check-comparat
 set_tests_properties(unit_feedback_compare PROPERTIES
   FIXTURES_REQUIRED feedback_dump)
 
+add_test(NAME unit_feedback_cli COMMAND "${CMAKE_COMMAND}"
+  "-DBIN=$<TARGET_FILE:feedback_divergence>"
+  "-DCAPTURE=${CMAKE_CURRENT_BINARY_DIR}/feedback-smoke-a.bin"
+  -P "${CMAKE_CURRENT_SOURCE_DIR}/check_feedback_cli.cmake")
+set_tests_properties(unit_feedback_cli PROPERTIES FIXTURES_REQUIRED feedback_dump)
+
 add_executable(feedback_divergence_io
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence_io.cpp
   ${HS_ROOT}/core/memory.cpp

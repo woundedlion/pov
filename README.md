@@ -1349,6 +1349,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   ├── diagnostics.h           hs::log / hs::flush_log sink + HS_OS_CYCLES cycle read
 │   │   ├── profiling.h             Cycle counters + HS_PROFILE / scan-metric macros
 │   │   ├── cycle_counting.h        Cycle counters and scopes (DWT CYCCNT on Teensy; 0 elsewhere)
+│   │   ├── test_watchdog.h         Test-only buffer watchdog override parser
 │   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
 │   │   ├── hash_constants.h        Shared 32-bit FNV-1a basis and prime
 │   │   ├── effect_identity.h       Canonical effect IDs, compatibility aliases and RNG keys

@@ -65,6 +65,27 @@ struct JsonParser {
     return false;
   }
 
+  unsigned parse_hex_quad() {
+    if (position + 4 > source.size()) {
+      failed = true;
+      return 0;
+    }
+    unsigned code = 0;
+    for (int digit = 0; digit < 4; ++digit) {
+      const char h = source[position++];
+      code <<= 4;
+      if (h >= '0' && h <= '9')
+        code |= static_cast<unsigned>(h - '0');
+      else if (h >= 'a' && h <= 'f')
+        code |= static_cast<unsigned>(h - 'a' + 10);
+      else if (h >= 'A' && h <= 'F')
+        code |= static_cast<unsigned>(h - 'A' + 10);
+      else
+        failed = true;
+    }
+    return code;
+  }
+
   std::string parse_string() {
     std::string result;
     if (!consume('"'))
@@ -104,30 +125,35 @@ struct JsonParser {
         result.push_back('\t');
         break;
       case 'u': {
-        if (position + 4 > source.size()) {
+        unsigned code = parse_hex_quad();
+        if (code >= 0xD800 && code <= 0xDBFF) {
+          if (source.substr(position, 2) != "\\u") {
+            failed = true;
+            return result;
+          }
+          position += 2;
+          const unsigned low = parse_hex_quad();
+          if (low < 0xDC00 || low > 0xDFFF) {
+            failed = true;
+            return result;
+          }
+          code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+        } else if (code >= 0xDC00 && code <= 0xDFFF) {
           failed = true;
           return result;
-        }
-        unsigned code = 0;
-        for (int digit = 0; digit < 4; ++digit) {
-          const char h = source[position++];
-          code <<= 4;
-          if (h >= '0' && h <= '9')
-            code |= static_cast<unsigned>(h - '0');
-          else if (h >= 'a' && h <= 'f')
-            code |= static_cast<unsigned>(h - 'a' + 10);
-          else if (h >= 'A' && h <= 'F')
-            code |= static_cast<unsigned>(h - 'A' + 10);
-          else
-            failed = true;
         }
         if (code < 0x80) {
           result.push_back(static_cast<char>(code));
         } else if (code < 0x800) {
           result.push_back(static_cast<char>(0xC0 | (code >> 6)));
           result.push_back(static_cast<char>(0x80 | (code & 0x3F)));
-        } else {
+        } else if (code < 0x10000) {
           result.push_back(static_cast<char>(0xE0 | (code >> 12)));
+          result.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+          result.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+        } else {
+          result.push_back(static_cast<char>(0xF0 | (code >> 18)));
+          result.push_back(static_cast<char>(0x80 | ((code >> 12) & 0x3F)));
           result.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
           result.push_back(static_cast<char>(0x80 | (code & 0x3F)));
         }
@@ -162,6 +188,10 @@ struct JsonParser {
       do {
         skip_space();
         std::string key = parse_string();
+        if (value.find(key)) {
+          failed = true;
+          return value;
+        }
         if (!consume(':'))
           return value;
         JsonValue member = parse_value();

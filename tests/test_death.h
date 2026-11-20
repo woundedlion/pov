@@ -65,6 +65,12 @@ inline int run_death_tests() {
 
   HS_EXPECT_EQ(spawn_child("__timeout_check__", 100), -1);
 
+  int fields[2]{};
+  HS_EXPECT_TRUE(parse_record_row("0\t12\r\n", fields, 2));
+  HS_EXPECT_EQ(fields[1], 12);
+  HS_EXPECT_FALSE(parse_record_row("0+12", fields, 2));
+  HS_EXPECT_FALSE(parse_record_row("4294967296 12", fields, 2));
+
   // Control: a child given an unknown case must exit cleanly.
   int control = spawn_child("__spawn_check__");
   if (!child_exited_clean(control)) {

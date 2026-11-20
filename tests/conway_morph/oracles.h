@@ -10,6 +10,7 @@
 #include <vector>
 #include <cstring>
 #include <cmath>
+#include <limits>
 
 namespace hs_test::conway_morph_tests {
 
@@ -67,8 +68,8 @@ inline bool check_vertex_order_identity(const PolyMesh &got,
                0);
 
   for (size_t i = 0; i < got.vertices.size(); ++i) {
-    size_t nearest = 0;
-    float best = 1e9f;
+    size_t nearest = src.vertices.size();
+    float best = std::numeric_limits<float>::infinity();
     for (size_t j = 0; j < src.vertices.size(); ++j) {
       const float d = math::distance_between(got.vertices[i], src.vertices[j]);
       if (d < best) {

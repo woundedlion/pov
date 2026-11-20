@@ -70,6 +70,8 @@ set(_source "${TEST_ROOT}/engine/patterns")
 file(MAKE_DIRECTORY "${_source}")
 set(_patterns "${_daydream}/generated/shader/patterns")
 file(MAKE_DIRECTORY "${_patterns}/custom")
+file(WRITE "${_source}/example.shader.json" "excluded")
+file(WRITE "${_patterns}/example.shader.json" "stale example")
 file(WRITE "${_patterns}/custom/example.shader.json" "user fixture")
 file(WRITE "${_source}/keep.shader.json" "source")
 file(WRITE "${_patterns}/keep.shader.json" "keep")
@@ -80,7 +82,8 @@ set(HS_MIRROR_SOURCE "${_source}")
 set(HS_DAYDREAM_DIR "${_daydream}")
 configure_mirror(patterns)
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/prune_mirrored.cmake")
-if(EXISTS "${_patterns}/stale.shader.json" OR
+if(EXISTS "${_patterns}/example.shader.json" OR
+   EXISTS "${_patterns}/stale.shader.json" OR
    EXISTS "${_patterns}/catalog.json")
   message(FATAL_ERROR "Prune retained stale mirrored patterns")
 endif()

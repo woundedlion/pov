@@ -117,12 +117,30 @@ inline void test_json_string_grammar() {
     HS_EXPECT_TRUE(parser.complete());
     HS_EXPECT_EQ(value.kind, JsonValue::Kind::STRING);
   }
-  for (const char *text : {"\"raw\tcontrol\"", "\"raw\ncontrol\"", R"("\x")",
-                           R"("\'")", R"("\a")", R"("\u000g")"}) {
+  for (const char *text :
+       {"\"raw\tcontrol\"", "\"raw\ncontrol\"", R"("\x")", R"("\'")", R"("\a")",
+        R"("\u000g")", R"("\uD800")", R"("\uDC00")", R"("\uD800\u0041")"}) {
     JsonParser parser{text};
     parser.parse_value();
     HS_EXPECT_FALSE(parser.complete());
   }
+}
+
+/** @brief Escaped supplementary scalars decode to their literal UTF-8 bytes. */
+inline void test_json_surrogate_pair() {
+  JsonParser escaped{R"("\uD83D\uDE00")"};
+  JsonParser literal{"\"\xF0\x9F\x98\x80\""};
+  const auto expected = literal.parse_value();
+  const auto actual = escaped.parse_value();
+  HS_EXPECT_TRUE(escaped.complete() && literal.complete());
+  HS_EXPECT_TRUE(expected.text == actual.text);
+}
+
+/** @brief Duplicate object keys invalidate document parity checks. */
+inline void test_json_duplicate_key() {
+  JsonParser parser{R"({"id":"correct","\u0069d":"wrong"})"};
+  parser.parse_value();
+  HS_EXPECT_FALSE(parser.complete());
 }
 
 /** @brief

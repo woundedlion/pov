@@ -5,6 +5,7 @@
 /** @file
  * @brief Shared native module CLI and suite policy.
  */
+#include "core/platform/test_watchdog.h"
 #include "tests/module_registry.h"
 #include "tests/test_fixture.h"
 #include <cstdio>
@@ -72,17 +73,19 @@ static int check_ci_levers(bool effects_invocation) {
       hs_test::env_var("HS_REQUIRE_EFFECTS_FULL");
   const char *watchdog = hs_test::env_var("HS_BUFFER_FREE_WATCHDOG_US");
   const char *skip_policy = hs_test::env_var("HS_SKIPS_ARE_ERRORS");
-  if (!skip_policy || skip_policy[0] == '\0') {
+  const auto is_binary_policy = [](const char *value) {
+    return value &&
+           (std::strcmp(value, "0") == 0 || std::strcmp(value, "1") == 0);
+  };
+  if (!is_binary_policy(skip_policy)) {
     std::fprintf(stderr,
-                 "run_tests: CI=on but HS_SKIPS_ARE_ERRORS carries no explicit "
-                 "value — a case that retires itself asserts nothing and still "
-                 "reports green. Set it in the workflow step's env.\n");
+                 "run_tests: CI requires HS_SKIPS_ARE_ERRORS to be 0 or 1\n");
     ++missing;
   }
   if (!hs_test::require_ci_smoke_frames())
     ++missing;
-  if (!watchdog ||
-      std::strtoul(watchdog, nullptr, 10) < CI_MIN_BUFFER_FREE_WATCHDOG_US) {
+  if (hs_test::parse_buffer_watchdog_us(watchdog) <
+      CI_MIN_BUFFER_FREE_WATCHDOG_US) {
     std::fprintf(stderr,
                  "run_tests: CI=on but HS_BUFFER_FREE_WATCHDOG_US is unset or "
                  "below %lu — the Canvas buffer_free() spin traps rather than "
@@ -114,16 +117,11 @@ static int check_ci_levers(bool effects_invocation) {
         ++missing;
       }
     }
-    const bool tier_declared = effects_full && effects_full[0] != '\0';
-    const bool policy_declared =
-        require_effects_full && require_effects_full[0] != '\0';
-    if (!tier_declared || !policy_declared) {
+    if (!is_binary_policy(effects_full) ||
+        !is_binary_policy(require_effects_full)) {
       std::fprintf(
           stderr,
-          "run_tests: CI=on and an effects module is running, but "
-          "HS_EFFECTS_FULL and HS_REQUIRE_EFFECTS_FULL are not both set to an "
-          "explicit value — the effects tier would be chosen by omission. Set "
-          "both in the workflow step's env.\n");
+          "run_tests: CI requires HS_EFFECTS_FULL and HS_REQUIRE_EFFECTS_FULL to be 0 or 1 for effects modules\n");
       ++missing;
     } else if (std::atoi(require_effects_full) > 0 &&
                !hs_test::effects_full_suite()) {

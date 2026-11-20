@@ -62,6 +62,16 @@ class PythonRunner(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no unskipped test cases in new_suite", result.stderr)
 
+    def test_setup_skips_require_an_executed_case(self):
+        skipped = ("import unittest\nclass Skipped(unittest.TestCase):\n"
+                   "    @classmethod\n    def setUpClass(cls): raise unittest.SkipTest('fixture')\n"
+                   "    def test_skipped(self): pass\n")
+        result = self.run_fixture(skipped)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no unskipped test cases", result.stderr)
+        result = self.run_fixture(skipped + LIVE)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_an_excluded_suite_does_not_run(self):
         failing = ("import unittest\nclass Failing(unittest.TestCase):\n"
                    "    def test_fails(self): self.fail('ran')\n")

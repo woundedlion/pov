@@ -16,6 +16,7 @@
 #include "core/render/clip.h"
 #include "core/color/color.h"
 #if HS_ENABLE_TEST_HOOKS
+#include "core/platform/test_watchdog.h"
 #include <cstdlib>
 #endif
 
@@ -759,12 +760,8 @@ private:
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
       const char *e = std::getenv("HS_BUFFER_FREE_WATCHDOG_US");
 #pragma clang diagnostic pop
-      if (e) {
-        const unsigned long v = std::strtoul(e, nullptr, 10);
-        if (v > 0)
-          return v;
-      }
-      return BUFFER_FREE_WATCHDOG_US;
+      const unsigned long value = hs_test::parse_buffer_watchdog_us(e);
+      return value ? value : BUFFER_FREE_WATCHDOG_US;
     }();
     return resolved;
   }

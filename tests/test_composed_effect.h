@@ -155,6 +155,8 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_mobius_grid_circular_animation);
   HS_RUN(test_json_number_grammar);
   HS_RUN(test_json_string_grammar);
+  HS_RUN(test_json_surrogate_pair);
+  HS_RUN(test_json_duplicate_key);
   HS_RUN(test_catalog_semantic_export);
   HS_RUN(test_modulation_schema_defaults_match_controls);
   HS_RUN(test_composed_hand_registered_families);
