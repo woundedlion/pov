@@ -64,7 +64,8 @@ class ReleaseTests(unittest.TestCase):
         self.status()
         release.check_candidate(self.project)
         for field, value in (("revision", "1.3"), ("status", "validated"),
-                             ("producer", "Other"), ("provenance", "")):
+                             ("producer", "Other"), ("provenance", ""),
+                             ("provenance", "   "), ("provenance", True)):
             with self.subTest(field=field):
                 self.status()
                 path = self.project / "candidate.json"

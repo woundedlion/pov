@@ -57,9 +57,10 @@ def load_object(path, what):
 
 def check_candidate(project):
     status = load_object(project / "candidate.json", "candidate status")
+    provenance = status.get("provenance")
     if (status.get("revision") != project.parent.name or status.get("status") != "unvalidated"
             or status.get("ordered") is not False or status.get("producer") != "Quilter"
-            or not status.get("provenance")):
+            or not isinstance(provenance, str) or not provenance.strip()):
         raise ValueError("candidate must declare revision, unvalidated status, Quilter provenance and ordered=false")
     if status.get("source_sha256") != sources(project):
         raise ValueError("candidate source hashes changed; update provenance and source_sha256")
