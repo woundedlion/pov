@@ -6,6 +6,7 @@
 
 #include "tests/shader_chain_fixture.h"
 #include "effects/AlienCore.h"
+#include <concepts>
 
 namespace hs_test::shader_chain_tests {
 
@@ -199,37 +200,46 @@ inline void test_shader_chain_edge_distance_admission() {
   static_assert(In::Detail::model_requires_edge_distance<UnrelatedModel>() ==
                 nullptr);
   []<typename... Models>(PB::Detail::TypeList<Models...>) {
+    unsigned checked = 0;
     (
         [&] {
-          typename Models::Params params;
-          const auto predicate =
-              In::Detail::model_requires_edge_distance<Models>();
-          HS_EXPECT_TRUE(predicate != nullptr);
-          if (!predicate)
-            return;
-          if constexpr (requires { params.envelope; }) {
-            params.envelope = 0;
-            HS_EXPECT_FALSE(predicate(&params));
-            params.envelope =
-                static_cast<uint8_t>(PB::Warp::Envelope::EDGE_FADE);
-            HS_EXPECT_TRUE(predicate(&params));
-          } else {
-            params.coverage_mode =
-                static_cast<uint8_t>(In::Op::ProjectionCoverageMode::WEIGHT);
-            HS_EXPECT_FALSE(predicate(&params));
-            params.coverage_mode =
-                static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE);
-            HS_EXPECT_TRUE(predicate(&params));
-            params.coverage_mode = static_cast<uint8_t>(
-                In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED);
-            HS_EXPECT_TRUE(predicate(&params));
+          using Params = typename Models::Params;
+          constexpr bool HAS_ENVELOPE = requires(Params p) {
+            requires std::same_as<decltype(p.envelope), uint8_t>;
+          };
+          constexpr bool HAS_COVERAGE_MODE = requires(Params p) {
+            requires std::same_as<decltype(p.coverage_mode), uint8_t>;
+          };
+          if constexpr (HAS_ENVELOPE || HAS_COVERAGE_MODE) {
+            ++checked;
+            Params params{};
+            const auto predicate =
+                In::Detail::model_requires_edge_distance<Models>();
+            HS_EXPECT_TRUE(predicate != nullptr);
+            if (!predicate)
+              return;
+            if constexpr (HAS_ENVELOPE) {
+              params.envelope = 0;
+              HS_EXPECT_FALSE(predicate(&params));
+              params.envelope =
+                  static_cast<uint8_t>(PB::Warp::Envelope::EDGE_FADE);
+              HS_EXPECT_TRUE(predicate(&params));
+            } else {
+              params.coverage_mode =
+                  static_cast<uint8_t>(In::Op::ProjectionCoverageMode::WEIGHT);
+              HS_EXPECT_FALSE(predicate(&params));
+              params.coverage_mode = static_cast<uint8_t>(
+                  In::Op::ProjectionCoverageMode::EDGE_FADE);
+              HS_EXPECT_TRUE(predicate(&params));
+              params.coverage_mode = static_cast<uint8_t>(
+                  In::Op::ProjectionCoverageMode::EDGE_FADE_SQUARED);
+              HS_EXPECT_TRUE(predicate(&params));
+            }
           }
         }(),
         ...);
-  }(PB::Detail::TypeList<
-      In::Op::WarpWaveShear, In::Op::WarpVectorNoise, In::Op::SampleGridV4,
-      In::Op::SampleTwinWaveV3, In::Op::SampleBands, In::Op::SampleSpiralV3,
-      In::Op::SampleTessellation, In::Op::SampleProjectedNoise>{});
+    HS_EXPECT_GE(checked, 9u);
+  }(In::OperatorModels{});
   reset_globals();
   ShaderChain<96, 20> effect;
   effect.init();

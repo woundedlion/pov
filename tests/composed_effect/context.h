@@ -167,6 +167,31 @@ struct AffineStageTracking<Pullback::Stage::Warp<Pullback::Warp::AffineFrame<
   static constexpr Pullback::AffineForm FORM = Form;  ///< Compiled parts.
 };
 
+/** @brief Pipeline leaves under the composed discovery binding.
+ * @tparam FX Composed-effect specialization. */
+template <typename FX>
+using DiscoveryLeaves = Pullback::ComposedDetail::PipelineLeaves<
+    typename FX::Spec::template Pipeline<
+        Pullback::ComposedDetail::DiscoveryBinding>>;
+
+/** @brief Visits the tracking traits of each compiled affine stage in order.
+ * @tparam FX Composed-effect specialization.
+ * @tparam Visit Callable templated on the tracking traits.
+ * @param visit Callable invoked for each affine stage. */
+template <typename FX, typename Visit>
+constexpr void for_each_affine_stage(Visit &&visit) {
+  using Leaves = DiscoveryLeaves<FX>;
+  [&]<size_t... I>(std::index_sequence<I...>) {
+    (
+        [&]<typename Stage>() {
+          using Tracking = AffineStageTracking<Stage>;
+          if constexpr (Tracking::AFFINE)
+            visit.template operator()<Tracking>();
+        }.template operator()<typename Leaves::template StageAt<I>>(),
+        ...);
+  }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+}
+
 /** @brief Whether @p FX's affine stage keyed @p Key reads field @p id.
  * @return True for any field of a key no affine stage carries.
  * @tparam Key Authored resource key.
@@ -175,46 +200,34 @@ struct AffineStageTracking<Pullback::Stage::Warp<Pullback::Warp::AffineFrame<
  */
 template <typename FX, Pullback::ResourceKey Key>
 constexpr bool affine_field_read(std::string_view id) {
-  using Leaves = Pullback::ComposedDetail::PipelineLeaves<
-      typename FX::Spec::template Pipeline<
-          Pullback::ComposedDetail::DiscoveryBinding>>;
   bool read = true;
-  [&]<size_t... I>(std::index_sequence<I...>) {
-    (
-        [&]<typename Stage>() {
-          using Tracking = AffineStageTracking<Stage>;
-          if constexpr (Tracking::AFFINE)
-            if (Tracking::KEY == Key.view()) {
-              using Source =
-                  typename FX::Params::template Family<Tracking::SOURCE_KEY>;
-              constexpr bool LATTICE = [] {
-                if constexpr (std::is_void_v<Source>)
-                  return false;
-                else
-                  return requires(const Source &source) {
-                    translation_lattice(source);
-                  };
-              }();
-              using Form = Pullback::AffineForm;
-              const auto has = [](Form part) {
-                return Pullback::Warp::includes(Tracking::FORM, part);
-              };
-              if (id == "speed")
-                read = Tracking::FORM != Form::IDENTITY;
-              else if (id == "rotation-rate")
-                read = has(Form::ROTATES);
-              else if (id == "translation-x" || id == "translation-y")
-                read = has(Form::TRANSLATES);
-              else if (id == "scale-x" || id == "scale-y" || id == "shear")
-                read = has(Form::SCALES_SHEARS);
-              else if (id == "repeat-cells")
-                read = has(Form::TRANSLATES) || (Tracking::TRACK && LATTICE);
-              else if (id == "lattice-period")
-                read = has(Form::TRANSLATES) && !LATTICE;
-            }
-        }.template operator()<typename Leaves::template StageAt<I>>(),
-        ...);
-  }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+  for_each_affine_stage<FX>([&]<typename Tracking>() {
+    if (Tracking::KEY != Key.view())
+      return;
+    using Source = typename FX::Params::template Family<Tracking::SOURCE_KEY>;
+    constexpr bool LATTICE = [] {
+      if constexpr (std::is_void_v<Source>)
+        return false;
+      else
+        return requires(const Source &source) { translation_lattice(source); };
+    }();
+    using Form = Pullback::AffineForm;
+    const auto has = [](Form part) {
+      return Pullback::Warp::includes(Tracking::FORM, part);
+    };
+    if (id == "speed")
+      read = Tracking::FORM != Form::IDENTITY;
+    else if (id == "rotation-rate")
+      read = has(Form::ROTATES);
+    else if (id == "translation-x" || id == "translation-y")
+      read = has(Form::TRANSLATES);
+    else if (id == "scale-x" || id == "scale-y" || id == "shear")
+      read = has(Form::SCALES_SHEARS);
+    else if (id == "repeat-cells")
+      read = has(Form::TRANSLATES) || (Tracking::TRACK && LATTICE);
+    else if (id == "lattice-period")
+      read = has(Form::TRANSLATES) && !LATTICE;
+  });
   return read;
 }
 

@@ -534,41 +534,18 @@ inline void test_column_shader_inputs_reload_per_column() {
   }
 }
 
-/** @brief SDF::Star bounded only by its swept() proxy. */
-struct SweptOnlyStar : SDF::Star {
-  /**
-   * @brief Wraps a star.
-   * @param star Star whose basis outlives the wrapper.
-   */
-  explicit SweptOnlyStar(const SDF::Star &star) : SDF::Star(star) {}
-  /**
-   * @brief The star's swept proxy, kept in the wrapper type.
-   * @param arc Sweep arc (radians).
-   * @return Wrapped swept proxy.
-   */
-  SweptOnlyStar swept(float arc) const {
-    return SweptOnlyStar(SDF::Star::swept(arc));
-  }
-  /** @brief Hides SDF::Star::moved, so scans fall back to swept(). */
-  void moved() const = delete;
-};
+/** @brief Shape bounded by its swept proxy.
+ * @tparam Shape Shape providing a swept proxy. */
+template <typename Shape> struct SweptOnly : Shape {
+  /** @brief Wraps a shape.
+   * @param shape Shape to wrap. */
+  explicit SweptOnly(const Shape &shape) : Shape(shape) {}
 
-/** @brief SDF::Ring bounded only by its swept() proxy. */
-struct SweptOnlyRing : SDF::Ring {
-  /**
-   * @brief Wraps a ring.
-   * @param ring Ring to wrap.
-   */
-  explicit SweptOnlyRing(const SDF::Ring &ring) : SDF::Ring(ring) {}
-  /**
-   * @brief The ring's swept proxy, kept in the wrapper type.
-   * @param arc Sweep arc (radians).
-   * @return Wrapped swept proxy.
-   */
-  SweptOnlyRing swept(float arc) const {
-    return SweptOnlyRing(SDF::Ring::swept(arc));
-  }
-  /** @brief Hides SDF::Ring::moved, so scans fall back to swept(). */
+  /** @brief Wraps the shape's swept proxy.
+   * @param arc Sweep arc in radians.
+   * @return Swept proxy with the same shape interface. */
+  SweptOnly swept(float arc) const { return SweptOnly(Shape::swept(arc)); }
+
   void moved() const = delete;
 };
 
@@ -604,9 +581,9 @@ inline void draw_lit_cap_shapes(Pipeline<W, H> &pipeline, Canvas &canvas,
       Scan::rasterize<W, H, false>(pipeline, canvas, star, basis_flat_shader);
       Scan::rasterize<W, H, false>(pipeline, canvas, disc, basis_flat_shader);
     } else {
-      Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyStar(star),
+      Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnly(star),
                                    basis_flat_shader);
-      Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyRing(disc),
+      Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnly(disc),
                                    basis_flat_shader);
     }
   }

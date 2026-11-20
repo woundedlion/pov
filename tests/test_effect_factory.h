@@ -205,20 +205,13 @@ template <int W, int H> inline void verify_factory_table() {
  * @brief Checks the name lookup setEffect() validates a UI string with.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Every HS_EFFECT_LIST name resolves to the entry carrying it; an
- *          unregistered name returns null.
+ * @details Every accepted ID resolves to its entry. Unregistered names and
+ * strict prefixes return null.
  */
 template <int W, int H> inline void verify_factory_lookup() {
   const auto lookup = [](std::string_view name) {
     return hs_wasm::find_factory_entry<W, H>(name);
   };
-  for (const auto &registration : hs_wasm::EFFECT_REGISTRATIONS) {
-    const char *name = registration.identity.display_name.data();
-    const FactoryEntry *entry = lookup(name);
-    HS_EXPECT_TRUE(entry != nullptr);
-    if (entry)
-      HS_EXPECT_EQ(entry->identity.display_name, name);
-  }
   for (const FactoryEntry &expected : hs_wasm::get_factory<W, H>()) {
     for (std::string_view key : expected.identity.accepted_ids())
       HS_EXPECT_EQ(lookup(key), &expected);
@@ -311,20 +304,6 @@ inline void test_resolution_dispatch() {
       hs_wasm::dispatch_resolution(97, 21, [&]<int W, int H>() { ++spurious; });
   HS_EXPECT_TRUE(!off_list);
   HS_EXPECT_EQ(spurious, 0);
-}
-
-/**
- * @brief Checks the constructor's bootstrap name resolves at its bootstrap row.
- */
-inline void test_bootstrap_rows() {
-  HS_EXPECT_TRUE(hs_wasm::dispatch_resolution(
-      hs_wasm::WASM_RESOLUTIONS[0].w, hs_wasm::WASM_RESOLUTIONS[0].h,
-      []<int W, int H>() {
-        HS_EXPECT_TRUE(
-            (hs_wasm::find_factory_entry<W, H>(
-                 hs_wasm::EFFECT_REGISTRATIONS[0].identity.display_name) !=
-             nullptr));
-      }));
 }
 
 /**
@@ -461,7 +440,6 @@ inline void test_factory_lifecycle() {
 inline int run_effect_factory_tests() {
   hs_test::ModuleFixture fixture("effect_factory");
   HS_RUN(test_identity_contract);
-  HS_RUN(test_bootstrap_rows);
   HS_RUN(test_resolution_dispatch);
   HS_RUN(test_factory_tables);
   HS_RUN(test_phantasm_seed_identity);

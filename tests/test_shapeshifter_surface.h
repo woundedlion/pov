@@ -127,6 +127,8 @@ inline std::vector<float> surface_kernel_motion(const SurfaceMotionCase &pose,
         ShapeShifterWhiteBox::surface_kernel(effect, canvas, timed, nullptr,
                                              displacement);
       }
+      effect.advance_display();
+      out = capture_mean_channel<ORACLE_W, ORACLE_H>(effect);
     } else {
       const int column = Spacetime::surface_column(fraction, ORACLE_W);
       out.resize(ORACLE_W * ORACLE_H);
@@ -143,10 +145,6 @@ inline std::vector<float> surface_kernel_motion(const SurfaceMotionCase &pose,
           out[y * ORACLE_W + x] = (float(p.r) + p.g + p.b) / (3 * 65535);
         }
       }
-    }
-    if (timed || fraction == 1) {
-      effect.advance_display();
-      out = capture_mean_channel<ORACLE_W, ORACLE_H>(effect);
     }
   }
   Timeline().clear();

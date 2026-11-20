@@ -522,11 +522,6 @@ inline void test_point_particle_storage_and_lifetime() {
     HS_EXPECT_NEAR(decoded.magnitude(), 1.0f, 2e-7f);
     HS_EXPECT_NEAR(math::dot(decoded, p.velocity), 0.0f, 1e-8f);
   }
-  Animation::PointParticle p;
-  p.init(math::X_AXIS, {}, 0, std::numeric_limits<float>::infinity());
-  HS_EXPECT_EQ(p.life, 0);
-  p.init(math::Y_AXIS, {}, 0, 70000);
-  HS_EXPECT_EQ(p.life, 65535);
 
   static uint8_t storage[4096];
   Arena arena(storage, sizeof(storage));

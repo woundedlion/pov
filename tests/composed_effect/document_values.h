@@ -780,9 +780,7 @@ inline bool check_project_text(std::string_view field_id,
 template <typename FX>
 inline bool check_lens_text(std::string_view field_id, std::string_view text) {
   if (field_id == "symmetry") {
-    using Leaves = Pullback::ComposedDetail::PipelineLeaves<
-        typename FX::Spec::template Pipeline<
-            Pullback::ComposedDetail::DiscoveryBinding>>;
+    using Leaves = DiscoveryLeaves<FX>;
     const bool found = [&]<size_t... I>(std::index_sequence<I...>) {
       return (
           ([]<typename Stage>(std::string_view symmetry) {
@@ -811,22 +809,12 @@ template <typename FX>
 inline bool check_warp_text(const DocumentSlot &slot, std::string_view field_id,
                             std::string_view text) {
   if (field_id == "path-length") {
-    using Leaves = Pullback::ComposedDetail::PipelineLeaves<
-        typename FX::Spec::template Pipeline<
-            Pullback::ComposedDetail::DiscoveryBinding>>;
     const std::string_view key = document_resource_key(slot);
-    const int tracked = [&]<size_t... I>(std::index_sequence<I...>) {
-      int found = -1;
-      (
-          [&]<typename Stage>() {
-            using Tracking = AffineStageTracking<Stage>;
-            if constexpr (Tracking::AFFINE)
-              if (Tracking::KEY == key)
-                found = Tracking::TRACK ? 1 : 0;
-          }.template operator()<typename Leaves::template StageAt<I>>(),
-          ...);
-      return found;
-    }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+    int tracked = -1;
+    for_each_affine_stage<FX>([&]<typename Tracking>() {
+      if (Tracking::KEY == key)
+        tracked = Tracking::TRACK ? 1 : 0;
+    });
     HS_EXPECT(tracked >= 0, "path-length names a compiled affine stage");
     HS_EXPECT(text == (tracked == 1 ? "on" : "off"),
               "path-length matches the compiled affine TrackPath");
@@ -1203,29 +1191,19 @@ inline void check_document_values(const char *name) {
     verify_params_equal(built, expected);
   }
 
-  using Leaves = Pullback::ComposedDetail::PipelineLeaves<
-      typename FX::Spec::template Pipeline<
-          Pullback::ComposedDetail::DiscoveryBinding>>;
   size_t compiled_affine = 0;
-  [&]<size_t... I>(std::index_sequence<I...>) {
-    (
-        [&]<typename Stage>() {
-          using Tracking = AffineStageTracking<Stage>;
-          if constexpr (Tracking::AFFINE) {
-            ++compiled_affine;
-            HS_CONTEXT(Tracking::KEY.data());
-            const auto document = std::find_if(
-                affine_forms.begin(), affine_forms.end(),
-                [](const auto &entry) { return entry.first == Tracking::KEY; });
-            HS_EXPECT(document != affine_forms.end(),
-                      "compiled affine stage has a document instance");
-            if (document != affine_forms.end())
-              HS_EXPECT(document->second == Tracking::FORM,
-                        "compiled affine form is the document's minimal form");
-          }
-        }.template operator()<typename Leaves::template StageAt<I>>(),
-        ...);
-  }(std::make_index_sequence<Leaves::STAGE_COUNT>{});
+  for_each_affine_stage<FX>([&]<typename Tracking>() {
+    ++compiled_affine;
+    HS_CONTEXT(Tracking::KEY.data());
+    const auto document = std::find_if(
+        affine_forms.begin(), affine_forms.end(),
+        [](const auto &entry) { return entry.first == Tracking::KEY; });
+    HS_EXPECT(document != affine_forms.end(),
+              "compiled affine stage has a document instance");
+    if (document != affine_forms.end())
+      HS_EXPECT(document->second == Tracking::FORM,
+                "compiled affine form is the document's minimal form");
+  });
   HS_EXPECT_EQ(compiled_affine, affine_forms.size());
 }
 

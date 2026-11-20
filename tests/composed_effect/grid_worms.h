@@ -14,8 +14,7 @@ namespace hs_test::composed_effect_tests {
 /** @brief Twist clocks advance independently of preset pause and sample across wraps. */
 inline void test_grid_worms_twist_clocks() {
   using FX = GridWorms<SMALL_W, SMALL_H>;
-  using Leaves = Pullback::ComposedDetail::PipelineLeaves<
-      GridWormsSpec::Pipeline<Pullback::ComposedDetail::DiscoveryBinding>>;
+  using Leaves = DiscoveryLeaves<FX>;
   using Discovery = Pullback::ComposedDetail::DiscoveryBinding;
   static_assert(
       std::is_same_v<typename Leaves::template StageAt<0>,

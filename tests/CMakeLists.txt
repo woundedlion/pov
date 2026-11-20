@@ -592,7 +592,8 @@ foreach(_hs_test IN LISTS _hs_registered_tests)
 endforeach()
 
 # Link startup into every native executable, including helper tools.
-foreach(_hs_target IN LISTS _hs_dir_targets)
+get_property(_hs_exe_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(_hs_target IN LISTS _hs_exe_targets)
   get_target_property(_hs_target_type ${_hs_target} TYPE)
   if(_hs_target_type STREQUAL "EXECUTABLE")
     target_link_libraries(${_hs_target} PRIVATE hs_test_process)

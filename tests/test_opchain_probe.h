@@ -175,8 +175,9 @@ inline void test_chamfer_zero_area_birth_limit() {
                   static_cast<double>(born_area / t),
                   static_cast<double>(max_centroid_shift),
                   static_cast<double>(max_vertex_shift));
-      // Births vanish linearly in t; the preserved faces follow.
       HS_EXPECT_GT(born_area, prev_area);
+      if (t == T[1])
+        HS_EXPECT_GT(born_area, 5.0f * prev_area);
       if (limit_slope == 0.0f)
         limit_slope = born_area / t;
       else

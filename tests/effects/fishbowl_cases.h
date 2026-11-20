@@ -270,10 +270,7 @@ inline void test_fishbowl_palette_phase_compensates_fill() {
 
 /** @brief Adaptive midpoint detection accepts the spherical midpoint. */
 inline void test_fishbowl_adaptive_midpoint() {
-  reset_globals();
   using WB = FishbowlWhiteBox;
-  WB::EffectType fx;
-  fx.init();
 
   const math::Vector A = math::X_AXIS;
   const math::Vector B = math::Y_AXIS;
