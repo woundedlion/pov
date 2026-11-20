@@ -340,9 +340,18 @@ class ProfileOneCache(FirmwareCacheFixture):
         self.assertEqual((self.cache / self.entries()[0] / "firmware.elf").read_bytes(),
                          after)
 
-    def profile(self, *options, window="16"):
+    def test_zero_capture_ends_before_bench_or_build_setup(self):
+        for duration in ("0", "000"):
+            with self.subTest(duration=duration):
+                result = self.profile(seconds=duration)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("capture duration must be positive", result.stderr)
+                self.assertFalse((self.repo / "build/prof").exists())
+                self.assertFalse(self.calls.exists())
+
+    def profile(self, *options, seconds="20", window="16"):
         return subprocess.run(
-            ["bash", PROFILE_ONE.as_posix(), *options, "fx", "profile", "20", window],
+            ["bash", PROFILE_ONE.as_posix(), *options, "fx", "profile", seconds, window],
             cwd=self.repo, env=dict(self.env, HS_PROFILE_TREE=self.repo.as_posix()),
             capture_output=True, text=True, encoding="utf-8")
 

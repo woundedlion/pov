@@ -94,6 +94,10 @@ for n in "$SECONDS_ARG" "$WINDOW"; do
       exit 1;;
   esac
 done
+if [[ "$SECONDS_ARG" != *[1-9]* ]]; then
+  echo "capture duration must be positive" >&2
+  exit 1
+fi
 EXTRA="$*"
 # Seconds the PC dump leaves between itself and the end of the capture.
 PC_DUMP_MARGIN_S=8
