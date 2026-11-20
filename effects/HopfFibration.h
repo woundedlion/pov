@@ -138,9 +138,6 @@ private:
                 "HopfFibration trail staging exceeds the default scratch_a "
                 "budget; retune TRAIL_LEN or carve a larger scratch arena");
 
-  // Keeps the projection denominator (1 + eps) - q3 positive at q3 == 1.
-  static constexpr float STEREO_POLE_EPSILON = 0.001f;
-
   // Phases accumulate as wrapped fractions of their period ("turns") and scale
   // back to radians at use. tumble_angle_x also feeds the half-angle fold_base
   // term, so it wraps over 4pi to keep both terms continuous.
@@ -256,9 +253,8 @@ private:
   /**
    * @brief Projects a base fiber to an un-oriented direction.
    * @param i Fiber index in [0, ACTUAL_FIBERS).
-   * @return Direction before render_trails orientation, after folding, twist, S3 lift, tumble, and
-   * stereographic projection; falls back to (1, 0, 0) at a degenerate pole.
-   * @details Pipeline: folding -> twist -> S3 -> tumble -> stereographic R3.
+   * @return Unit stereographic direction of the tumbled S3 point, with
+   * (1, 0, 0) as the fallback at a degenerate pole.
    */
   math::Vector hopf_project(size_t i) const {
     const math::Spherical &sph = fibers[i];
@@ -277,25 +273,14 @@ private:
     // S3 point
     float beta = flow_rad + static_cast<float>(i) * PHASE_STEP;
     float cos_eta = math::fast_cosf(eta), sin_eta = math::fast_sinf(eta);
-    float q0 = cos_eta * math::fast_cosf(azimuth + beta);
-    float q1 = cos_eta * math::fast_sinf(azimuth + beta);
-    float q2 = sin_eta * math::fast_cosf(beta);
-    float q3 = sin_eta * math::fast_sinf(beta);
+    const float q0 = cos_eta * math::fast_cosf(azimuth + beta);
+    const float q1 = cos_eta * math::fast_sinf(azimuth + beta);
+    const float q2 = sin_eta * math::fast_cosf(beta);
+    const float q3 = sin_eta * math::fast_sinf(beta);
 
-    // Tumble (R_xw, R_yz)
-    float q0_r = q0 * cx - q3 * sx;
-    q3 = q0 * sx + q3 * cx;
-    q0 = q0_r;
-    float q1_r = q1 * cy - q2 * sy;
-    q2 = q1 * sy + q2 * cy;
-    q1 = q1_r;
-
-    // Stereographic S3 -> R3; at a fiber pole the direction is undefined, so
-    // fall back to a stable axis.
-    float factor = 1.0f / ((1.0f + STEREO_POLE_EPSILON) - q3);
-    return math::normalized_or(
-        math::Vector(q0 * factor, q1 * factor, q2 * factor),
-        math::Vector(1, 0, 0));
+    const math::Vector projected(q0 * cx - q3 * sx, q1 * cy - q2 * sy,
+                                 q1 * sy + q2 * cy);
+    return math::normalized_or(projected, math::Vector(1, 0, 0));
   }
 
   /**

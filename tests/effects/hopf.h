@@ -158,21 +158,18 @@ inline void test_hopf_projection_math() {
       const double q2 = std::sin(eta) * std::cos(beta);
       const double q3 = std::sin(eta) * std::sin(beta);
       const double r0 = q0 * std::cos(AX) - q3 * std::sin(AX);
-      const double r3 = q0 * std::sin(AX) + q3 * std::cos(AX);
       const double r1 = q1 * std::cos(AY) - q2 * std::sin(AY);
       const double r2 = q1 * std::sin(AY) + q2 * std::cos(AY);
-      const double factor = 1.0 / (1.0 + 0.001 - r3);
-      const double x = r0 * factor, y = r1 * factor, z = r2 * factor;
-      const double len = std::sqrt(x * x + y * y + z * z);
+      const double len = std::sqrt(r0 * r0 + r1 * r1 + r2 * r2);
       // Near the S3 pole the direction is ill-conditioned in q.
-      if (std::sqrt(r0 * r0 + r1 * r1 + r2 * r2) < 0.5)
+      if (len < 0.5)
         continue;
       ++checked;
       // Tolerance absorbs the fast_sinf/fast_cosf approximation.
       HS_EXPECT_VEC(p,
-                    math::Vector(static_cast<float>(x / len),
-                                 static_cast<float>(y / len),
-                                 static_cast<float>(z / len)),
+                    math::Vector(static_cast<float>(r0 / len),
+                                 static_cast<float>(r1 / len),
+                                 static_cast<float>(r2 / len)),
                     5e-3f);
     }
     HS_EXPECT_GT(checked, static_cast<int>(WB::fiber_count() / 2));
