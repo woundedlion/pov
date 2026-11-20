@@ -97,14 +97,26 @@ inline float edge_chord_squared(const SphereTilingEdge &edge,
 
 inline float edge_position(const SphereTilingEdge &edge,
                            const math::Vector &direction,
-                           std::span<const math::Vector> vertices) {
+                           std::span<const math::Vector> vertices,
+                           bool narrow = false, bool interior = false) {
   if (edge.inv_length == 0.0f)
     return 0.0f;
   const float from_start = math::dot(edge.from_a, direction);
   const float start_dot = math::dot(vertices[edge.a], direction);
-  if (from_start > 0.0f && math::dot(edge.from_b, direction) > 0.0f)
-    return hs::clamp(atan2f(from_start, start_dot) * edge.inv_length, 0.0f,
-                     1.0f);
+  if (from_start > 0.0f &&
+      (interior || math::dot(edge.from_b, direction) > 0.0f)) {
+    float angle;
+    if (narrow && from_start <= 0.25f * start_dot) {
+      const float t = from_start / start_dot;
+      const float t2 = t * t;
+      // The first omitted atan term is at most 0.25^11 / 11 radians.
+      angle = t * (1.0f +
+                   t2 * (-1.0f / 3.0f +
+                         t2 * (1.0f / 5.0f + t2 * (-1.0f / 7.0f + t2 / 9.0f))));
+    } else
+      angle = atan2f(from_start, start_dot);
+    return hs::clamp(angle * edge.inv_length, 0.0f, 1.0f);
+  }
   return start_dot >= math::dot(vertices[edge.b], direction) ? 0.0f : 1.0f;
 }
 
@@ -180,6 +192,7 @@ struct SphereTilingEdgeView {
     float best = band.sine_squared;
     float plane_limit = best * 1.00001f + 1.0e-9f;
     const SphereTilingEdge *selected = nullptr;
+    bool selected_interior = false;
     const uint16_t flag = use_narrow ? SphereTilingNarrowIndex::INTERIOR : 0;
     for (uint16_t candidate : candidates) {
       const auto &edge = edges[candidate & ~flag];
@@ -188,7 +201,8 @@ struct SphereTilingEdgeView {
       if (plane > plane_limit)
         continue;
       float distance = plane;
-      if (!(candidate & flag) && !projects_to_arc(edge, unit_direction)) {
+      const bool interior = (candidate & flag) != 0;
+      if (!interior && !projects_to_arc(edge, unit_direction)) {
         const float chord = std::min(
             2.0f, endpoint_chord_squared(edge, unit_direction, vertices));
         distance = chord * (1.0f - 0.25f * chord);
@@ -197,12 +211,16 @@ struct SphereTilingEdgeView {
         best = distance;
         plane_limit = best * 1.00001f + 1.0e-9f;
         selected = &edge;
+        selected_interior = interior;
       }
     }
     if (!selected)
       return {};
-    const float distance = std::min(band.outer, asinf(sqrtf(best)));
-    return {edge_position(*selected, unit_direction, vertices),
+    const float sine = sqrtf(best);
+    const float angle = use_narrow ? sine * (1.0f + best / 6.0f) : asinf(sine);
+    const float distance = std::min(band.outer, angle);
+    return {edge_position(*selected, unit_direction, vertices, use_narrow,
+                          selected_interior),
             1.0f - math::smooth_ramp(band.half_width, band.outer, distance)};
   }
 };
