@@ -37,9 +37,11 @@ declarations before validation:
 - Three-value Tiling `*.output` domains. The compiler remaps `borders` to `edges`
   and both `face-type` and `tile-value` to `faces` in defaults and preset selections.
 
-A `sample.tessellation.v3` entry may carry the optional boolean
-`source_morph`. It contributes to the descriptor digest and enables preset
-edges to blend the endpoint source fields. Other operators ignore the flag.
+The optional boolean `source_morph` contributes to the descriptor digest
+and enables preset edges to blend the endpoint source fields. The interpreter
+supports it on operators with a source-sampling callback, including
+`sample.tessellation.v3`, and on `sample.spherical-tiling.v1`. Filigree
+enables it on its spherical-tiling entry.
 
 The descriptor is a semantic identity over the chain, not a complete
 reproduction of the effect. It describes `chain`, `parameters`,
@@ -63,8 +65,8 @@ scripts/generate_promoted_shader_documents.mjs` rewrites `alien_ocean`,
 `alien_brain` and `kaleidoscope_stained_glass` from the effect specs the script holds, so a
 hand edit to those files is lost on the next run — change the spec instead. The specs use current chain IDs and named parameter values.
 
-Fifteen documents are authored directly in this directory: `ash_cloud`,
-`chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
+Sixteen documents are authored directly in this directory: `ash_cloud`,
+`chromatic_lichen`, `mermaid_skin`, `example`, `filigree`, `kaleidoscope_hex_oil`,
 `kaleidoscope_smooth`, `kaleidoscope_melt`, `jewel_melt`, `millefiori`, `grid_worms`,
 `grid_warp`, `involution`, `iridescence`, `liquid_windows` and `river_stones`.
 Edit these version 2 documents here.
@@ -138,6 +140,7 @@ Every document except `example.shader.json` backs a
 | --- | --- |
 | `alien_ocean` | `AlienOcean` |
 | `grid_space` | `GridSpace` |
+| `filigree` | `Filigree` |
 | `grid_warp` | `GridWarp` |
 | `involution` | `Involution` |
 | `iridescence` | `Iridescence` |

@@ -15,7 +15,6 @@
 #include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
 
-// Unit-test accessor for Ring::radius_at's age+1 endpoint convention.
 namespace hs_test {
 namespace effects_tests {
 struct RingShowerWhiteBox;
@@ -100,7 +99,6 @@ public:
   }
 
 private:
-  // Test seam: reaches the private Ring type and its radius_at endpoint.
   friend struct ::hs_test::effects_tests::RingShowerWhiteBox;
 
   /**

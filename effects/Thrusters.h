@@ -15,7 +15,6 @@
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
-// Unit-test accessor for warp_decay endpoints and on_fire_thruster().
 namespace hs_test {
 namespace effects_tests {
 struct ThrustersWhiteBox;
@@ -182,7 +181,6 @@ private:
   StaticCircularBuffer<ThrusterContext, 16>
       thrusters; /**< Live thruster ring slots (FIFO). */
 
-  // Test seam: reaches warp_decay and the fire path.
   friend struct ::hs_test::effects_tests::ThrustersWhiteBox;
 
   /**

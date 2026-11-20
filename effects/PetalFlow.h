@@ -16,7 +16,6 @@
 #include <cmath>
 #include "core/engine/engine.h"
 
-// Unit-test accessor for the spawn-gap accumulator and hue-cursor wrap invariants.
 namespace hs_test {
 namespace effects_tests {
 struct PetalFlowWhiteBox;
@@ -88,7 +87,6 @@ public:
   }
 
 private:
-  // Test seam: reaches the spawn-gap accumulator and hue-cursor wrap invariants.
   friend struct ::hs_test::effects_tests::PetalFlowWhiteBox;
 
   static constexpr int MAX_RINGS =
