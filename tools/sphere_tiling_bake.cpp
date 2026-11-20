@@ -69,7 +69,8 @@ void emit_narrow(FILE *output, const char *symbol,
     std::exit(1);
   }
   const float limit_sine = sinf(SphereTilingNarrowIndex::OUTER + PAD);
-  std::vector<uint16_t> offsets{0};
+  std::vector<uint16_t> cells;
+  cells.reserve(6 * STEPS * STEPS);
   std::vector<uint16_t> candidates;
   for (int face = 0; face < 6; ++face) {
     for (int y = 0; y < STEPS; ++y) {
@@ -89,6 +90,7 @@ void emit_narrow(FILE *output, const char *symbol,
               std::max(radius_chord, math::distance_squared(center, corner));
         const float limit_chord = chord_squared(
             chord_angle(radius_chord) + SphereTilingNarrowIndex::OUTER + PAD);
+        const size_t begin = candidates.size();
         for (size_t id = 0; id < view.edges.size(); ++id) {
           const auto &edge = view.edges[id];
           if (edge_chord_squared(edge, center, view.vertices) > limit_chord)
@@ -106,18 +108,27 @@ void emit_narrow(FILE *output, const char *symbol,
           candidates.push_back(static_cast<uint16_t>(
               id | (interior ? SphereTilingNarrowIndex::INTERIOR : 0)));
         }
-        if (candidates.size() > UINT16_MAX) {
-          std::fputs("narrow candidate offsets overflow\n", stderr);
-          std::exit(1);
+        const size_t count = candidates.size() - begin;
+        if (count == 0)
+          cells.push_back(0);
+        else if (count == 1) {
+          cells.push_back(candidates.back() | SphereTilingNarrowIndex::LAST);
+          candidates.pop_back();
+        } else {
+          if (begin + 1 >= SphereTilingNarrowIndex::LAST) {
+            std::fputs("narrow candidate offsets overflow\n", stderr);
+            std::exit(1);
+          }
+          cells.push_back(static_cast<uint16_t>(begin + 1));
+          candidates.back() |= SphereTilingNarrowIndex::LAST;
         }
-        offsets.push_back(static_cast<uint16_t>(candidates.size()));
       }
     }
   }
-  std::fprintf(stderr, "  narrow: %zu cells, %zu candidates\n",
-               offsets.size() - 1, candidates.size());
-  integer_table(output, std::span<const uint16_t>(offsets), "uint16_t", symbol,
-                "NARROW_OFFSETS");
+  std::fprintf(stderr, "  narrow: %zu cells, %zu multi-edge candidates\n",
+               cells.size(), candidates.size());
+  integer_table(output, std::span<const uint16_t>(cells), "uint16_t", symbol,
+                "NARROW_CELLS");
   integer_table(output, std::span<const uint16_t>(candidates), "uint16_t",
                 symbol, "NARROW_CANDIDATES");
 }
@@ -221,7 +232,7 @@ inline SphereTilingEdgeView baked_sphere_tiling_edges(unsigned solid) {
       std::fprintf(output, "            %s_OFFSETS,\n", name);
       std::fprintf(output, "            %s_CANDIDATES,\n", name);
       std::fprintf(output, "            %s_STEPS,\n", name);
-      std::fprintf(output, "            {%s_NARROW_OFFSETS,\n", name);
+      std::fprintf(output, "            {%s_NARROW_CELLS,\n", name);
       std::fprintf(output, "             %s_NARROW_CANDIDATES}};\n", name);
     } else {
       std::fprintf(output, "    return {%s_VERTICES, %s_EDGES,\n", name, name);

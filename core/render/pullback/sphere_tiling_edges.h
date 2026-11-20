@@ -138,10 +138,10 @@ struct SphereTilingNarrowIndex {
   static constexpr float OUTER =
       1.5f * (math::PI_F / 180.0f); ///< Outer angle limit.
   static constexpr uint16_t INTERIOR =
-      0x8000;                        ///< Arc contains every projected foot.
-  std::span<const uint16_t> offsets; ///< Cell offsets into the candidate list.
-  std::span<const uint16_t>
-      candidates; ///< Edge IDs with optional interior flags.
+      0x4000; ///< Arc contains every projected foot.
+  static constexpr uint16_t LAST = 0x8000; ///< Last candidate in the cell.
+  std::span<const uint16_t> cells; ///< Empty, single candidate, or list index.
+  std::span<const uint16_t> candidates; ///< Multi-edge lists with flagged IDs.
 };
 
 /// Non-owning cubemap index over projected mesh edges.
@@ -176,12 +176,17 @@ struct SphereTilingEdgeView {
       return {};
     std::span<const uint16_t> candidates;
     const bool use_narrow =
-        !narrow.offsets.empty() && band.outer <= SphereTilingNarrowIndex::OUTER;
+        !narrow.cells.empty() && band.outer <= SphereTilingNarrowIndex::OUTER;
+    uint16_t direct = 0;
     if (use_narrow) {
       const int cell = cell_at(projection, SphereTilingNarrowIndex::STEPS);
-      const size_t begin = narrow.offsets[cell];
-      candidates =
-          narrow.candidates.subspan(begin, narrow.offsets[cell + 1] - begin);
+      direct = narrow.cells[cell];
+      if (direct == 0)
+        return {};
+      if (direct & SphereTilingNarrowIndex::LAST)
+        candidates = std::span<const uint16_t>(&direct, 1);
+      else
+        candidates = narrow.candidates.subspan(direct - 1);
     } else {
       const int cell = cell_at(projection, steps);
       const size_t begin = offsets[cell];
@@ -193,26 +198,31 @@ struct SphereTilingEdgeView {
     float plane_limit = best * 1.00001f + 1.0e-9f;
     const SphereTilingEdge *selected = nullptr;
     bool selected_interior = false;
-    const uint16_t flag = use_narrow ? SphereTilingNarrowIndex::INTERIOR : 0;
+    const uint16_t interior_flag =
+        use_narrow ? SphereTilingNarrowIndex::INTERIOR : 0;
+    const uint16_t last_flag = use_narrow ? SphereTilingNarrowIndex::LAST : 0;
+    const uint16_t index_mask = ~(interior_flag | last_flag);
     for (uint16_t candidate : candidates) {
-      const auto &edge = edges[candidate & ~flag];
+      const auto &edge = edges[candidate & index_mask];
       const float sine = math::dot(edge.normal, unit_direction);
       const float plane = sine * sine;
-      if (plane > plane_limit)
-        continue;
-      float distance = plane;
-      const bool interior = (candidate & flag) != 0;
-      if (!interior && !projects_to_arc(edge, unit_direction)) {
-        const float chord = std::min(
-            2.0f, endpoint_chord_squared(edge, unit_direction, vertices));
-        distance = chord * (1.0f - 0.25f * chord);
+      if (plane <= plane_limit) {
+        float distance = plane;
+        const bool interior = (candidate & interior_flag) != 0;
+        if (!interior && !projects_to_arc(edge, unit_direction)) {
+          const float chord = std::min(
+              2.0f, endpoint_chord_squared(edge, unit_direction, vertices));
+          distance = chord * (1.0f - 0.25f * chord);
+        }
+        if (distance < best) {
+          best = distance;
+          plane_limit = best * 1.00001f + 1.0e-9f;
+          selected = &edge;
+          selected_interior = interior;
+        }
       }
-      if (distance < best) {
-        best = distance;
-        plane_limit = best * 1.00001f + 1.0e-9f;
-        selected = &edge;
-        selected_interior = interior;
-      }
+      if (candidate & last_flag)
+        break;
     }
     if (!selected)
       return {};
