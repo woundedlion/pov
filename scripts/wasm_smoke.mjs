@@ -208,6 +208,9 @@ async function main(probe) {
         for (const effect of temporalEffects) {
           if (probe.setEffect(effect) !== isolated.EffectSetResult.INSTALLED)
             fail(`temporal sampling: could not install ${effect}`);
+          if ((effect === 'JadeFiligree' || effect === 'EmberTracery') &&
+              !probe.selectPreset(1))
+            fail(`temporal sampling: could not select the animated preset for ${effect}`);
           for (let frame = 0; frame < 8; frame++) probe.drawFrame();
           pixels.set(effect, probe.getPixels().slice());
         }
