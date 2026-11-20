@@ -1139,6 +1139,9 @@ inline void check_temporal_roster_pixels(const char *name) {
   constexpr int TOLERANCE = 2;
   FX effect;
   effect.init();
+  if constexpr (FX::EFFECT_ID == "jade-filigree" ||
+                FX::EFFECT_ID == "ember-tracery")
+    HS_EXPECT_TRUE(effect.selectPreset(1));
   ComposedHistory<FX> history;
   const auto expect_pixel = [](const Pixel &actual, const Color4 &expected) {
     const Pixel pixel = expected.color * expected.alpha;

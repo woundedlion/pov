@@ -268,6 +268,8 @@ constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"LiquidWindows", 2, 296, 8838112055952055764ULL},
     {"Iridescence", 2, 516, 4473797754982781858ULL},
     {"RiverStones", 3, 672, 1116303410911910063ULL},
+    {"JadeFiligree", 1, 140, 14125693373020662135ULL},
+    {"EmberTracery", 1, 452, 1258197008669968986ULL},
     {"KaleidoscopeMelt", 4, 240, 12469853473749147524ULL},
     {"ChromaticLichen", 5, 240, 2714246693381544909ULL},
     {"MermaidSkin", 5, 240, 2714246693381544909ULL},
