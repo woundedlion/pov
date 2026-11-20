@@ -7,7 +7,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Captured |
 |---|---|--:|--:|--:|---|---|
-| [EmberTracery](profile_embertracery_teensy_2026-11-19.md) § ● | `fx_shader_draw`<br>worst: Ember Lattice, 82.277 ms / 8 fps budget tier | 🔴 82.277 (1)<br>🟢 54.891 (2) | 46.864 | 🔴 485/981 (49.44%)<br>🟢 0/1677 (0.00%) | COM4 | 2026-11-19 19:59 |
+| [EmberTracery](profile_embertracery_teensy_2026-11-19.md) ? | `fx_shader_draw` | 🟢 60.930 | 115.671 | 🟢 0/599 (0.00%) | COM4 | 2026-11-19 20:07 |
 | [RiverStones](profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | 🟢 0/1667 (0.00%) | COM3 | 2026-11-18 23:32 |
 | [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 0/4895 (0.00%) | COM3 | 2026-11-17 09:09 |
 | [GridWarp](profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:41 |
