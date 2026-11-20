@@ -125,6 +125,9 @@ struct ContourFrame {
  * prepare() when the count or spacing changes.
  */
 template <int MAX> class ContourLayout {
+  static_assert(MAX > 0 && MAX - 1 <= UINT16_MAX,
+                "ContourLayout capacity exceeds the draw-order index range");
+
 public:
   /** @brief Planar-star radius trig cached per contour. */
   using RadiusTrig = Star<PlanarProjection>::RadiusTrig;
