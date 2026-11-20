@@ -267,6 +267,51 @@ inline void test_shader_chain_spherical_tiling() {
       HS_EXPECT_TRUE(field.coverage > 0.0f && field.coverage <= 1.0f);
     }
   }
+
+  params.solid = static_cast<uint8_t>(Solids::BaseMesh::CUBOCTAHEDRON);
+  params.line_softness = 8.0f;
+  const auto square_center = math::X_AXIS;
+  const auto triangle_center = math::Vector{1.0f, 1.0f, 1.0f}.normalized();
+  const auto shared_seam = math::Vector{2.0f, 1.0f, 1.0f}.normalized();
+  const float square_depth = std::atan(std::sqrt(0.5f));
+  const float triangle_depth = std::acos(4.0f / std::sqrt(18.0f));
+  const auto from_seam = [&](const math::Vector &center, float depth) {
+    const auto tangent =
+        (center - math::dot(center, shared_seam) * shared_seam).normalized();
+    return PB::SphereSample{
+        std::cos(depth) * shared_seam + std::sin(depth) * tangent, 0.0f};
+  };
+  for (float thickness : {0.0f, 2.0f}) {
+    params.line_thickness = thickness;
+    const auto mixed = Model::prepare({}, params, state);
+    const float half_width = 0.5f * thickness * DEG;
+    const float triangle_fringe = 8.0f * DEG * (triangle_depth - half_width) /
+                                  (square_depth - half_width);
+    const auto square = from_seam(square_center, half_width + 4.0f * DEG);
+    const auto triangle =
+        from_seam(triangle_center, half_width + 0.5f * triangle_fringe);
+    HS_EXPECT_NEAR(Model::run(square, {}, params, mixed).coverage, 0.5f,
+                   2.0e-5f);
+    HS_EXPECT_NEAR(Model::run(triangle, {}, params, mixed).coverage, 0.5f,
+                   2.0e-5f);
+    HS_EXPECT_EQ(
+        Model::run({triangle_center, 0.0f}, context, params, mixed).coverage,
+        1.0f);
+  }
+
+  params.line_thickness = 0.0f;
+  context.angular_sample_radius = DEG;
+  const auto mixed = Model::prepare({}, params, state);
+  const auto square = from_seam(square_center, 0.0005f * DEG);
+  const auto triangle = from_seam(triangle_center, 0.0005f * DEG);
+  HS_EXPECT_NE(mixed.geometry->face_at(square.dir),
+               mixed.geometry->face_at(triangle.dir));
+  const float square_coverage =
+      Model::run(square, context, params, mixed).coverage;
+  const float triangle_coverage =
+      Model::run(triangle, context, params, mixed).coverage;
+  HS_EXPECT_TRUE(square_coverage > 0.0f && square_coverage < 1.0f);
+  HS_EXPECT_NEAR(square_coverage, triangle_coverage, 1.0e-4f);
 }
 
 /** @brief A spherical source reaches cutout and palette without a projection. */

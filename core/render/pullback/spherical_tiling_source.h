@@ -64,8 +64,9 @@ struct SphericalTilingSourceParams {
   static constexpr uint8_t DEFAULT_SOLID =
       Solids::SEED_TRUNCATED_ICOSAHEDRON; ///< Default registry entry.
 
-  float line_thickness = 1.0f;   ///< Full edge width in degrees.
-  float line_softness = 0.5f;    ///< Width of the opacity fringe in degrees.
+  float line_thickness = 1.0f; ///< Full edge width in degrees.
+  float line_softness =
+      0.5f; ///< Fringe width in degrees for Edges or the deepest face.
   uint8_t solid = DEFAULT_SOLID; ///< Registry entry ordinal.
   uint8_t output = static_cast<uint8_t>(TilingOutput::EDGES); ///< Scalar mode.
 

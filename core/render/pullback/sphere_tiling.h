@@ -34,8 +34,9 @@ public:
 
   /** @brief Inward angular distances from a face boundary. */
   struct FaceDepth {
-    float sample; ///< Distance at the sampled direction, in radians.
-    float center; ///< Distance at the face center, in radians.
+    float sample;      ///< Distance at the sampled direction, in radians.
+    float center;      ///< Distance at the face center, in radians.
+    float across_seam; ///< Center depth on the other side of a crossed seam.
   };
 
   /** @brief Builds the geometry and index for a registry solid.
@@ -66,12 +67,26 @@ public:
   /** @brief Measures inward depth within a projected face.
    * @param face Face ID returned by face_at(), excluding NO_FACE.
    * @param unit_direction Unit direction in that face.
-   * @return Distances to the boundary at the sample and the face center. */
-  FaceDepth face_depth(uint16_t face,
-                       const math::Vector &unit_direction) const {
+   * @param filter_radius Angular radius across the nearest seam, in radians.
+   * @return Sample depth and each covered face's center depth. */
+  FaceDepth face_depth(uint16_t face, const math::Vector &unit_direction,
+                       float filter_radius) const {
     const Face &polygon = faces[face];
-    return {boundary_distance(polygon, unit_direction), polygon.center_depth};
+    const auto [distance, seam] = boundary_at(polygon, unit_direction);
+    float across = polygon.center_depth;
+    if (distance < filter_radius) {
+      const auto &edge = edges[seam];
+      const uint16_t neighbor =
+          edge.first_face == face ? edge.second_face : edge.first_face;
+      if (neighbor != NO_FACE)
+        across = faces[neighbor].center_depth;
+    }
+    return {distance, polygon.center_depth, across};
   }
+
+  /** @brief Finds the depth used to scale the face fringes.
+   * @return Largest face center depth from its seam, in radians. */
+  float max_center_depth() const { return largest_center_depth; }
 
   /** @brief Samples the nearest finite seam arc within the distance limit.
    * @param unit_direction Unit direction in the solid's frame.
@@ -134,6 +149,8 @@ private:
     math::Vector from_a;
     math::Vector from_b;
     float inv_length;
+    uint16_t first_face = NO_FACE;
+    uint16_t second_face = NO_FACE;
   };
 
   using EdgeIds = std::pair<uint16_t, uint16_t>;
@@ -144,6 +161,7 @@ private:
   std::vector<Edge> edges;
   Index face_index;
   Index edge_index;
+  float largest_center_depth = 0.0f;
 
   static float chord_squared(float angle) {
     const float half = sinf(0.5f * angle);
@@ -218,13 +236,19 @@ private:
                : 1.0f;
   }
 
-  float boundary_distance(const Face &face,
-                          const math::Vector &direction) const {
-    float best = 4.0f;
-    for (size_t i = face.first; i < face.first + face.count; ++i)
-      best =
-          std::min(best, edge_chord_squared(edges[corners[i].edge], direction));
-    return chord_angle(best);
+  std::pair<float, uint16_t> boundary_at(const Face &face,
+                                         const math::Vector &direction) const {
+    uint16_t nearest = corners[face.first].edge;
+    float best = edge_chord_squared(edges[nearest], direction);
+    for (size_t i = face.first + 1; i < face.first + face.count; ++i) {
+      const uint16_t edge = corners[i].edge;
+      const float distance = edge_chord_squared(edges[edge], direction);
+      if (distance < best) {
+        best = distance;
+        nearest = edge;
+      }
+    }
+    return {chord_angle(best), nearest};
   }
 
   Face build_face(const PolyMesh &mesh, std::span<const uint16_t> ids,
@@ -272,19 +296,27 @@ private:
     face.u = math::tangent_axis(axis);
     face.v = math::cross(axis, face.u);
     face.radius = acosf(std::min(1.0f, depth));
+    const auto face_id = static_cast<uint16_t>(faces.size());
     uint16_t previous_id = ids.back();
     for (uint16_t id : ids) {
       Point point;
       SDF::gnomonic_project(vertices[id], axis, face.u, face.v, point.x,
                             point.y);
       const EdgeIds key{std::min(previous_id, id), std::max(previous_id, id)};
-      const auto edge = std::lower_bound(edge_ids.begin(), edge_ids.end(), key);
-      point.edge = static_cast<uint16_t>(edge - edge_ids.begin());
+      const auto match =
+          std::lower_bound(edge_ids.begin(), edge_ids.end(), key);
+      point.edge = static_cast<uint16_t>(match - edge_ids.begin());
+      auto &edge = edges[point.edge];
+      if (edge.first_face == NO_FACE)
+        edge.first_face = face_id;
+      else if (edge.first_face != face_id && edge.second_face == NO_FACE)
+        edge.second_face = face_id;
       corners.push_back(point);
       previous_id = id;
     }
     const auto center_direction = math::normalized_or(center, axis);
-    face.center_depth = boundary_distance(face, center_direction);
+    face.center_depth = boundary_at(face, center_direction).first;
+    largest_center_depth = std::max(largest_center_depth, face.center_depth);
     return face;
   }
 
