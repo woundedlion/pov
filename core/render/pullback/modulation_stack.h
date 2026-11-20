@@ -666,8 +666,8 @@ protected:
    * @param field Scalar field and sample provenance.
    * @return Color from independently sampled layers. */
   template <LayerLayout... Layout, size_t... I>
-  HS_HOT_FLASH_MEMBER Color4
-  shade_independent(const FieldSample &field, std::index_sequence<I...>) const {
+  HS_HOT_ITCM_MEMBER Color4 shade_independent(const FieldSample &field,
+                                              std::index_sequence<I...>) const {
     const auto direction = sample_direction(field.sphere);
     Pattern::SphereLutSample tap{};
     if constexpr (((Layout.source == LayerSampling::BYTE_CUBE) || ...))
