@@ -440,6 +440,9 @@ inline void test_temporal_column_arithmetic_matches_remainder() {
                      std::remainder(value, period));
       }
   }
+  HS_EXPECT_EQ(Spacetime::SamplingSurface<96>::time(-0x1p-22f), 0.0f);
+  for (float boundary : {-96.0f, -48.0f, 0.0f, 48.0f, 96.0f})
+    HS_EXPECT_EQ(Spacetime::SamplingSurface<96>::time(boundary), 0.0f);
   for (int quarter = -2304; quarter <= 2304; ++quarter) {
     const float column = quarter * 0.25f;
     const float turns = column / 144.0f;

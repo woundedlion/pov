@@ -125,9 +125,7 @@ template <int W> struct SamplingSurface {
    * @return Fraction in [0, 1). */
   HS_HOT_INLINE static float time(float column) {
     const float half_turn = column / (W / 2.0f);
-    const int whole = static_cast<int>(half_turn);
-    const float fraction = half_turn - static_cast<float>(whole);
-    return fraction < 0.0f ? fraction + 1.0f : fraction;
+    return math::wrap_t(half_turn);
   }
 
   /** @brief Column nearest a surface time.
