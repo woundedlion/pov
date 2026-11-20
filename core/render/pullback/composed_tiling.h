@@ -46,7 +46,12 @@ template <typename State> struct BakedTilingEdges : ApproximationDefaults {
 
   struct Prepared {
     Endpoint first;
-    [[no_unique_address]] std::conditional_t<MORPHS, Morph, NoMorph> morph{};
+#if defined(_MSC_VER)
+    [[msvc::no_unique_address]]
+#else
+    [[no_unique_address]]
+#endif
+    std::conditional_t<MORPHS, Morph, NoMorph> morph{};
   };
 
   static Prepared prepare(const FrameState &frame) {
