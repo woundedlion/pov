@@ -219,12 +219,36 @@ public:
     return Base::RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
   }
 
+  /** @brief Applies the enabled hue layers in authored order.
+   * @param field Covered source sample.
+   * @param frame Prepared column.
+   * @return Combined hue in turns. */
+  HS_HOT_FLASH_MEMBER static float
+  shared_hue(const Pullback::FieldSample &field,
+             const typename Base::Frame &frame) {
+    using Pipeline = typename Base::RenderPipeline;
+    float hue = 0.0f;
+    const auto apply_hue = [&]<size_t Index>() HS_HOT_INLINE {
+      const auto &prepared = std::get<Index>(frame.prepared);
+      if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
+        return;
+      using Stage = typename Pipeline::template NodeAt<Index>::Descriptor;
+      const float scalar = Stage::sample_cached_phase_scalar(field, prepared);
+      hue = Pullback::Color::accumulate_hue(hue, scalar, prepared.mechanic);
+    };
+    apply_hue.template operator()<6>();
+    apply_hue.template operator()<7>();
+    return hue;
+  }
+
   /** @brief Shades a view admitted to the shared cached color path.
    * @param view Unit view direction.
    * @param frame Prepared eligible column.
+   * @param cached_noise_path Whether both active layers use chamber noise and displacement.
    * @return Straight-alpha pixel color. */
-  HS_HOT_ITCM_MEMBER static Color4
-  shade_shared(const math::Vector &view, const typename Base::Frame &frame) {
+  HS_HOT_FLASH_MEMBER static Color4
+  shade_shared(const math::Vector &view, const typename Base::Frame &frame,
+               bool cached_noise_path = false) {
     using Pipeline = typename Base::RenderPipeline;
     static_assert(Pipeline::NODE_COUNT == 8);
     const auto rotated = Pipeline::template NodeAt<0>::run(
@@ -239,17 +263,23 @@ public:
     const auto covered = Pipeline::template NodeAt<4>::run(
         sampled, frame.ctx, std::get<4>(frame.prepared));
     const auto &base = std::get<5>(frame.prepared);
-    float hue = 0.0f;
-    const auto apply_hue = [&]<size_t Index>() HS_HOT_INLINE {
-      const auto &prepared = std::get<Index>(frame.prepared);
-      if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
-        return;
-      using Stage = typename Pipeline::template NodeAt<Index>::Descriptor;
-      const float scalar = Stage::sample_cached_phase_scalar(covered, prepared);
-      hue = Pullback::Color::accumulate_hue(hue, scalar, prepared.mechanic);
-    };
-    apply_hue.template operator()<6>();
-    apply_hue.template operator()<7>();
+    float hue;
+    if (cached_noise_path) {
+      const auto &noise = std::get<6>(frame.prepared);
+      const auto &path = std::get<7>(frame.prepared);
+      float scalar;
+      if (!Pullback::Modulation::sample_chamber_noise(
+              covered.sphere, noise.noise_to_chamber, *noise.noise_previous,
+              *noise.noise_current, noise.noise_fraction, scalar)) {
+        using NoiseStage = typename Pipeline::template NodeAt<6>::Descriptor;
+        scalar = NoiseStage::sample_phase_fallback(covered, noise);
+      }
+      hue = math::wrap_t(noise.mechanic.amount * scalar);
+      hue = Pullback::Color::accumulate_hue(hue, covered.path_length,
+                                            path.mechanic);
+    } else {
+      hue = shared_hue(covered, frame);
+    }
     return Pullback::Color::cached_phase_color(covered, base, hue);
   }
 
@@ -259,6 +289,8 @@ public:
     float cosine;                      ///< Column azimuth cosine.
     float sine;                        ///< Column azimuth sine.
     bool shared; ///< Whether the column admits the shared cache.
+    bool
+        cached_noise_path; ///< Both hue layers have their fixed active sources.
 
     /** @brief Shades one latitude with its selected color path.
      * @param row_sine Sine of the row polar angle.
@@ -268,7 +300,7 @@ public:
       const math::Vector view(row_sine * cosine, row_cosine, row_sine * sine);
       if (!shared)
         return AshCloud::shade(view, *frame);
-      return AshCloud::shade_shared(view, *frame);
+      return AshCloud::shade_shared(view, *frame, cached_noise_path);
     }
   };
 
@@ -294,8 +326,15 @@ public:
         Pipeline::template NodeAt<6>::phase_ready(
             std::get<6>(frame.prepared)) &&
         Pipeline::template NodeAt<7>::phase_ready(std::get<7>(frame.prepared));
+    const auto &noise = std::get<6>(frame.prepared);
+    const auto &path = std::get<7>(frame.prepared);
+    const bool cached_noise_path =
+        shared && noise.enabled && noise.mechanic.amount != 0.0f &&
+        noise.source == Pattern::SourceKind::NOISE && noise.noise_previous &&
+        noise.noise_current && path.enabled && path.mechanic.amount != 0.0f &&
+        path.source == Pattern::SourceKind::DISPLACEMENT;
     return {&frame, math::TrigLUT<W, H>::cos_theta(x),
-            math::TrigLUT<W, H>::sin_theta[x], shared};
+            math::TrigLUT<W, H>::sin_theta[x], shared, cached_noise_path};
   }
 
   /** @brief Explicit choreography customization bindings.
