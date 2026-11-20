@@ -1,12 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **42 effects in the Phantasm image**, captured on
+On-device timing for the **44 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each display window uses one 288×144 image quadrant (about 10,368 pixels).
 MeshFeedback renders the full 41,472-pixel canvas for feedback. The 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Shipping reports cover all 42 effects with 42 completed captures.
+Shipping reports cover all 44 effects with 44 completed captures.
 
 Recorded capture revisions retain their original IDs. The
 [source revision crosswalk](source_revisions.json) preserves each one-to-one
@@ -70,6 +70,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Ship board | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|---|
+| [EmberTracery](shipping/profile_embertracery_teensy_2026-11-19.md) § ● | `fx_shader_draw`<br>worst: Ember Lattice, 82.277 ms / 8 fps budget tier | 🔴 82.277 (1)<br>🟢 54.891 (2) | 46.864 | — | 🔴 485/981 (49.44%)<br>🟢 0/1677 (0.00%) | — | — | — | COM4 | ship 2026-11-19 19:59 |
 | [RiverStones](shipping/profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | — | 🟢 0/1667 (0.00%) | — | — | — | COM3 | ship 2026-11-18 23:32 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-11-17.md) / [O3](O3/profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 57.095 (16) | 🟢 0/4895 (0.00%) | 🟢 0/4895 (0.00%) | +28,528 B | +9,456 B | COM3 | ship 2026-11-17 09:09<br>O3 2026-11-17 10:34 |
 | [GridWarp](shipping/profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | — | 🟢 0/479 (0.00%) | — | — | — | COM3 | ship 2026-11-17 09:41 |
@@ -81,6 +82,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [Millefiori](shipping/profile_millefiori_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 52.832 | 79.856 | — | 🟢 0/959 (0.00%) | — | — | — | COM3 | ship 2026-11-17 09:35 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-11-17.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) ● | `rm_shader_draw` | 🟢 52.759 | 94.040 | 🟢 56.04 | 🟢 0/479 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | COM3 | ship 2026-11-17 08:52<br>O3 2026-09-20 23:07 |
 | [JewelMelt](shipping/profile_jewelmelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 52.547 | 79.906 | — | 🟢 0/959 (0.00%) | — | — | — | COM4 | ship 2026-11-17 09:45 |
+| [JadeFiligree](shipping/profile_jadefiligree_teensy_2026-11-19.md) § ● | `fx_shader_draw`<br>worst: Jade Weave, 52.181 ms / 16 fps budget tier | 🟢 52.181 (2) | 46.193 | — | 🟢 0/1670 (0.00%) | — | — | — | COM3 | ship 2026-11-19 19:58 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-11-17.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § ● | `db_timeline_step`<br>worst: 9, 51.363 ms / 16 fps | 🟢 51.363 (10) | 49.416 | 🟢 34.32 (11) | 🟢 0/3199 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | COM3 | ship 2026-11-17 09:19<br>O3 2026-08-26 02:19 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-11-17.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) ● | `rs_draw_rings` | 🟢 51.117 | 3.279 | 🟢 50.750 | 🟢 0/959 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | COM3 | ship 2026-11-17 08:54<br>O3 2026-09-24 20:18 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-11-17.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles`<br>worst: 7, 50.810 ms / 16 fps | 🟢 50.810 (8) | 0.372 | 🟢 54.539 (8) | 🟢 0/1279 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | COM3 | ship 2026-11-17 09:03<br>O3 2026-10-01 09:22 |
@@ -113,7 +115,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-11-17.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) ● | `pf_draw_rings` | 🟢 25.420 | 19.712 | 🟢 10.77 | 🟢 0/479 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | COM3 | ship 2026-11-17 08:50<br>O3 2026-08-26 01:32 |
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-11-17.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § ● | `sh_rasterize`<br>worst: l=4, m=4, 12.841 ms / 16 fps | 🟢 12.841 (24) | 21.305 | 🟢 11.70 (24) | 🟢 0/1535 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | COM4 | ship 2026-11-17 09:31<br>O3 2026-08-26 01:57 |
 
-● captures updated 2026-11-17, 2026-11-18.
+● captures updated 2026-11-17, 2026-11-18, 2026-11-19.
 
 Shipping results use only the authored show budget, including in-show transitions.
 Setup frame 1 remains separate. Post-show capture padding is excluded from every
