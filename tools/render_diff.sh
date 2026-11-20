@@ -104,7 +104,12 @@ run_hashes() {
   local module
   for module in "${modules[@]}"; do
     grep -qx "  $module" "$2" || continue
-    HS_PRINT_RENDER_HASHES=1 "$1/tests/$target" "$module" | grep '^render-hash ' || true
+    if ! HS_PRINT_RENDER_HASHES=1 "$1/tests/$target" "$module" > "$scratch/module-output"; then
+      cat "$scratch/module-output" >&2
+      echo "render_diff: $module failed" >&2
+      return 3
+    fi
+    sed -n '/^render-hash /p' "$scratch/module-output" || return 3
   done
 }
 

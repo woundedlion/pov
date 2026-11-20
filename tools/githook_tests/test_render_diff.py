@@ -47,9 +47,13 @@ else
   cat > "$2/tests/$4" <<'RUNNER'
 #!/usr/bin/env bash
 if [ "$1" = --list ]; then
-  printf '  plot_parity\\n  render_hashes\\n'
+  printf '  plot_parity\\n  effects\\n  render_hashes\\n'
 else
+  if [ "$1" = effects ]; then exit 0; fi
   echo "render-hash fixture p0=$(cut -d' ' -f1 "$(dirname "$0")/../source-id")"
+  if [ "${FAIL_RENDER:-}" = 1 ] || { [ "${FAIL_RENDER:-}" = tip ] && [[ "$0" != */base/* ]]; }; then
+    exit 7
+  fi
 fi
 RUNNER
   chmod +x "$2/tests/$4"
@@ -99,6 +103,18 @@ fi
         self.assertEqual(report.returncode, 0, report.stdout + report.stderr)
         self.assertIn("1 of 1 renders differ", report.stdout)
         self.assertIn("  fixture p0", report.stdout)
+
+    def test_partial_hash_output_from_a_failed_run_is_rejected(self):
+        for failed in ("1", "tip"):
+            self.env["FAIL_RENDER"] = failed
+            for args in ((), ("--report",)):
+                with self.subTest(failed=failed, args=args):
+                    result = self.compare(*args)
+                    self.assertEqual(result.returncode, 0 if args else 3,
+                                     result.stdout + result.stderr)
+                    self.assertIn("failed", result.stderr)
+                    if args:
+                        self.assertIn("no report", result.stdout)
 
     def test_configure_and_build_failures_print_diagnostics(self):
         for stage in ("configure", "build"):
