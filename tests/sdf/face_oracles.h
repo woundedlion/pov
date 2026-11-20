@@ -272,6 +272,20 @@ inline void test_face_asymmetric_sector_matches_oracle() {
           for (int i = 0; i < COUNT; ++i)
             scratch.planes[i].z = 0.0f;
         }
+        const auto rays = PreparedFaceTestAccess::poly_2d(face);
+        for (int i = 0; i < COUNT; ++i) {
+          const float px = rays[i].x * 0.375f;
+          const float py = rays[i].y * 0.375f;
+          bool exact_inside;
+          const float exact = face.plane_dsq_exact(px, py, exact_inside);
+          for (int sector : {i, (i + COUNT - 1) % COUNT}) {
+            bool inside;
+            const float squared =
+                face.plane_dsq_sector(px, py, inside, FLT_MAX, &sector);
+            HS_EXPECT_NEAR(squared, exact, 1e-8f);
+            HS_EXPECT_EQ(inside, exact_inside);
+          }
+        }
         for (int x = -50; x <= 50; ++x) {
           int sector = -1;
           for (int y = -50; y <= 50; ++y) {

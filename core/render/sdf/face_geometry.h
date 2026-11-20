@@ -794,23 +794,28 @@ inline HS_O3_FN float PreparedFace::plane_dsq_sector(float px, float py,
                                                      bool &inside_out,
                                                      float reject_dsq,
                                                      int *column_sector) const {
-  int s;
-  if (column_sector && *column_sector >= 0) {
-    s = *column_sector;
-    for (;;) {
-      const auto &a = poly_2d[s];
-      const auto &b = poly_2d[s + 1];
-      if ((a.x * py - a.y * px) * sector_sgn < 0.0f) {
+  int s = column_sector ? *column_sector : -1;
+  if (s >= 0) {
+    const auto side = [&](const math::Vector &v) {
+      return (v.x * py - v.y * px) * sector_sgn;
+    };
+    for (int remaining = count;;) {
+      if (side(poly_2d[s]) < 0.0f) {
         if (--s < 0)
           s = count - 1;
-      } else if ((px * b.y - py * b.x) * sector_sgn < 0.0f) {
+      } else if (side(poly_2d[s + 1]) > 0.0f) {
         if (++s == count)
           s = 0;
       } else {
         break;
       }
+      if (--remaining == 0) {
+        s = -1;
+        break;
+      }
     }
-  } else {
+  }
+  if (s < 0) {
     float p = math::diamond_angle<false>(py, px) * sector_sgn;
     if (p < sector_base)
       p += 4.0f;
