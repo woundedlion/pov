@@ -739,12 +739,12 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `iridescence` | `Iridescence` | 1 |
 | `river-stones` | `RiverStones` | 2 |
 | `jade-filigree` | `JadeFiligree` | 2 |
-| `ember-tracery` | `EmberTracery` | 3 |
+| `ember-tracery` | `EmberTracery` | 1 |
 
 Jade Filigree uses a Direct Lens and Tiling Edges to move from Golden Mesh to
-Jade Weave. Ember Tracery adds a third preset with camera wander, directional
-lightness and hue driven by lens displacement. Both keep the authored 600-frame
-dwells and 480-frame segues.
+Jade Weave, with 600-frame dwells and a 480-frame segue. Ember Tracery uses
+one preset, Ember Lattice, with camera wander, directional lightness and hue
+driven by lens displacement.
 
 These 26 effects form the product-only `shader-collection` group. Phantasm
 assigns some entries fixed show windows and derives other entries from their

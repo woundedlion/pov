@@ -584,8 +584,8 @@ protected:
             transition.to.template get<Resource::KEY>(), progress, a, b);
       });
     } else
-      Pullback::interpolate_into<SpecT::HOLD_MODULATION_TOPOLOGY>(
-          params, transition.from, transition.to, progress);
+      Pullback::interpolate_into(params, transition.from, transition.to,
+                                 progress);
     if constexpr (Traits::SOURCE_MORPH) {
       auto &morph = state->source_morph;
       if (morph.from) {

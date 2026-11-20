@@ -231,7 +231,7 @@
       },
       {
         "classification": "preset",
-        "default": 0.6200000047683716,
+        "default": 1,
         "domain": {
           "maximum": 1,
           "minimum": 0
@@ -328,7 +328,7 @@
       },
       {
         "classification": "preset",
-        "default": "linear",
+        "default": "cup",
         "domain": {
           "values": [
             "cup",
@@ -346,7 +346,7 @@
       },
       {
         "classification": "preset",
-        "default": "triadic",
+        "default": "analogous",
         "domain": {
           "values": [
             "triadic",
@@ -377,7 +377,7 @@
       },
       {
         "classification": "preset",
-        "default": "dark-rainbow",
+        "default": "embers",
         "domain": {
           "values": [
             "dark-rainbow",
@@ -473,7 +473,7 @@
       },
       {
         "classification": "preset",
-        "default": "cycling-generated",
+        "default": "procedural",
         "domain": {
           "values": [
             "cycling-generated",
@@ -492,7 +492,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 1,
         "domain": {
           "maximum": 1,
           "minimum": 0
@@ -506,7 +506,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 0.007017543539404869,
         "domain": {
           "maximum": 0.009999999776482582,
           "minimum": -0.009999999776482582
@@ -580,7 +580,7 @@
       },
       {
         "classification": "preset",
-        "default": 1,
+        "default": 1.2462962865829468,
         "domain": {
           "maximum": 64,
           "minimum": 0.015625
@@ -594,7 +594,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": -0.00009999999747378752,
         "domain": {
           "maximum": 0.015625,
           "minimum": -0.015625
@@ -608,7 +608,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 0.18088234961032867,
         "domain": {
           "maximum": 0.5,
           "minimum": 0
@@ -930,7 +930,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 0.4323529303073883,
         "domain": {
           "maximum": 4,
           "minimum": -4
@@ -960,7 +960,7 @@
       },
       {
         "classification": "preset",
-        "default": "baked-cube",
+        "default": "direct",
         "domain": {
           "values": [
             "direct",
@@ -976,7 +976,7 @@
       },
       {
         "classification": "preset",
-        "default": "hue-rotation",
+        "default": "positive-lightness-lift",
         "domain": {
           "values": [
             "hue-rotation",
@@ -993,7 +993,7 @@
       },
       {
         "classification": "preset",
-        "default": "noise",
+        "default": "directional-sine",
         "domain": {
           "values": [
             "noise",
@@ -1059,7 +1059,7 @@
       },
       {
         "classification": "preset",
-        "default": 1,
+        "default": 3.2556400299072266,
         "domain": {
           "maximum": 64,
           "minimum": 0.015625
@@ -1073,7 +1073,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 0.00012352941848803312,
         "domain": {
           "maximum": 0.0010000000474974513,
           "minimum": -0.0010000000474974513
@@ -1129,7 +1129,7 @@
       },
       {
         "classification": "preset",
-        "default": 1,
+        "default": 0.30000001192092896,
         "domain": {
           "maximum": 64,
           "minimum": 0
@@ -1157,7 +1157,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 0.0058823530562222,
         "domain": {
           "maximum": 1,
           "minimum": -1
@@ -1479,7 +1479,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": -0.729411780834198,
         "domain": {
           "maximum": 4,
           "minimum": -4
@@ -1509,7 +1509,7 @@
       },
       {
         "classification": "preset",
-        "default": "baked-cube",
+        "default": "direct",
         "domain": {
           "values": [
             "direct",
@@ -1542,7 +1542,7 @@
       },
       {
         "classification": "preset",
-        "default": "noise",
+        "default": "displacement",
         "domain": {
           "values": [
             "noise",
@@ -1734,7 +1734,7 @@
       },
       {
         "classification": "preset",
-        "default": 0,
+        "default": 1,
         "domain": {
           "maximum": 1,
           "minimum": 0
@@ -1748,7 +1748,7 @@
       },
       {
         "classification": "preset",
-        "default": 0.5,
+        "default": 1.2350902557373047,
         "domain": {
           "maximum": 10,
           "minimum": 0.05000000074505806
@@ -1762,7 +1762,7 @@
       },
       {
         "classification": "preset",
-        "default": 1,
+        "default": 0,
         "domain": {
           "maximum": 10,
           "minimum": 0
@@ -1792,7 +1792,7 @@
       },
       {
         "classification": "preset",
-        "default": "truncated-icosahedron",
+        "default": "dodecahedron-hk54-ambo-hk72",
         "domain": {
           "values": [
             "tetrahedron",
@@ -1993,7 +1993,7 @@
   "document_id": "ember-tracery",
   "effect_id": "ember-tracery",
   "effect_metadata": {
-    "description": "Gold and jade meshes lead into a wandering lattice of embers.",
+    "description": "A wandering lattice of embers with directional lightness and displacement-driven hue.",
     "display_name": "Ember Tracery"
   },
   "preset_bank": {
@@ -2006,39 +2006,13 @@
     },
     "choreography": {
       "dwell": {
-        "ember-lattice": 600,
-        "golden-mesh": 600,
-        "jade-weave": 600
+        "ember-lattice": 600
       },
       "generated_order": [
-        "golden-mesh",
-        "jade-weave",
         "ember-lattice"
       ]
     },
-    "edges": [
-      {
-        "duration": 480,
-        "easing": "EASE_IN_OUT_SIN",
-        "from": "ember-lattice",
-        "path_policy": "parallel",
-        "to": "golden-mesh"
-      },
-      {
-        "duration": 480,
-        "easing": "EASE_IN_OUT_SIN",
-        "from": "golden-mesh",
-        "path_policy": "parallel",
-        "to": "jade-weave"
-      },
-      {
-        "duration": 480,
-        "easing": "EASE_IN_OUT_SIN",
-        "from": "jade-weave",
-        "path_policy": "parallel",
-        "to": "ember-lattice"
-      }
-    ],
+    "edges": [],
     "presets": [
       {
         "display_name": "Ember Lattice",
@@ -2162,254 +2136,6 @@
           "sample.line-thickness": 0,
           "sample.output": "edges",
           "sample.solid": "dodecahedron-hk54-ambo-hk72"
-        }
-      },
-      {
-        "display_name": "Golden Mesh",
-        "preset_id": "golden-mesh",
-        "values": {
-          "colorize.brightness-bottom": 0,
-          "colorize.brightness-envelope": "none",
-          "colorize.brightness-top": 1,
-          "colorize.gradient-end-b": 1,
-          "colorize.gradient-end-g": 0.20000000298023224,
-          "colorize.gradient-end-r": 0.10000000149011612,
-          "colorize.gradient-middle-b": 0.4000000059604645,
-          "colorize.gradient-middle-g": 1,
-          "colorize.gradient-middle-r": 0.10000000149011612,
-          "colorize.gradient-start-b": 0,
-          "colorize.gradient-start-g": 0.15000000596046448,
-          "colorize.gradient-start-r": 1,
-          "colorize.mapping-frequency": 1,
-          "colorize.mapping-phase": 0,
-          "colorize.palette-chroma": 0.792397677898407,
-          "colorize.palette-harmony": "triadic",
-          "colorize.palette-hue": 0,
-          "colorize.palette-lightness": 0.6200000047683716,
-          "colorize.palette-lightness-curve": "constant",
-          "colorize.palette-lightness-range": 0,
-          "colorize.palette-mapping": "linear",
-          "colorize.palette-mode": "triadic",
-          "colorize.palette-mutation": 0,
-          "colorize.palette-name": "bruised-banana",
-          "colorize.palette-name-b": "fire-and-ice",
-          "colorize.palette-spread": 0.07000000029802322,
-          "colorize.palette-type": "procedural",
-          "colorize.phase-oscillation-depth": 0,
-          "colorize.phase-oscillation-speed": 0,
-          "colorize.value-opacity-high": 1,
-          "colorize.value-opacity-low": 1,
-          "displace.basis": "simplex",
-          "displace.direction": 0,
-          "displace.scale": 1,
-          "displace.speed": 0,
-          "displace.strength": 0,
-          "modulate.grid-axis-b-x": 1,
-          "modulate.grid-axis-b-y": 0,
-          "modulate.grid-axis-b-z": 0,
-          "modulate.grid-axis-x": 0,
-          "modulate.grid-axis-y": 1,
-          "modulate.grid-axis-z": 0,
-          "modulate.grid-frequency": 1,
-          "modulate.grid-frequency-b": 1,
-          "modulate.grid-offset": 0,
-          "modulate.grid-offset-b": 0,
-          "modulate.grid-speed": 0,
-          "modulate.interference-axis-b-x": 1,
-          "modulate.interference-axis-b-y": 0,
-          "modulate.interference-axis-b-z": 0,
-          "modulate.interference-axis-x": 0,
-          "modulate.interference-axis-y": 1,
-          "modulate.interference-axis-z": 0,
-          "modulate.interference-frequency": 1,
-          "modulate.interference-frequency-b": 1,
-          "modulate.interference-offset": 0,
-          "modulate.interference-offset-b": 0,
-          "modulate.interference-speed": 0,
-          "modulate.modulation-amount": 0,
-          "modulate.modulation-enabled": "enabled",
-          "modulate.modulation-evaluation": "baked-cube",
-          "modulate.modulation-mechanic": "hue-rotation",
-          "modulate.modulation-source": "noise",
-          "modulate.pattern-contrast": 0,
-          "modulate.pattern-noise-basis": "simplex",
-          "modulate.pattern-noise-variant": "configured-single",
-          "modulate.pattern-scale": 1,
-          "modulate.pattern-speed": 0,
-          "modulate.sine-axis-x": 0,
-          "modulate.sine-axis-y": 1,
-          "modulate.sine-axis-z": 0,
-          "modulate.sine-frequency": 1,
-          "modulate.sine-offset": 0,
-          "modulate.sine-speed": 0,
-          "modulate1.grid-axis-b-x": 1,
-          "modulate1.grid-axis-b-y": 0,
-          "modulate1.grid-axis-b-z": 0,
-          "modulate1.grid-axis-x": 0,
-          "modulate1.grid-axis-y": 1,
-          "modulate1.grid-axis-z": 0,
-          "modulate1.grid-frequency": 1,
-          "modulate1.grid-frequency-b": 1,
-          "modulate1.grid-offset": 0,
-          "modulate1.grid-offset-b": 0,
-          "modulate1.grid-speed": 0,
-          "modulate1.interference-axis-b-x": 1,
-          "modulate1.interference-axis-b-y": 0,
-          "modulate1.interference-axis-b-z": 0,
-          "modulate1.interference-axis-x": 0,
-          "modulate1.interference-axis-y": 1,
-          "modulate1.interference-axis-z": 0,
-          "modulate1.interference-frequency": 1,
-          "modulate1.interference-frequency-b": 1,
-          "modulate1.interference-offset": 0,
-          "modulate1.interference-offset-b": 0,
-          "modulate1.interference-speed": 0,
-          "modulate1.modulation-amount": 0,
-          "modulate1.modulation-enabled": "enabled",
-          "modulate1.modulation-evaluation": "baked-cube",
-          "modulate1.modulation-mechanic": "hue-rotation",
-          "modulate1.modulation-source": "noise",
-          "modulate1.pattern-contrast": 0,
-          "modulate1.pattern-noise-basis": "simplex",
-          "modulate1.pattern-noise-variant": "configured-single",
-          "modulate1.pattern-scale": 1,
-          "modulate1.pattern-speed": 0,
-          "modulate1.sine-axis-x": 0,
-          "modulate1.sine-axis-y": 1,
-          "modulate1.sine-axis-z": 0,
-          "modulate1.sine-frequency": 1,
-          "modulate1.sine-offset": 0,
-          "modulate1.sine-speed": 0,
-          "rotate.spin-speed": 0,
-          "rotate.wander": 0,
-          "sample.line-softness": 0.5,
-          "sample.line-thickness": 1,
-          "sample.output": "edges",
-          "sample.solid": "truncated-icosahedron"
-        }
-      },
-      {
-        "display_name": "Jade Weave",
-        "preset_id": "jade-weave",
-        "values": {
-          "colorize.brightness-bottom": 0,
-          "colorize.brightness-envelope": "none",
-          "colorize.brightness-top": 1,
-          "colorize.gradient-end-b": 1,
-          "colorize.gradient-end-g": 0.20000000298023224,
-          "colorize.gradient-end-r": 0.10000000149011612,
-          "colorize.gradient-middle-b": 0.4000000059604645,
-          "colorize.gradient-middle-g": 1,
-          "colorize.gradient-middle-r": 0.10000000149011612,
-          "colorize.gradient-start-b": 0,
-          "colorize.gradient-start-g": 0.15000000596046448,
-          "colorize.gradient-start-r": 1,
-          "colorize.mapping-frequency": 1,
-          "colorize.mapping-phase": 0,
-          "colorize.palette-chroma": 1,
-          "colorize.palette-harmony": "triadic",
-          "colorize.palette-hue": 0,
-          "colorize.palette-lightness": 0.6200000047683716,
-          "colorize.palette-lightness-curve": "constant",
-          "colorize.palette-lightness-range": 0,
-          "colorize.palette-mapping": "cup",
-          "colorize.palette-mode": "analogous",
-          "colorize.palette-mutation": 0,
-          "colorize.palette-name": "algae",
-          "colorize.palette-name-b": "fire-and-ice",
-          "colorize.palette-spread": 0.07000000029802322,
-          "colorize.palette-type": "procedural",
-          "colorize.phase-oscillation-depth": 1,
-          "colorize.phase-oscillation-speed": 0.007017543539404869,
-          "colorize.value-opacity-high": 1,
-          "colorize.value-opacity-low": 1,
-          "displace.basis": "simplex",
-          "displace.direction": 0,
-          "displace.scale": 1.2462962865829468,
-          "displace.speed": -0.00009999999747378752,
-          "displace.strength": 0.18088234961032867,
-          "modulate.grid-axis-b-x": 1,
-          "modulate.grid-axis-b-y": 0,
-          "modulate.grid-axis-b-z": 0,
-          "modulate.grid-axis-x": 0,
-          "modulate.grid-axis-y": 1,
-          "modulate.grid-axis-z": 0,
-          "modulate.grid-frequency": 1,
-          "modulate.grid-frequency-b": 1,
-          "modulate.grid-offset": 0,
-          "modulate.grid-offset-b": 0,
-          "modulate.grid-speed": 0,
-          "modulate.interference-axis-b-x": 1,
-          "modulate.interference-axis-b-y": 0,
-          "modulate.interference-axis-b-z": 0,
-          "modulate.interference-axis-x": 0,
-          "modulate.interference-axis-y": 1,
-          "modulate.interference-axis-z": 0,
-          "modulate.interference-frequency": 1,
-          "modulate.interference-frequency-b": 1,
-          "modulate.interference-offset": 0,
-          "modulate.interference-offset-b": 0,
-          "modulate.interference-speed": 0,
-          "modulate.modulation-amount": 0,
-          "modulate.modulation-enabled": "enabled",
-          "modulate.modulation-evaluation": "baked-cube",
-          "modulate.modulation-mechanic": "hue-rotation",
-          "modulate.modulation-source": "noise",
-          "modulate.pattern-contrast": 0,
-          "modulate.pattern-noise-basis": "simplex",
-          "modulate.pattern-noise-variant": "configured-single",
-          "modulate.pattern-scale": 1,
-          "modulate.pattern-speed": 0,
-          "modulate.sine-axis-x": 0,
-          "modulate.sine-axis-y": 1,
-          "modulate.sine-axis-z": 0,
-          "modulate.sine-frequency": 1,
-          "modulate.sine-offset": 0,
-          "modulate.sine-speed": 0,
-          "modulate1.grid-axis-b-x": 1,
-          "modulate1.grid-axis-b-y": 0,
-          "modulate1.grid-axis-b-z": 0,
-          "modulate1.grid-axis-x": 0,
-          "modulate1.grid-axis-y": 1,
-          "modulate1.grid-axis-z": 0,
-          "modulate1.grid-frequency": 1,
-          "modulate1.grid-frequency-b": 1,
-          "modulate1.grid-offset": 0,
-          "modulate1.grid-offset-b": 0,
-          "modulate1.grid-speed": 0,
-          "modulate1.interference-axis-b-x": 1,
-          "modulate1.interference-axis-b-y": 0,
-          "modulate1.interference-axis-b-z": 0,
-          "modulate1.interference-axis-x": 0,
-          "modulate1.interference-axis-y": 1,
-          "modulate1.interference-axis-z": 0,
-          "modulate1.interference-frequency": 1,
-          "modulate1.interference-frequency-b": 1,
-          "modulate1.interference-offset": 0,
-          "modulate1.interference-offset-b": 0,
-          "modulate1.interference-speed": 0,
-          "modulate1.modulation-amount": 0,
-          "modulate1.modulation-enabled": "enabled",
-          "modulate1.modulation-evaluation": "baked-cube",
-          "modulate1.modulation-mechanic": "hue-rotation",
-          "modulate1.modulation-source": "noise",
-          "modulate1.pattern-contrast": 0,
-          "modulate1.pattern-noise-basis": "simplex",
-          "modulate1.pattern-noise-variant": "configured-single",
-          "modulate1.pattern-scale": 1,
-          "modulate1.pattern-speed": 0,
-          "modulate1.sine-axis-x": 0,
-          "modulate1.sine-axis-y": 1,
-          "modulate1.sine-axis-z": 0,
-          "modulate1.sine-frequency": 1,
-          "modulate1.sine-offset": 0,
-          "modulate1.sine-speed": 0,
-          "rotate.spin-speed": 0,
-          "rotate.wander": 0,
-          "sample.line-softness": 1.3980540037155151,
-          "sample.line-thickness": 0,
-          "sample.output": "edges",
-          "sample.solid": "truncated-icosahedron-truncate50d-ambo-dual"
         }
       }
     ],
