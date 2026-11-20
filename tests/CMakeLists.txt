@@ -579,6 +579,14 @@ add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
     -DDUMP=${CMAKE_CURRENT_BINARY_DIR}/relax_bakes.dump
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_relax_bakes.cmake)
 
+add_executable(sphere_tiling_bake ${HS_ROOT}/tools/sphere_tiling_bake.cpp
+  ${HS_ENGINE_SOURCES})
+target_link_libraries(sphere_tiling_bake PRIVATE hs_host_abi)
+target_compile_options(sphere_tiling_bake PRIVATE -fno-fast-math -ffp-contract=off)
+target_include_directories(sphere_tiling_bake PRIVATE ${HS_ENGINE_INCLUDES})
+_hs_warnings(sphere_tiling_bake)
+_hs_sanitize(sphere_tiling_bake)
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/contract_checks.cmake)
 
 # Backstop TIMEOUT for every registered test without an explicit one. Applied

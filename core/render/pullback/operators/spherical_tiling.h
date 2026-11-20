@@ -40,8 +40,9 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
   /** @brief Frame controls and a view owned by the operator state. */
   struct Prepared {
     const Source::SphereTilingGeometry *geometry; ///< Selected solid index.
-    float half_width; ///< Edge half-width in radians.
-    float fringe;     ///< Edge fade limit in radians or face depth fraction.
+    Source::SphereTilingEdgeBand edge;            ///< Edge coverage controls.
+    float half_width;                             ///< Face inset in radians.
+    float fringe;                                 ///< Face depth fraction.
   };
 
   static void advance(State &, const Params &) {}
@@ -53,13 +54,9 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
           std::make_shared<const Source::SphereTilingGeometry>(params.solid);
       state.solid = params.solid;
     }
-    constexpr float DEGREES_TO_RADIANS = math::PI_F / 180.0f;
-    const float half_width_degrees = 0.5f * params.line_thickness;
-    const float half_width = half_width_degrees * DEGREES_TO_RADIANS;
-    if (params.output == static_cast<uint8_t>(Source::TilingOutput::EDGES))
-      return {state.geometry.get(), half_width,
-              (half_width_degrees + params.line_softness) * DEGREES_TO_RADIANS};
-    return {state.geometry.get(), half_width,
+    const Source::SphereTilingEdgeBand edge{params.line_thickness,
+                                            params.line_softness};
+    return {state.geometry.get(), edge, edge.half_width,
             params.line_softness / Params::MAX_SOFTNESS};
   }
 
@@ -69,11 +66,9 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
     const auto &geometry = *prepared.geometry;
     const auto output = static_cast<Source::TilingOutput>(params.output);
     if (output == Source::TilingOutput::EDGES) {
-      const auto edge = geometry.edge_at(direction.value(), prepared.fringe);
-      const float alpha =
-          1.0f - math::smooth_ramp(prepared.half_width, prepared.fringe,
-                                   edge.distance);
-      return {edge.position, alpha, input.dir, input.path_length};
+      const auto edge =
+          geometry.edge_view().sample(direction.value(), prepared.edge);
+      return {edge.value, edge.coverage, input.dir, input.path_length};
     }
     const uint16_t face = geometry.face_at(direction.value());
     if (face == Source::SphereTilingGeometry::NO_FACE)

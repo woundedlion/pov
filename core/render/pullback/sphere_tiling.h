@@ -17,6 +17,7 @@
 #include <vector>
 #include "core/mesh/solids.h"
 #include "core/pattern/sphere_lut.h"
+#include "core/render/pullback/sphere_tiling_edges.h"
 #include "core/render/sdf/face.h"
 
 namespace Pullback::Source {
@@ -26,10 +27,11 @@ class SphereTilingGeometry {
 public:
   static constexpr uint16_t NO_FACE = UINT16_MAX; ///< Uncovered direction.
 
-  /** @brief Nearest seam sample. */
-  struct EdgeSample {
-    float distance; ///< Angular distance in radians.
-    float position; ///< Arc fraction from the lower vertex index.
+  /// Cubemap candidate storage for the projected edge geometry.
+  struct EdgeIndex {
+    int steps;                     ///< Cells along each cube face axis.
+    std::vector<uint32_t> offsets; ///< Candidate start offset per cell.
+    std::vector<uint16_t> ids;     ///< Candidate edge IDs.
   };
 
   /** @brief Inward angular distances from a face boundary. */
@@ -43,14 +45,16 @@ public:
    * @param registry_index Index into the solids registry. */
   explicit SphereTilingGeometry(size_t registry_index) {
     build_geometry(Solids::get_entry(registry_index));
-    build_index();
+    build_face_index();
+    edge_index = build_edge_index(CELL_STEPS);
   }
 
   /** @brief Finds the nearest projected face containing a unit direction.
    * @param unit_direction Unit direction in the solid's frame.
    * @return Face ID or NO_FACE. */
   uint16_t face_at(const math::Vector &unit_direction) const {
-    const auto candidates = face_index.candidates(cell_at(unit_direction));
+    const auto candidates = face_index.candidates(
+        tiling_edges_detail::cell_at(unit_direction, CELL_STEPS));
     uint16_t owner = NO_FACE;
     float nearest = 0.0f;
     for (uint16_t id : candidates) {
@@ -75,34 +79,48 @@ public:
     const auto [distance, seam] = boundary_at(polygon, unit_direction);
     float across = polygon.center_depth;
     if (distance < filter_radius) {
-      const auto &edge = edges[seam];
-      const uint16_t neighbor =
-          edge.first_face == face ? edge.second_face : edge.first_face;
+      const auto [first, second] = edge_faces[seam];
+      const uint16_t neighbor = first == face ? second : first;
       if (neighbor != NO_FACE)
         across = faces[neighbor].center_depth;
     }
     return {distance, polygon.center_depth, across};
   }
 
-  /** @brief Samples the nearest finite seam arc within the distance limit.
-   * @param unit_direction Unit direction in the solid's frame.
-   * @param max_distance_radians Maximum reported distance in [0, pi].
-   * @return Distance and arc fraction, or the distance limit and zero. */
-  EdgeSample edge_at(const math::Vector &unit_direction,
-                     float max_distance_radians) const {
-    float best = chord_squared(max_distance_radians);
-    const Edge *nearest = nullptr;
-    for (uint16_t id : edge_index.candidates(cell_at(unit_direction))) {
-      const float distance = edge_chord_squared(edges[id], unit_direction);
-      if (distance < best) {
-        best = distance;
-        nearest = &edges[id];
+  /** @brief Views the edge geometry with its default candidate index.
+   * @return Indexed projected edges owned by this geometry. */
+  SphereTilingEdgeView edge_view() const { return edge_view(edge_index); }
+
+  /** @brief Views the edge geometry with an external candidate index.
+   * @param index Index built by build_edge_index().
+   * @return Indexed projected edges. */
+  SphereTilingEdgeView edge_view(const EdgeIndex &index) const {
+    return {vertices, edges, index.offsets, index.ids, index.steps};
+  }
+
+  /** @brief Builds the candidate index at the specified resolution.
+   * @param steps Cells along one axis of each cube face.
+   * @return Indexed edge candidates. */
+  EdgeIndex build_edge_index(int steps) const {
+    using namespace tiling_edges_detail;
+    EdgeIndex index{steps, {}, {}};
+    index.offsets.push_back(0);
+    std::vector<float> edge_chords(edges.size());
+    for_each_cell(steps, [&](int, const math::Vector &center, float radius) {
+      float nearest = 4.0f;
+      for (size_t id = 0; id < edges.size(); ++id) {
+        edge_chords[id] = edge_chord_squared(edges[id], center, vertices);
+        nearest = std::min(nearest, edge_chords[id]);
       }
-    }
-    if (!nearest)
-      return {max_distance_radians, 0.0f};
-    const float distance = std::min(max_distance_radians, chord_angle(best));
-    return {distance, edge_position(*nearest, unit_direction)};
+      // Cell radius bounds the change in the distance to any edge.
+      const float limit = chord_squared(
+          std::min(math::PI_F, chord_angle(nearest) + 2.0f * radius));
+      for (size_t id = 0; id < edges.size(); ++id)
+        if (edge_chords[id] <= limit)
+          index.ids.push_back(static_cast<uint16_t>(id));
+      index.offsets.push_back(static_cast<uint32_t>(index.ids.size()));
+    });
+    return index;
   }
 
 private:
@@ -138,44 +156,15 @@ private:
     uint16_t count;
   };
 
-  struct Edge {
-    uint16_t a;
-    uint16_t b;
-    math::Vector normal;
-    math::Vector from_a;
-    math::Vector from_b;
-    float inv_length;
-    uint16_t first_face = NO_FACE;
-    uint16_t second_face = NO_FACE;
-  };
-
   using EdgeIds = std::pair<uint16_t, uint16_t>;
 
   std::vector<math::Vector> vertices;
   std::vector<Face> faces;
   std::vector<Point> corners;
-  std::vector<Edge> edges;
+  std::vector<SphereTilingEdge> edges;
+  std::vector<EdgeIds> edge_faces;
   Index face_index;
-  Index edge_index;
-
-  static float chord_squared(float angle) {
-    const float half = sinf(0.5f * angle);
-    return 4.0f * half * half;
-  }
-
-  static float chord_angle(float distance_squared) {
-    return 2.0f * asinf(0.5f * sqrtf(std::min(4.0f, distance_squared)));
-  }
-
-  static int cell_at(const math::Vector &direction) {
-    const auto [face, u, v, major] = math::project_cube_face(direction);
-    const float scale = (0.5f * CELL_STEPS) / major;
-    const auto x = hs::clamp(static_cast<int>(u * scale + 0.5f * CELL_STEPS), 0,
-                             CELL_STEPS - 1);
-    const auto y = hs::clamp(static_cast<int>(v * scale + 0.5f * CELL_STEPS), 0,
-                             CELL_STEPS - 1);
-    return (face * CELL_STEPS + y) * CELL_STEPS + x;
-  }
+  EdgeIndex edge_index{};
 
   bool contains(const Face &face, const math::Vector &direction) const {
     if (face.radius < 0.0f || math::dot(face.axis, direction) <= CHART_EPSILON)
@@ -204,40 +193,15 @@ private:
     return inside;
   }
 
-  float edge_chord_squared(const Edge &edge,
-                           const math::Vector &direction) const {
-    if (edge.inv_length > 0.0f && math::dot(edge.from_a, direction) >= 0.0f &&
-        math::dot(edge.from_b, direction) >= 0.0f) {
-      const float sine = math::dot(edge.normal, direction);
-      const float sine_sq = std::min(1.0f, sine * sine);
-      return 2.0f * sine_sq / (1.0f + sqrtf(1.0f - sine_sq));
-    }
-    return std::min(math::distance_squared(direction, vertices[edge.a]),
-                    math::distance_squared(direction, vertices[edge.b]));
-  }
-
-  float edge_position(const Edge &edge, const math::Vector &direction) const {
-    if (edge.inv_length == 0.0f)
-      return 0.0f;
-    const float from_start = math::dot(edge.from_a, direction);
-    if (from_start > 0.0f && math::dot(edge.from_b, direction) > 0.0f) {
-      const float angle =
-          atan2f(from_start, math::dot(vertices[edge.a], direction));
-      return hs::clamp(angle * edge.inv_length, 0.0f, 1.0f);
-    }
-    return math::dot(vertices[edge.a], direction) >=
-                   math::dot(vertices[edge.b], direction)
-               ? 0.0f
-               : 1.0f;
-  }
-
   std::pair<float, uint16_t> boundary_at(const Face &face,
                                          const math::Vector &direction) const {
+    using namespace tiling_edges_detail;
     uint16_t nearest = corners[face.first].edge;
-    float best = edge_chord_squared(edges[nearest], direction);
+    float best = edge_chord_squared(edges[nearest], direction, vertices);
     for (size_t i = face.first + 1; i < face.first + face.count; ++i) {
       const uint16_t edge = corners[i].edge;
-      const float distance = edge_chord_squared(edges[edge], direction);
+      const float distance =
+          edge_chord_squared(edges[edge], direction, vertices);
       if (distance < best) {
         best = distance;
         nearest = edge;
@@ -301,11 +265,11 @@ private:
       const auto match =
           std::lower_bound(edge_ids.begin(), edge_ids.end(), key);
       point.edge = static_cast<uint16_t>(match - edge_ids.begin());
-      auto &edge = edges[point.edge];
-      if (edge.first_face == NO_FACE)
-        edge.first_face = face_id;
-      else if (edge.first_face != face_id && edge.second_face == NO_FACE)
-        edge.second_face = face_id;
+      auto &[first, second] = edge_faces[point.edge];
+      if (first == NO_FACE)
+        first = face_id;
+      else if (first != face_id && second == NO_FACE)
+        second = face_id;
       corners.push_back(point);
       previous_id = id;
     }
@@ -348,6 +312,7 @@ private:
     // no death case: the tiling test indexes edges for every fixed registry solid.
     HS_CHECK(edge_ids.size() <= UINT16_MAX, "sphere tiling: too many edges");
     edges.reserve(edge_ids.size());
+    edge_faces.resize(edge_ids.size(), {NO_FACE, NO_FACE});
     for (auto [first, last] : edge_ids) {
       const auto &from = vertices[first];
       const auto &to = vertices[last];
@@ -371,47 +336,39 @@ private:
     }
   }
 
-  void build_index() {
-    constexpr float STEP = 2.0f / CELL_STEPS;
-    std::vector<float> edge_chords(edges.size());
-    for (int cell = 0; cell < CELL_COUNT; ++cell) {
-      const int side = cell / (CELL_STEPS * CELL_STEPS);
-      const float u = -1.0f + STEP * (cell % CELL_STEPS);
-      const float v = -1.0f + STEP * ((cell / CELL_STEPS) % CELL_STEPS);
-      const auto center = Pattern::sphere_face_direction(side, u + 0.5f * STEP,
-                                                         v + 0.5f * STEP);
+  template <class Visitor> static void for_each_cell(int steps, Visitor visit) {
+    const float step = 2.0f / steps;
+    for (int cell = 0; cell < 6 * steps * steps; ++cell) {
+      const int side = cell / (steps * steps);
+      const float u = -1.0f + step * (cell % steps);
+      const float v = -1.0f + step * ((cell / steps) % steps);
+      const auto center = Pattern::sphere_face_direction(side, u + 0.5f * step,
+                                                         v + 0.5f * step);
       float largest_chord = 0.0f;
-      for (float x : {u, u + STEP})
-        for (float y : {v, v + STEP})
+      for (float x : {u, u + step})
+        for (float y : {v, v + step})
           largest_chord =
               std::max(largest_chord,
                        math::distance_squared(
                            center, Pattern::sphere_face_direction(side, x, y)));
-      const float radius = chord_angle(largest_chord) + CAP_ANGLE_PAD;
-
-      for (size_t id = 0; id < faces.size(); ++id) {
-        const Face &face = faces[id];
-        if (face.radius >= 0.0f &&
-            math::dot(face.axis, center) >= cosf(face.radius + radius))
-          face_index.ids.push_back(static_cast<uint16_t>(id));
-      }
-      face_index.offsets[cell + 1] =
-          static_cast<uint32_t>(face_index.ids.size());
-
-      float nearest = 4.0f;
-      for (size_t id = 0; id < edges.size(); ++id) {
-        edge_chords[id] = edge_chord_squared(edges[id], center);
-        nearest = std::min(nearest, edge_chords[id]);
-      }
-      // Cell radius bounds the change in the distance to any edge.
-      const float limit = chord_squared(
-          std::min(math::PI_F, chord_angle(nearest) + 2.0f * radius));
-      for (size_t id = 0; id < edges.size(); ++id)
-        if (edge_chords[id] <= limit)
-          edge_index.ids.push_back(static_cast<uint16_t>(id));
-      edge_index.offsets[cell + 1] =
-          static_cast<uint32_t>(edge_index.ids.size());
+      const float radius =
+          tiling_edges_detail::chord_angle(largest_chord) + CAP_ANGLE_PAD;
+      visit(cell, center, radius);
     }
+  }
+
+  void build_face_index() {
+    for_each_cell(CELL_STEPS,
+                  [&](int cell, const math::Vector &center, float radius) {
+                    for (size_t id = 0; id < faces.size(); ++id) {
+                      const Face &face = faces[id];
+                      if (face.radius >= 0.0f && math::dot(face.axis, center) >=
+                                                     cosf(face.radius + radius))
+                        face_index.ids.push_back(static_cast<uint16_t>(id));
+                    }
+                    face_index.offsets[cell + 1] =
+                        static_cast<uint32_t>(face_index.ids.size());
+                  });
   }
 };
 

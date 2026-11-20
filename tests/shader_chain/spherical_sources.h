@@ -7,6 +7,7 @@
 /** @file spherical_sources.h
  * @brief Spherical source carriers, composed policies and instance clocks. */
 
+#include "core/render/pullback/sphere_tiling_edges_baked.h"
 #include "tests/shader_chain_fixture.h"
 
 namespace hs_test::shader_chain_tests {
@@ -146,6 +147,44 @@ inline void test_shader_chain_spherical_cells_policy() {
     HS_EXPECT_EQ(composed.sphere.x, drifted.dir.x);
     HS_EXPECT_EQ(actual.path_length, 2.0f);
     HS_EXPECT_EQ(composed.path_length, 2.0f);
+  }
+}
+
+/** @brief Baked edge samples match freshly built registry geometry. */
+inline void test_shader_chain_baked_tiling_edges() {
+  using namespace PB::Source;
+  const SphereTilingEdgeBand bands[] = {
+      {1.0f, 0.5f}, {0.0f, 1.398054f}, {10.0f, 10.0f}};
+  constexpr const char *BAKED_NAMES[] = {
+      "truncatedIcosahedron", "truncatedIcosahedron_truncate50d_ambo_dual",
+      "dodecahedron_hk54_ambo_hk72"};
+  unsigned solid = 0;
+  for (const auto registry : Solids::all_registries()) {
+    for (const auto &entry : registry) {
+      const bool expected = std::ranges::any_of(BAKED_NAMES, [&](auto name) {
+        return std::string_view(entry.name) == name;
+      });
+      const auto baked = baked_sphere_tiling_edges(solid);
+      HS_EXPECT_EQ(supports_baked_sphere_tiling_edges(solid), expected);
+      HS_EXPECT_EQ(baked.edges.empty(), !expected);
+      if (expected) {
+        const SphereTilingGeometry geometry{solid};
+        const auto runtime = geometry.edge_view();
+        HS_EXPECT_EQ(baked.vertices.size(), runtime.vertices.size());
+        HS_EXPECT_EQ(baked.edges.size(), runtime.edges.size());
+        for (int i = 0; i < 4096; ++i) {
+          const auto direction = math::fib_spiral(4096, 0.47f, i);
+          for (const auto &band : bands) {
+            const auto a = baked.sample(direction, band);
+            const auto b = runtime.sample(direction, band);
+            HS_EXPECT_NEAR(a.coverage, b.coverage, 1.0e-4f);
+            if (b.coverage >= 1.0e-4f)
+              HS_EXPECT_NEAR(a.value, b.value, 1.0e-4f);
+          }
+        }
+      }
+      ++solid;
+    }
   }
 }
 
