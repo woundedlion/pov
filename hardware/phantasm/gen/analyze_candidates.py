@@ -49,7 +49,7 @@ CANDIDATES = os.path.join(os.path.dirname(HERE), DEFAULT_REVISION, "candidates")
 # violation's items, not by its rule.
 REFILL_FIXABLE = {"clearance", "hole_clearance"}
 # kicad-cli describes a violating pour as `Zone [NET] on <layers>`.
-ZONE_ITEM = re.compile(r"\bzone\b", re.I)
+ZONE_ITEM = re.compile(r"Zone\s+\[", re.I)
 # run_drc outcomes; counts are meaningful only for DRC_OK
 DRC_OK = "ok"
 DRC_MISSING = "tool-missing"
@@ -102,7 +102,7 @@ def refill_fixable(violation):
     items = violation.get("items")
     if not isinstance(items, list):
         return False
-    return any(ZONE_ITEM.search(str(item.get("description", "")))
+    return any(ZONE_ITEM.match(str(item.get("description", "")))
                for item in items if isinstance(item, dict))
 
 

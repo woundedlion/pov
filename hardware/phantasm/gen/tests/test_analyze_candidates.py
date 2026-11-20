@@ -514,7 +514,7 @@ def track_clearance():
     """A clearance error between two different-net tracks -- no refill clears it."""
     return {"type": "clearance",
             "items": [{"description": "Track [/DATA] on F.Cu, length 3.4 mm"},
-                      {"description": "Track [/CLK] on F.Cu, length 2.1 mm"}]}
+                      {"description": "Track [/Zone] on F.Cu, length 2.1 mm"}]}
 
 
 class RunDrcReportTests(unittest.TestCase):
