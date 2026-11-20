@@ -1982,6 +1982,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
 
   /** @brief Runs the prefix into the prebound ordered color tail.
    * @tparam Index First node.
+   * @tparam DiscardTransparent Whether the raster may discard hidden RGB.
    * @tparam Input Carrier entering the node.
    * @tparam Column Bound endpoint or phase evaluator.
    * @param input Prefix carrier.
@@ -1989,7 +1990,8 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
    * @param prepared Prepared nodes.
    * @param column Bound color tail.
    * @return Final straight-alpha color. */
-  template <size_t Index, typename Input, typename Column>
+  template <size_t Index, bool DiscardTransparent = false, typename Input,
+            typename Column>
   HS_HOT_INLINE static Color4 shade_stack(Input input, const FrameState &ctx,
                                           const PreparedTuple &prepared,
                                           const Column &column) {
@@ -2016,14 +2018,17 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
           input = run_stage_endpoint<Index, false>(input, ctx, prepared);
       } else
         CoordinateWarpAt<Index>::apply(input, std::get<Index>(prepared));
-      return shade_stack<Index + 2>(
+      return shade_stack<Index + 2, DiscardTransparent>(
           run_stage_endpoint<Index + 1, false>(input, ctx, prepared), ctx,
           prepared, column);
     } else if constexpr (Index < STACK_BEGIN)
-      return shade_stack<Index + 1>(
+      return shade_stack<Index + 1, DiscardTransparent>(
           run_stage_endpoint<Index, false>(input, ctx, prepared), ctx, prepared,
           column);
     else {
+      if constexpr (DiscardTransparent)
+        if (input.coverage == 0.0f)
+          return {};
       if constexpr (requires { ctx.temporal.fraction; } &&
                     phase_tail_supported<STACK_BEGIN + 1>()) {
         if (auto *phase = std::get_if<1>(&column))
@@ -2620,6 +2625,25 @@ public:
     up = NodeAt<0>::run(SphereSample{{0.0f, 1.0f, 0.0f}, 0.0f}, frame.ctx,
                         std::get<0>(frame.prepared))
              .dir;
+  }
+
+  /** @brief Shades one row of a camera-rotated meridian.
+   * @tparam Column Bound color evaluator.
+   * @param sine Sine of the polar angle.
+   * @param cosine Cosine of the polar angle.
+   * @param frame Prepared column.
+   * @param basis Camera-rotated meridian.
+   * @param column Bound color evaluator.
+   * @return Color for the premultiplying raster. */
+  template <typename Column>
+  HS_HOT_ITCM_MEMBER static Color4
+  shade_rotated_column(float sine, float cosine, const Frame &frame,
+                       const ColumnBasis &basis, const Column &column)
+    requires(ROTATION_COLUMNS && MODULATION_STACK && !LINEAR_COLUMNS)
+  {
+    return Core::template shade_stack<1, true>(
+        SphereSample{sine * basis.equator + cosine * basis.up, 0.0f}, frame.ctx,
+        frame.prepared, column);
   }
 
   /** @brief Prepares a meridian's linear rotation prefix.

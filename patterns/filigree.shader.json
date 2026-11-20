@@ -12,7 +12,8 @@
       },
       {
         "label": "sample",
-        "operator": "sample.spherical-tiling.v1"
+        "operator": "sample.spherical-tiling.v1",
+        "source_morph": true
       },
       {
         "label": "colorize",

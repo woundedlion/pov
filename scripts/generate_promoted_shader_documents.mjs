@@ -7,9 +7,9 @@ import {
   loadOperatorCatalog,
 } from './pattern_documents.mjs';
 import { loadEffectIdentities } from './effect_roster.mjs';
-import { hasFixedSourceMorph } from './generate_composed_presets.mjs';
+import { hasSourceMorph } from './generate_composed_presets.mjs';
 import {
-  FIXED_TESSELLATION_OPERATOR,
+  supportsExplicitSourceMorph,
   compileShaderDocument,
   declarationFromCatalogField,
   exportShaderDocumentJson,
@@ -1319,7 +1319,7 @@ const documentFor = (spec, catalog, sourceMorph) => {
     document_id: spec.id,
     effect_id: spec.id,
     descriptor: {
-      chain: spec.chain.map(slot => slot.operator === FIXED_TESSELLATION_OPERATOR && sourceMorph
+      chain: spec.chain.map(slot => supportsExplicitSourceMorph(slot.operator) && sourceMorph
         ? { ...slot, source_morph: true } : slot),
       parameters,
       path_policies: [{ id: 'parallel', kind: 'PARALLEL' }],
@@ -1353,11 +1353,11 @@ const identities = await loadEffectIdentities();
 const stale = [];
 for (const spec of effects) {
   let sourceMorph = false;
-  if (spec.chain.some(slot => slot.operator === FIXED_TESSELLATION_OPERATOR)) {
+  if (spec.chain.some(slot => supportsExplicitSourceMorph(slot.operator))) {
     const effect = identities.find(row => row.id === spec.id);
     if (!effect) throw new Error('Unregistered composed effect: ' + spec.id);
     const source = await readFile(resolve(ROOT, 'effects', effect.name + '.h'), 'utf8');
-    sourceMorph = hasFixedSourceMorph(source);
+    sourceMorph = hasSourceMorph(source);
   }
   const document = documentFor(spec, catalog, sourceMorph);
   const compiled = compileShaderDocument(document, { catalog });

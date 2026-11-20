@@ -9,6 +9,11 @@ export const SHADER_DOCUMENT_SCHEMA_VERSION = 2;
 export const OPERATOR_CATALOG_VERSION = 2;
 export const PLANAR_SOURCE_OPERATOR = 'sample.planar.v1';
 export const FIXED_TESSELLATION_OPERATOR = 'sample.tessellation.v3';
+const TILING_OPERATOR = 'sample.spherical-tiling.v1';
+
+export function supportsExplicitSourceMorph(operator) {
+  return operator === FIXED_TESSELLATION_OPERATOR || operator === TILING_OPERATOR;
+}
 
 const PLANAR_FAMILIES = ['projected-noise', 'tessellation', 'twin-wave', 'spiral', 'bands', 'grid'];
 
@@ -1021,7 +1026,7 @@ export function canonicalDescriptor(document) {
   const source = document.descriptor;
   const descriptor = {
     chain: source.chain.map(({ label, operator, source_morph }) => ({ label, operator,
-      ...(operator === FIXED_TESSELLATION_OPERATOR && source_morph ? { source_morph } : {}),
+      ...(supportsExplicitSourceMorph(operator) && source_morph ? { source_morph } : {}),
     })),
     parameters: source.parameters.map(quantizeParameter)
       .sort((a, b) => codePointCompare(a.id, b.id)),
@@ -1141,7 +1146,6 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
   return null;
 }
 
-const TILING_OPERATOR = 'sample.spherical-tiling.v1';
 const TILING_OUTPUT_MIGRATION = new Map([
   ['borders', 'edges'], ['face-type', 'faces'], ['tile-value', 'faces'],
 ]);
@@ -1384,7 +1388,7 @@ export function interpolateNormalizedGroup(parameters, from, to, progress, epsil
 function transitionSourceMorph(descriptor, operatorById, from, to, edge, evaluation) {
   for (const slot of descriptor.chain) {
     if (slot.operator !== PLANAR_SOURCE_OPERATOR &&
-        !(slot.operator === FIXED_TESSELLATION_OPERATOR && slot.source_morph))
+        !(supportsExplicitSourceMorph(slot.operator) && slot.source_morph))
       continue;
     const operator = operatorById.get(slot.operator);
     if (!operator) continue;

@@ -18,6 +18,8 @@
 /** @brief Authored stages for Filigree. */
 struct FiligreeSpec : Pullback::Spec {
   static constexpr bool AUTHORED_TOPOLOGY = true;
+  static constexpr bool SOURCE_MORPH = true;
+  static constexpr bool FACTORED_SPHERE_COLUMNS = true;
   static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
 
   template <typename B>
@@ -59,7 +61,7 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "97d447e61456e096b9b6b1d93d164932a4e2d405bad17ca377ae55f8147d5969";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "f24c87c2d12951531fed4dc30153b5964c626d4320f38bf3ce4335a1fd7aabdb";
   /// SHA-256 hex of the shader document's preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST = "4f45ac9359fbd414db2c4aa146174b7070a7b36407c1160773bda2ccff783da8";
   /// Preset identities, indexed by preset number.

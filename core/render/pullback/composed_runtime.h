@@ -335,7 +335,17 @@ public:
         return RenderPipeline::shade_column(sine, cosine, frame, basis,
                                             evaluator());
       };
-    else
+    else if constexpr (SpecT::FACTORED_SPHERE_COLUMNS) {
+      typename RenderPipeline::ColumnBasis basis;
+      RenderPipeline::rotation_column_basis(
+          frame, math::TrigLUT<W, H>::cos_theta(x),
+          math::TrigLUT<W, H>::sin_theta[x], basis.equator, basis.up);
+      return [&frame, basis, evaluator = std::move(evaluator)](float sine,
+                                                               float cosine) {
+        return RenderPipeline::shade_rotated_column(sine, cosine, frame, basis,
+                                                    evaluator());
+      };
+    } else
       return
           [&frame, evaluator = std::move(evaluator)](const math::Vector &view) {
             return RenderPipeline::shade(view, frame, evaluator());

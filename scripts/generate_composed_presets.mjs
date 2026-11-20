@@ -3,10 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { exitAfterStderr, isMain } from './exit.mjs';
 import { resolve } from 'node:path';
 import {
-  FIXED_TESSELLATION_OPERATOR, LIVE_TOPOLOGY_FIELD, PLANAR_SOURCE_OPERATOR,
+  LIVE_TOPOLOGY_FIELD, PLANAR_SOURCE_OPERATOR,
   compileShaderDocument, fixedDerivedBinding,
   hasLiveComposedTopology, isUnusedPlanarParameter, planarSourceField, promotionDepartureDiagnostics,
-  promotionDiagnostics,
+  promotionDiagnostics, supportsExplicitSourceMorph,
 } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 import { loadEffectIdentities } from './effect_roster.mjs';
@@ -267,14 +267,14 @@ const promotionOptions = source => ({
   ...(/AuthoredColorProvider/u.test(source) ? { authoredPalette: true } : {}),
 });
 
-/** Whether the C++ spec opts into fixed tessellation endpoint morphing. */
-export const hasFixedSourceMorph = source => /\bSOURCE_MORPH\s*=\s*true\b/u.test(source);
+/** Whether the C++ spec opts into source endpoint morphing. */
+export const hasSourceMorph = source => /\bSOURCE_MORPH\s*=\s*true\b/u.test(source);
 
 export function updateHeader(source, compiled, metadata) {
-  const tessellation = compiled.document?.descriptor.chain.find(slot =>
-    slot.operator === FIXED_TESSELLATION_OPERATOR);
-  if (tessellation && Boolean(tessellation.source_morph) !== hasFixedSourceMorph(source))
-    throw new Error('Tessellation source_morph must match SOURCE_MORPH in the compiled spec');
+  const sample = compiled.document?.descriptor.chain.find(slot =>
+    supportsExplicitSourceMorph(slot.operator));
+  if (sample && Boolean(sample.source_morph) !== hasSourceMorph(source))
+    throw new Error(`${sample.operator} source_morph must match SOURCE_MORPH in the compiled spec`);
   const authoredAffineKeys = new Set(Array.from(source.matchAll(
     /WarpPolicyFor\s*<\s*(?:\w+::)*AuthoredAffineParams\s*,\s*\w+\s*,\s*"([^"]+)"/gu), match => match[1]));
   const hasAuthoredAffine = slot => authoredAffineKeys.has(groupFor(slot));

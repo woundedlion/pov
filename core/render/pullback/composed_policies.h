@@ -153,6 +153,8 @@ struct Spec {
   static constexpr int PALETTE_LAB_VALUES = 64;
   /// Factors a supported rotation prefix into column bases.
   static constexpr bool FACTORED_COLUMNS = false;
+  /// Factors a sphere shader's leading rotation into column bases.
+  static constexpr bool FACTORED_SPHERE_COLUMNS = false;
   /// Bakes endpoint radial transfer curves for burst ripples.
   static constexpr bool RIPPLE_RADIAL_TABLE = false;
   /// Prewarms the first two fixed hex-cell profiles. Their authored shapes must
