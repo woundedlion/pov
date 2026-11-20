@@ -726,6 +726,15 @@ class TestBudgetSchema(unittest.TestCase):
             self._load(gutted)
         self.assertIn("max_banks_from_stack_floor", str(ctx.exception))
 
+    def test_static_code_ceiling_is_allowed_outside_phantasm_ram1(self):
+        for env, region in (("holosphere", "ram1"), ("phantasm", "flash")):
+            with self.subTest(env=env, region=region):
+                budgets = copy.deepcopy(BUDGETS)
+                limit = {"code": {"max_bytes": 100000}}
+                budgets[env]["regions"][region]["components"] = limit
+                loaded = self._load(budgets)
+                self.assertEqual(loaded[env]["regions"][region]["components"], limit)
+
     def test_unknown_key_rejected_at_every_level(self):
         for path in (("phantasm",),
                      ("phantasm", "regions", "ram1"),

@@ -98,8 +98,8 @@ _REQUIRED_SYMBOLS_BY_ENV: dict[str, frozenset[str]] = {
 _REQUIRED_COMPONENTS_BY_ENV: dict[str, dict[str, frozenset[str]]] = {
     "phantasm": {"ram1": frozenset({"code"})},
 }
-_COMPONENT_REQUIRED_KEYS_BY_COMPONENT: dict[str, frozenset[str]] = {
-    "code": frozenset({"max_banks_from_stack_floor"}),
+_REQUIRED_COMPONENT_KEYS_BY_ENV: dict[str, dict[tuple[str, str], frozenset[str]]] = {
+    "phantasm": {("ram1", "code"): frozenset({"max_banks_from_stack_floor"})},
 }
 
 
@@ -185,6 +185,7 @@ def validate_budgets(budgets: object) -> dict:
         _check_keys(budget, _BUDGET_KEYS, f"env '{env}'")
         regions = _child_map(budget, "regions", f"env '{env}'")
         _require_present(regions, _REQUIRED_REGIONS, f"env '{env}'", "region")
+        component_keys = _REQUIRED_COMPONENT_KEYS_BY_ENV.get(env, {})
         for region, spec in regions.items():
             rwhere = f"env '{env}' region '{region}'"
             required = _REGION_REQUIRED_KEYS_BY_REGION.get(
@@ -202,8 +203,7 @@ def validate_budgets(budgets: object) -> dict:
             for cname, cspec in components.items():
                 cwhere = f"{rwhere} component '{cname}'"
                 _check_keys(cspec, _COMPONENT_KEYS, cwhere,
-                            required=_COMPONENT_REQUIRED_KEYS_BY_COMPONENT.get(
-                                cname, frozenset()),
+                            required=component_keys.get((region, cname), frozenset()),
                             one_of=_COMPONENT_ONE_OF_KEYS)
                 _check_byte_limits(cspec, ("max_bytes",), cwhere)
                 derived = cspec.get("max_banks_from_stack_floor")
