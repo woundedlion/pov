@@ -40,7 +40,8 @@ class PhaseModulationStack {
   uint16_t color_weight;
   float common_alpha = -1.0f;
 
-  HS_HOT_INLINE ColorSample canonical_base(const FieldSample &field) const {
+  HS_HOT_FLASH_MEMBER ColorSample
+  canonical_base(const FieldSample &field) const {
     const auto controls = palette_controls(field, palette.current);
     if (fraction <= 0.0f || fraction >= 1.0f)
       return apply_palette_endpoint_impl(
