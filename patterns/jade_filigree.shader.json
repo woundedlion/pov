@@ -1,0 +1,914 @@
+{
+  "catalog_version": 2,
+  "descriptor": {
+    "chain": [
+      {
+        "label": "displace",
+        "operator": "sphere.displace.direct.v2"
+      },
+      {
+        "label": "sample",
+        "operator": "sample.spherical-tiling.v1"
+      },
+      {
+        "label": "colorize",
+        "operator": "colorize.generated-palette.v4"
+      }
+    ],
+    "parameters": [
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.brightness-bottom",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "none",
+        "domain": {
+          "values": [
+            "none",
+            "cup",
+            "bell",
+            "ascending",
+            "descending"
+          ]
+        },
+        "id": "colorize.brightness-envelope",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.brightness-top",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-end-b",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.20000000298023224,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-end-g",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.10000000149011612,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-end-r",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.4000000059604645,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-middle-b",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-middle-g",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.10000000149011612,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-middle-r",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-start-b",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.15000000596046448,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-start-g",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.gradient-start-r",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 32,
+          "minimum": 1
+        },
+        "id": "colorize.mapping-frequency",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": -1
+        },
+        "id": "colorize.mapping-phase",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.6200000047683716,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.palette-chroma",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "triadic",
+        "domain": {
+          "values": [
+            "monochromatic",
+            "analogous",
+            "accented-analogous",
+            "complementary",
+            "split-complementary",
+            "triadic",
+            "tetradic",
+            "square"
+          ]
+        },
+        "id": "colorize.palette-harmony",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.palette-hue",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.6200000047683716,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.palette-lightness",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "constant",
+        "domain": {
+          "values": [
+            "constant",
+            "ascending",
+            "descending",
+            "bell",
+            "cup"
+          ]
+        },
+        "id": "colorize.palette-lightness-curve",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.palette-lightness-range",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "linear",
+        "domain": {
+          "values": [
+            "cup",
+            "bell",
+            "linear",
+            "reverse"
+          ]
+        },
+        "id": "colorize.palette-mapping",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "triadic",
+        "domain": {
+          "values": [
+            "triadic",
+            "complementary",
+            "analogous"
+          ]
+        },
+        "id": "colorize.palette-mode",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.palette-mutation",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "dark-rainbow",
+        "domain": {
+          "values": [
+            "dark-rainbow",
+            "blood-stream",
+            "vintage-sunset",
+            "rich-sunset",
+            "undersea",
+            "late-sunset",
+            "mango-peel",
+            "ice-melt",
+            "lemon-lime",
+            "algae",
+            "embers",
+            "fire-glow",
+            "dark-primary",
+            "mauve-fade",
+            "lavender-lake",
+            "desert-rose",
+            "bruised-moss",
+            "bruised-banana",
+            "bright-sunrise",
+            "fire-and-ice",
+            "peach-pop",
+            "tidal-jade",
+            "blue-lagoon",
+            "orange-crush",
+            "plum-sunrise",
+            "coral-blue",
+            "bruised-mango"
+          ]
+        },
+        "id": "colorize.palette-name",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "fire-and-ice",
+        "domain": {
+          "values": [
+            "dark-rainbow",
+            "blood-stream",
+            "vintage-sunset",
+            "rich-sunset",
+            "undersea",
+            "late-sunset",
+            "mango-peel",
+            "ice-melt",
+            "lemon-lime",
+            "algae",
+            "embers",
+            "fire-glow",
+            "dark-primary",
+            "mauve-fade",
+            "lavender-lake",
+            "desert-rose",
+            "bruised-moss",
+            "bruised-banana",
+            "bright-sunrise",
+            "fire-and-ice",
+            "peach-pop",
+            "tidal-jade",
+            "blue-lagoon",
+            "orange-crush",
+            "plum-sunrise",
+            "coral-blue",
+            "bruised-mango"
+          ]
+        },
+        "id": "colorize.palette-name-b",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0.07000000029802322,
+        "domain": {
+          "maximum": 0.25,
+          "minimum": 0
+        },
+        "id": "colorize.palette-spread",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "cycling-generated",
+        "domain": {
+          "values": [
+            "cycling-generated",
+            "generated",
+            "procedural",
+            "gradient",
+            "mutating"
+          ]
+        },
+        "id": "colorize.palette-type",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.phase-oscillation-depth",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.009999999776482582,
+          "minimum": -0.009999999776482582
+        },
+        "id": "colorize.phase-oscillation-speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.value-opacity-high",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "colorize.value-opacity-low",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "simplex",
+        "domain": {
+          "values": [
+            "simplex",
+            "fbm3",
+            "ridged3"
+          ]
+        },
+        "id": "displace.basis",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 1,
+          "minimum": 0
+        },
+        "id": "displace.direction",
+        "interpolation": {
+          "kind": "SHORTEST_PERIODIC",
+          "period": 1
+        },
+        "storage": "binary32",
+        "unit": "turn"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 64,
+          "minimum": 0.015625
+        },
+        "id": "displace.scale",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.015625,
+          "minimum": -0.015625
+        },
+        "id": "displace.speed",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "turn-per-frame"
+      },
+      {
+        "classification": "preset",
+        "default": 0,
+        "domain": {
+          "maximum": 0.5,
+          "minimum": 0
+        },
+        "id": "displace.strength",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 0.5,
+        "domain": {
+          "maximum": 10,
+          "minimum": 0.05000000074505806
+        },
+        "id": "sample.line-softness",
+        "interpolation": {
+          "kind": "LOG_POSITIVE"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": 1,
+        "domain": {
+          "maximum": 10,
+          "minimum": 0
+        },
+        "id": "sample.line-thickness",
+        "interpolation": {
+          "kind": "LINEAR"
+        },
+        "storage": "binary32",
+        "unit": "ratio"
+      },
+      {
+        "classification": "preset",
+        "default": "edges",
+        "domain": {
+          "values": [
+            "edges",
+            "faces"
+          ]
+        },
+        "id": "sample.output",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
+        "default": "truncated-icosahedron",
+        "domain": {
+          "values": [
+            "tetrahedron",
+            "cube",
+            "octahedron",
+            "dodecahedron",
+            "icosahedron",
+            "truncated-tetrahedron",
+            "cuboctahedron",
+            "truncated-cube",
+            "truncated-octahedron",
+            "rhombicuboctahedron",
+            "truncated-cuboctahedron",
+            "snub-cube",
+            "icosidodecahedron",
+            "truncated-dodecahedron",
+            "truncated-icosahedron",
+            "rhombicosidodecahedron",
+            "truncated-icosidodecahedron",
+            "snub-dodecahedron",
+            "triakis-tetrahedron",
+            "rhombic-dodecahedron",
+            "triakis-octahedron",
+            "tetrakis-hexahedron",
+            "deltoidal-icositetrahedron",
+            "disdyakis-dodecahedron",
+            "pentagonal-icositetrahedron",
+            "rhombic-triacontahedron",
+            "triakis-icosahedron",
+            "pentakis-dodecahedron",
+            "deltoidal-hexecontahedron",
+            "disdyakis-triacontahedron",
+            "pentagonal-hexecontahedron",
+            "dodecahedron-hk62-ambo-hk62",
+            "truncated-icosahedron-hk58-chamfer63",
+            "dodecahedron-ambo-bevel33-relax-hk66",
+            "truncated-icosahedron-ambo-relax-truncate33-hk64",
+            "dodecahedron-bevel2-relax-gyro",
+            "truncated-icosidodecahedron-bevel5-relax-hk77",
+            "truncated-cube-hk90-meta",
+            "truncated-icosahedron-ambo-relax-truncate001-hankin59",
+            "truncated-icosahedron-ambo-relax-truncate001-hankin73",
+            "icosahedron-ambo-truncate033-hankin59",
+            "dodecahedron-hk35-ambo-hk62-ambo-relax-hk42",
+            "octahedron-hk17-ambo-hk73",
+            "icosahedron-kis-gyro",
+            "truncated-icosidodecahedron-truncate50d-ambo-dual",
+            "icosidodecahedron-truncate5d-ambo-dual",
+            "snub-dodecahedron-truncate5d-ambo-dual",
+            "octahedron-hk34-ambo-hk72",
+            "rhombicuboctahedron-hk63-ambo-hk63",
+            "truncated-icosahedron-hk54-ambo-hk72",
+            "dodecahedron-hk54-ambo-hk72",
+            "dodecahedron-hk72-ambo-dual-hk20",
+            "truncated-icosahedron-truncate50d-ambo-dual",
+            "icosahedron-snub-relax-truncate033-hankin62",
+            "icosahedron-truncate25-hk60-ambo-relax100-hk60"
+          ]
+        },
+        "id": "sample.solid",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      }
+    ],
+    "path_policies": [
+      {
+        "id": "parallel",
+        "kind": "PARALLEL"
+      }
+    ],
+    "serialization": {
+      "fields": [
+        "colorize.brightness-bottom",
+        "colorize.brightness-envelope",
+        "colorize.brightness-top",
+        "colorize.gradient-end-b",
+        "colorize.gradient-end-g",
+        "colorize.gradient-end-r",
+        "colorize.gradient-middle-b",
+        "colorize.gradient-middle-g",
+        "colorize.gradient-middle-r",
+        "colorize.gradient-start-b",
+        "colorize.gradient-start-g",
+        "colorize.gradient-start-r",
+        "colorize.mapping-frequency",
+        "colorize.mapping-phase",
+        "colorize.palette-chroma",
+        "colorize.palette-harmony",
+        "colorize.palette-hue",
+        "colorize.palette-lightness",
+        "colorize.palette-lightness-curve",
+        "colorize.palette-lightness-range",
+        "colorize.palette-mapping",
+        "colorize.palette-mode",
+        "colorize.palette-mutation",
+        "colorize.palette-name",
+        "colorize.palette-name-b",
+        "colorize.palette-spread",
+        "colorize.palette-type",
+        "colorize.phase-oscillation-depth",
+        "colorize.phase-oscillation-speed",
+        "colorize.value-opacity-high",
+        "colorize.value-opacity-low",
+        "displace.basis",
+        "displace.direction",
+        "displace.scale",
+        "displace.speed",
+        "displace.strength",
+        "sample.line-softness",
+        "sample.line-thickness",
+        "sample.output",
+        "sample.solid"
+      ],
+      "schema_version": 1
+    }
+  },
+  "document_id": "jade-filigree",
+  "effect_id": "jade-filigree",
+  "effect_metadata": {
+    "description": "A golden mesh gives way to a flowing green filigree.",
+    "display_name": "Jade Filigree"
+  },
+  "preset_bank": {
+    "absent_edge_fallback": {
+      "authoring": "SNAP",
+      "automatic": "REJECT",
+      "manual": "SNAP",
+      "restore": "SNAP",
+      "synchronized": "SNAP"
+    },
+    "choreography": {
+      "dwell": {
+        "golden-mesh": 600,
+        "jade-weave": 600
+      },
+      "generated_order": [
+        "golden-mesh",
+        "jade-weave"
+      ]
+    },
+    "edges": [
+      {
+        "duration": 480,
+        "easing": "EASE_IN_OUT_SIN",
+        "from": "golden-mesh",
+        "path_policy": "parallel",
+        "to": "jade-weave"
+      },
+      {
+        "duration": 480,
+        "easing": "EASE_IN_OUT_SIN",
+        "from": "jade-weave",
+        "path_policy": "parallel",
+        "to": "golden-mesh"
+      }
+    ],
+    "presets": [
+      {
+        "display_name": "Golden Mesh",
+        "preset_id": "golden-mesh",
+        "values": {
+          "colorize.brightness-bottom": 0,
+          "colorize.brightness-envelope": "none",
+          "colorize.brightness-top": 1,
+          "colorize.gradient-end-b": 1,
+          "colorize.gradient-end-g": 0.20000000298023224,
+          "colorize.gradient-end-r": 0.10000000149011612,
+          "colorize.gradient-middle-b": 0.4000000059604645,
+          "colorize.gradient-middle-g": 1,
+          "colorize.gradient-middle-r": 0.10000000149011612,
+          "colorize.gradient-start-b": 0,
+          "colorize.gradient-start-g": 0.15000000596046448,
+          "colorize.gradient-start-r": 1,
+          "colorize.mapping-frequency": 1,
+          "colorize.mapping-phase": 0,
+          "colorize.palette-chroma": 0.792397677898407,
+          "colorize.palette-harmony": "triadic",
+          "colorize.palette-hue": 0,
+          "colorize.palette-lightness": 0.6200000047683716,
+          "colorize.palette-lightness-curve": "constant",
+          "colorize.palette-lightness-range": 0,
+          "colorize.palette-mapping": "linear",
+          "colorize.palette-mode": "triadic",
+          "colorize.palette-mutation": 0,
+          "colorize.palette-name": "bruised-banana",
+          "colorize.palette-name-b": "fire-and-ice",
+          "colorize.palette-spread": 0.07000000029802322,
+          "colorize.palette-type": "procedural",
+          "colorize.phase-oscillation-depth": 0,
+          "colorize.phase-oscillation-speed": 0,
+          "colorize.value-opacity-high": 1,
+          "colorize.value-opacity-low": 1,
+          "displace.basis": "simplex",
+          "displace.direction": 0,
+          "displace.scale": 1,
+          "displace.speed": 0,
+          "displace.strength": 0,
+          "sample.line-softness": 0.5,
+          "sample.line-thickness": 1,
+          "sample.output": "edges",
+          "sample.solid": "truncated-icosahedron"
+        }
+      },
+      {
+        "display_name": "Jade Weave",
+        "preset_id": "jade-weave",
+        "values": {
+          "colorize.brightness-bottom": 0,
+          "colorize.brightness-envelope": "none",
+          "colorize.brightness-top": 1,
+          "colorize.gradient-end-b": 1,
+          "colorize.gradient-end-g": 0.20000000298023224,
+          "colorize.gradient-end-r": 0.10000000149011612,
+          "colorize.gradient-middle-b": 0.4000000059604645,
+          "colorize.gradient-middle-g": 1,
+          "colorize.gradient-middle-r": 0.10000000149011612,
+          "colorize.gradient-start-b": 0,
+          "colorize.gradient-start-g": 0.15000000596046448,
+          "colorize.gradient-start-r": 1,
+          "colorize.mapping-frequency": 1,
+          "colorize.mapping-phase": 0,
+          "colorize.palette-chroma": 1,
+          "colorize.palette-harmony": "triadic",
+          "colorize.palette-hue": 0,
+          "colorize.palette-lightness": 0.6200000047683716,
+          "colorize.palette-lightness-curve": "constant",
+          "colorize.palette-lightness-range": 0,
+          "colorize.palette-mapping": "cup",
+          "colorize.palette-mode": "analogous",
+          "colorize.palette-mutation": 0,
+          "colorize.palette-name": "algae",
+          "colorize.palette-name-b": "fire-and-ice",
+          "colorize.palette-spread": 0.07000000029802322,
+          "colorize.palette-type": "procedural",
+          "colorize.phase-oscillation-depth": 1,
+          "colorize.phase-oscillation-speed": 0.007017543539404869,
+          "colorize.value-opacity-high": 1,
+          "colorize.value-opacity-low": 1,
+          "displace.basis": "simplex",
+          "displace.direction": 0,
+          "displace.scale": 1.2462962865829468,
+          "displace.speed": -0.00009999999747378752,
+          "displace.strength": 0.18088234961032867,
+          "sample.line-softness": 1.3980540037155151,
+          "sample.line-thickness": 0,
+          "sample.output": "edges",
+          "sample.solid": "truncated-icosahedron-truncate50d-ambo-dual"
+        }
+      }
+    ],
+    "schema_version": 1
+  },
+  "schema_version": 2
+}

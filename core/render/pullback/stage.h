@@ -193,16 +193,17 @@ consteval bool warp_policy_callable() {
  * @tparam FrameState Frame state of the binding.
  * @return True when the call is well formed.
  */
-template <typename Policy, typename Input, typename FrameState>
+template <typename Policy, typename Input, typename FrameState,
+          typename Result = float>
 consteval bool sample_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
     return requires(const Input &input, const FrameState &frame,
                     const typename Policy::Prepared &prepared) {
-      { Policy::sample(input, frame, prepared) } -> std::same_as<float>;
+      { Policy::sample(input, frame, prepared) } -> std::same_as<Result>;
     };
   else
     return requires(const Input &input, const FrameState &frame) {
-      { Policy::sample(input, frame) } -> std::same_as<float>;
+      { Policy::sample(input, frame) } -> std::same_as<Result>;
     };
 }
 
@@ -719,9 +720,8 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
 };
 
 /**
- * @brief SPHERE→FIELD crossing: samples a signed spherical field, ramps it,
- *        and seeds an opaque field carrier.
- * @tparam SourcePolicyT Scalar source policy over SphereSample.
+ * @brief SPHERE→FIELD crossing: samples a spherical field and its coverage.
+ * @tparam SourcePolicyT Source policy over SphereSample.
  */
 template <typename SourcePolicyT>
 struct SampleSphere
@@ -738,7 +738,10 @@ struct SampleSphere
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::sample_policy_callable<SourcePolicyT, SphereSample,
-                                     typename Binding::FrameState>();
+                                     typename Binding::FrameState>() ||
+      Detail::sample_policy_callable<SourcePolicyT, SphereSample,
+                                     typename Binding::FrameState,
+                                     FieldSample>();
 
   /**
    * @brief Samples the spherical source and seeds the field carrier.
@@ -746,7 +749,7 @@ struct SampleSphere
    * @param input Sphere carrier.
    * @param frame Frame state.
    * @param prepared This frame's `prepare` result.
-   * @return Opaque field carrier with the ramped value.
+   * @return Sampled field and coverage.
    */
   template <typename Binding>
   __attribute__((always_inline)) static FieldSample
@@ -755,13 +758,19 @@ struct SampleSphere
           &prepared) {
     using Instrumentation = typename Binding::Instrumentation;
     const auto source_span = Instrumentation::mark();
-    float raw;
-    if constexpr (Detail::PolicyPrepares<SourcePolicyT,
-                                         typename Binding::FrameState>)
-      raw = SourcePolicyT::sample(input, frame, prepared);
-    else
-      raw = SourcePolicyT::sample(input, frame);
-    const FieldSample output = Kernel::sample(input, raw);
+    const auto raw = [&] {
+      if constexpr (Detail::PolicyPrepares<SourcePolicyT,
+                                           typename Binding::FrameState>)
+        return SourcePolicyT::sample(input, frame, prepared);
+      else
+        return SourcePolicyT::sample(input, frame);
+    }();
+    const FieldSample output = [&] {
+      if constexpr (std::same_as<decltype(raw), const FieldSample>)
+        return raw;
+      else
+        return Kernel::sample(input, raw);
+    }();
     Instrumentation::template span<ProfileEvent::SOURCE>(source_span);
     return output;
   }

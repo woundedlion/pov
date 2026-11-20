@@ -98,6 +98,7 @@ namespace effect_identities {
   X(DisplacementField, "displacement-field", "DisplacementField")              \
   X(DreamBalls, "dream-balls", "DreamBalls")                                   \
   X(Dynamo, "dynamo", "Dynamo")                                                \
+  X(EmberTracery, "ember-tracery", "ember-tracery")                            \
   X(Fishbowl, "fishbowl", "Fishbowl")                                          \
   X(Galaxies, "galaxies", "Galaxies")                                          \
   X(GnomonicStars, "gnomonic-stars", "GnomonicStars")                          \
@@ -111,6 +112,7 @@ namespace effect_identities {
   X(Involution, "involution", "involution")                                    \
   X(Iridescence, "iridescence", "iridescence")                                 \
   X(IslamicStars, "islamic-stars", "IslamicStars")                             \
+  X(JadeFiligree, "jade-filigree", "jade-filigree")                            \
   X(JewelMelt, "jewel-melt", "jewel-melt")                                     \
   X(KaleidoscopeFlowers, "kaleidoscope-flowers", "kaleidoscope-flowers")       \
   X(KaleidoscopeHexBright, "kaleidoscope-hex-bright",                          \
