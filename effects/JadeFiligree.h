@@ -18,6 +18,7 @@
 /** @brief Authored stages for JadeFiligree. */
 struct JadeFiligreeSpec : Pullback::Spec {
   static constexpr bool AUTHORED_TOPOLOGY = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   static constexpr auto PROJECTION_MOTION = Pullback::ProjectionMotion::STATIC;
 
   template <typename B>

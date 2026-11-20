@@ -503,9 +503,10 @@ inline bool apply_document_number(typename FX::Params &built,
     return true;
   switch (slot.role) {
   case SlotRole::CAMERA:
-    if (field_id == "wander")
-      return assign_field(built.template get<"projection">(), "camera-wander",
-                          number);
+    if constexpr (FX::Params::template HAS<"projection">)
+      if (field_id == "wander")
+        return assign_field(built.template get<"projection">(), "camera-wander",
+                            number);
     if (field_id == "spin-speed") {
       if constexpr (requires { FX::CAMERA_SPIN_RATE; }) {
         HS_EXPECT_EQ(bits(number), bits(FX::CAMERA_SPIN_RATE));

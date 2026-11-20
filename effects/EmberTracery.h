@@ -18,6 +18,7 @@
 /** @brief Authored stages for EmberTracery. */
 struct EmberTracerySpec : Pullback::Spec {
   static constexpr bool AUTHORED_TOPOLOGY = true;
+  static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
   static constexpr bool HOLD_MODULATION_TOPOLOGY = true;
 
   template <typename B>
