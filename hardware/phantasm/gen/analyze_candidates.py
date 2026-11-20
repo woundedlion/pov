@@ -39,7 +39,7 @@ import tempfile
 import fab_gates
 from revision_policy import DEFAULT_REVISION
 import sexp
-from kicad_common import F, kicad_cli, net_name, property_value
+from kicad_common import F, circle_arc, kicad_cli, net_name, property_value
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CANDIDATES = os.path.join(os.path.dirname(HERE), DEFAULT_REVISION, "candidates")
@@ -82,6 +82,14 @@ def xy(b, tag):
 
 def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def arc_length(start, mid, end):
+    arc = circle_arc(start, mid, end)
+    if arc is None:
+        return dist(start, mid) + dist(mid, end)
+    _, radius, (first, _, last), direction = arc
+    return radius * (((last - first) * direction) % math.tau)
 
 
 def refill_fixable(violation):
@@ -195,7 +203,7 @@ def analyze(path):
         if is_arc:
             mid = xy(b, "mid")
             if mid:
-                dl = dist(st, mid) + dist(mid, en)
+                dl = arc_length(st, mid, en)
         n = net_name(b)
         ly = field(b, "layer")
         netlen[n] = netlen.get(n, 0) + dl

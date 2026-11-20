@@ -141,10 +141,14 @@ class AnalyzeTests(unittest.TestCase):
                 self.assertEqual(self.analyze_source(source)["back_footprints"], ["R1"])
         self.assertEqual(self.analyze_source(SYNTHETIC_BOARD)["back_footprints"], [])
 
-    def test_arc_length_uses_both_midpoint_chords(self):
-        source = SYNTHETIC_BOARD.replace(
-            '(segment (start 0 0) (end 10 0)', '(arc (start 0 0) (mid 1 1) (end 2 0)')
-        self.assertAlmostEqual(self.analyze_source(source)["netlen"]["DATA"], 2 * math.sqrt(2))
+    def test_arc_length_follows_the_sweep_through_the_midpoint(self):
+        for middle, end, expected in (("0 1", "-1 0", math.pi),
+                                      ("0 -1", "0 1", 1.5 * math.pi),
+                                      ("1 0", "4 0", 3)):
+            with self.subTest(middle=middle, end=end):
+                source = SYNTHETIC_BOARD.replace(
+                    '(segment (start 0 0) (end 10 0)', f'(arc (start 1 0) (mid {middle}) (end {end})')
+                self.assertAlmostEqual(self.analyze_source(source)["netlen"]["DATA"], expected)
 
     def test_flags_undersized_via(self):
         source = SYNTHETIC_BOARD.replace("(size 0.6) (drill 0.3)",
