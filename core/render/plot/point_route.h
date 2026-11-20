@@ -181,8 +181,14 @@ public:
    * @param sink,canvas Destination.
    * @param samples Calls its visitor with each endpoint, start evaluator and shader. */
   template <typename Sink, typename Samples>
-  HS_HOT_ITCM_MEMBER void plot_resident_batch(Sink &sink, Canvas &canvas,
-                                              Samples &&samples) const {
+  HS_HOT_FLASH_MEMBER
+#if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) &&            \
+    defined(__OPTIMIZE_SIZE__)
+      __attribute__((optimize("no-unroll-completely-grow-size", "no-peel-loops",
+                              "no-split-paths")))
+#endif
+      void plot_resident_batch(Sink &sink, Canvas &canvas,
+                               Samples &&samples) const {
     check_clip(canvas);
     samples([&](const math::Vector &end, auto &start, auto &shade)
                 HS_HOT_INLINE {
