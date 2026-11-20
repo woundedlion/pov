@@ -65,8 +65,10 @@ struct ShaderChainSourceMorphWrite {
 struct ShaderChainModulationMorphWrite {
   std::string_view instance; ///< Ordered modulation instance.
   /// Outgoing modulation controls.
-  std::span<const ShaderChainParameterWrite> from, to; ///< Endpoint controls.
-  float mix;                                           ///< Incoming weight.
+  std::span<const ShaderChainParameterWrite> from;
+  /// Incoming modulation controls.
+  std::span<const ShaderChainParameterWrite> to;
+  float mix; ///< Incoming weight.
   bool snap; ///< Discard the previous temporal interval on a preview seek.
 };
 
@@ -74,8 +76,10 @@ struct ShaderChainModulationMorphWrite {
 struct ShaderChainPaletteMorphWrite {
   std::string_view instance; ///< Colorize instance receiving the blend.
   /// Outgoing palette controls.
-  std::span<const ShaderChainParameterWrite> from, to; ///< Endpoint controls.
-  float mix;                                           ///< Incoming weight.
+  std::span<const ShaderChainParameterWrite> from;
+  /// Incoming palette controls.
+  std::span<const ShaderChainParameterWrite> to;
+  float mix; ///< Incoming weight.
   bool snap; ///< Discard the previous temporal interval on a preview seek.
 };
 

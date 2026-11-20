@@ -618,7 +618,9 @@ public:
   struct Pending {
     float *shift_row; /**< ROW centerline shifts; entry lut_n repeats entry
                            0 to close the polyline. */
-    Pixel *hue_row;   /**< ROW hue-rotated ring colors. */
+    Pixel
+        *hue_row; /**< ROW hue-rotated ring colors. Entry lut_n repeats entry 0
+                          for the last cell's blend. */
   };
 
   /** @brief Constructed rings indexed by slot. */

@@ -180,7 +180,8 @@ private:
 
   /**
    * @brief Starts at the mode of the target preset with no morph pending.
-   * @param change Preset change; only its target index is read.
+   * @details An unsynchronized change also advances the morph epoch.
+   * @param change Target preset and change origin.
    * @return Always true.
    */
   HS_FLASH_MEMBER bool apply_preset(const PresetChange &change) override {

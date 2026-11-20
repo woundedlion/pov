@@ -51,7 +51,7 @@ public:
   }
 
   /** @brief Accesses live slots.
-   * @return Samples in emission order. */
+   * @return Live samples in slot order. Compaction can reorder them. */
   std::span<Item> live() { return {slots, count}; }
 
   /** @brief Counts live slots.

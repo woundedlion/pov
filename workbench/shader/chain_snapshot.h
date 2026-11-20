@@ -20,7 +20,7 @@
 enum class ChainSnapshotRestoreResult {
   APPLIED,             ///< Decoded or restored successfully.
   NOT_SHADER_CHAIN,    ///< Stale handle, or the effect is not a ShaderChain.
-  UNSUPPORTED_VERSION, ///< Restore requires ChainSnapshot::SCHEMA_VERSION.
+  UNSUPPORTED_VERSION, ///< Version rejected by ChainSnapshot::supports().
   INVALID_LENGTH,      ///< Empty chain, or an array over capacity/fixed length.
   INVALID_VALUE,       ///< A missing, mistyped or out-of-range value.
   INVALID_CHAIN        ///< The program shape fails to compile.

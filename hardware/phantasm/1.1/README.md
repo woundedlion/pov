@@ -402,7 +402,7 @@ The committed routed PCB is the source of truth for these facts. Refresh this bl
 | Track segments | 339 |
 | Vias | 99 |
 | Copper pours | 2 (In1.Cu: 1, In2.Cu: 1) |
-| Keepout rule areas | 4 (F.Cu: 4, In1.Cu: 4, In2.Cu: 4, B.Cu: 4) |
+| Board-level keepout rule areas | 4 (F.Cu: 4, In1.Cu: 4, In2.Cu: 4, B.Cu: 4) |
 | Copper layers | 4 (F.Cu, In1.Cu, In2.Cu, B.Cu) |
 | Copper thicknesses | F.Cu: 0.035001 mm; In1.Cu: 0.015189 mm; In2.Cu: 0.015189 mm; B.Cu: 0.035001 mm |
 | Copper finish | Lead-Free |

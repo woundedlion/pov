@@ -123,9 +123,9 @@ sample_source_clocks(ComposedDetail::SourceClocks &out,
 /** @brief Per-resource data retained between column samples. */
 template <typename Resource> struct IntervalDelta {};
 
+/// Clock storage retained for an interpolated resource.
 template <typename Resource>
   requires(Resource::KIND == ResourceKind::SOURCE ||
-           /// Clock storage retained for an interpolated resource.
            Resource::KIND == ResourceKind::WARP ||
            Resource::KIND == ResourceKind::TWIST ||
            std::is_same_v<typename Resource::Family, MobiusGeneratorParams> ||

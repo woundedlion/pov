@@ -27,10 +27,16 @@ Version 2 documents encode the descriptor as an ordered chain of
 chain order are canonical and digest-bearing, structural variation is an
 operator id or a topology enum8 parameter, and every parameter id binds
 `<label>.<field>` against the catalog's operator schema. The compiler accepts
-the current document schema and operator identities, plus four legacy
-declarations migrated before validation: four-value `*.coverage-mode` domains,
-two-value `*.frame` domains, three-value gnomonic `*.hemisphere` domains, and
-LINEAR twist-lens `axis-lambda` interpolation.
+the current document schema and operator identities. It migrates five legacy
+declarations before validation:
+
+- Four-value `*.coverage-mode` domains.
+- Two-value `*.frame` domains.
+- Three-value gnomonic `*.hemisphere` domains.
+- LINEAR twist-lens `axis-lambda` interpolation.
+- Three-value Tiling `*.output` domains. The compiler remaps `borders` to `edges`
+  and both `face-type` and `tile-value` to `faces` in defaults and preset selections.
+
 A `sample.tessellation.v3` entry may carry the optional boolean
 `source_morph`. It contributes to the descriptor digest and enables preset
 edges to blend the endpoint source fields. Other operators ignore the flag.

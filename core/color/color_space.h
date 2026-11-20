@@ -722,7 +722,7 @@ lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt, float &r,
   oklab_to_linear_rgb(lab, r, g, b);
 }
 
-/** @brief Gamut-clip policy: exact chroma reduction by bracket bisection. */
+/** @brief Gamut-clip policy: chroma reduction refined by bracket bisection. */
 struct LmsChromaClip {
   /**
    * @brief Maps an out-of-gamut cube-rooted LMS color into gamut.

@@ -286,7 +286,7 @@ def render_facts(metadata):
         ("Track segments", str(metadata.track_segments)),
         ("Vias", str(metadata.vias)),
         ("Copper pours", f"{metadata.copper_pours} ({pour_layers})"),
-        ("Keepout rule areas", f"{metadata.rule_areas} ({rule_area_layers})"),
+        ("Board-level keepout rule areas", f"{metadata.rule_areas} ({rule_area_layers})"),
         ("Copper layers", f"{len(metadata.copper_layers)} ({', '.join(metadata.copper_layers)})"),
         ("Copper thicknesses", copper_stackup),
         ("Copper finish", metadata.copper_finish),

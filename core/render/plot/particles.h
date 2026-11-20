@@ -58,16 +58,20 @@ static inline void count_particle_exact_gate_fallback() {
  */
 struct ParticleSystem {
   /** @brief Materializes history samples and the optional live tip.
- * @param p Particle with history and live position.
- * @param trail_len History length.
- * @param point_count Total samples including the live tip.
- * @param append_live_tip Whether to emit the current position.
- * @param v2 Per-particle register value.
- * @param particle_life Normalized remaining life.
- * @param has_deferred_shader Whether original positions must be retained.
- * @param vertex_shader Position shader.
- * @param trail Receives sampled fragments.
- * @param orig Receives original positions for deferred shading. */
+   * @tparam SAMPLE_STRIDE Trail stride. A stride of 1 tweens the history.
+   * @tparam FuseVertex Whether to shade each position as it is emitted.
+   * @tparam ParticleT Particle type.
+   * @tparam VertexShaderFn Vertex shader type.
+   * @param p Particle with history and live position.
+   * @param trail_len History length.
+   * @param point_count Total samples including the live tip.
+   * @param append_live_tip Whether to emit the current position.
+   * @param v2 Per-particle register value.
+   * @param particle_life Normalized remaining life.
+   * @param has_deferred_shader Whether original positions must be retained.
+   * @param vertex_shader Position shader.
+   * @param trail Receives sampled fragments.
+   * @param orig Receives original positions for deferred shading. */
   template <int SAMPLE_STRIDE, bool FuseVertex, typename ParticleT,
             typename VertexShaderFn>
   static HS_HOT_INLINE void
@@ -106,13 +110,16 @@ struct ParticleSystem {
   }
 
   /** @brief Classifies a trail's visible edges and shared projections.
- * @param pipeline Plotting sink.
- * @param canvas Destination and active clip.
- * @param cartesian_clip Hoisted Cartesian admission bounds.
- * @param trail Position-shaded trail.
- * @param vis Receives edge visibility bits.
- * @param projections Receives shared point projections.
- * @return Whether any trail edge survives. */
+   * @tparam W,H Raster dimensions.
+   * @tparam HoistableCull Whether unshaded positions can be used for culling.
+   * @tparam PipelineT Plotting sink type.
+   * @param pipeline Plotting sink.
+   * @param canvas Destination and active clip.
+   * @param cartesian_clip Hoisted Cartesian admission bounds.
+   * @param trail Position-shaded trail.
+   * @param vis Receives edge visibility bits.
+   * @param projections Receives shared point projections.
+   * @return Whether any trail edge survives. */
   template <int W, int H, bool HoistableCull, typename PipelineT>
   static HS_HOT_INLINE bool
   prepare_trail_visibility(PipelineT &pipeline, Canvas &canvas,

@@ -14,7 +14,11 @@
 // Core Arena Allocator
 // ============================================================================
 
-/** @brief Aligned byte extent of temporary arena allocations. */
+/**
+ * @brief Aligned byte extent of a sequence of arena allocations.
+ * @details Seed bytes with the starting offset modulo alignof(std::max_align_t)
+ * for an offset that is not max-aligned.
+ */
 struct ArenaFootprint {
   size_t bytes = 0; ///< Sequential aligned allocation extent.
   /** @brief Appends a typed allocation to the footprint.

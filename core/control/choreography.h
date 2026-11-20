@@ -43,9 +43,10 @@
  * `step_choreography()` every frame.
  *
  * `choreography_hooks()` returns a `Control::HookSet` owned by `HookOwner`.
- * Bind customizations through `Control::HookBinding`; a method without a binding
- * is not a customization. Signatures and declaration ownership are checked at
- * construction. An empty hook list uses the base defaults.
+ * `Control::HookBinding` registers hooks with signature and declaration
+ * ownership checks at construction. An empty hook list uses the base defaults.
+ * A callable static Derived::transition_admitted(from, to) is detected by name.
+ * Returning false refuses an automatic timed departure.
  *
  * Optional hook bindings:
  * - `blend_params(progress)`: writes a Lerp's interpolated parameters; the
@@ -385,8 +386,9 @@ protected:
   /**
    * @brief Switches to the preset @p change names.
    * @details A manual or synchronized change snaps. An automatic change follows
-   * the departing preset's policy; if a transition is already running or the
-   * timeline is full it is refused, and a full timeline restarts the dwell.
+   * the departing preset's policy. An automatic timed departure is refused if
+   * a transition is active, Derived::transition_admitted rejects the endpoints,
+   * or the timeline is full. A full timeline restarts the dwell.
    * @param change The requested preset change.
    * @return False if the change was refused.
    */

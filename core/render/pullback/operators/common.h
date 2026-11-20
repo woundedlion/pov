@@ -46,9 +46,10 @@ namespace Interp {
  * - `temporal_hold_field`: optional fields that may change without snapping
  *   the column interval; parameter sampling still applies.
  * - `State` — default-constructible instance state; usually inherited from
- *   ValueStateModel, PhaseClockModel or StatelessModel.
+ *   ValueStateModel, PhaseClockModel or StatelessModel. State may cache
+ *   parameter-derived resources in `prepare`.
  * - `Prepared` — trivially destructible per-frame block built by `prepare`.
- * - `init(State &, InstanceId)` — seeds owned resources from the instance id.
+ * - `init(State &, InstanceId)` — optional instance-state initialization.
  * - `migrate(State &dst, const State &src, InstanceId)` — clones into a fresh
  *   `dst`; returns Status.
  * - `advance(State &, const Params &)` — steps per-frame clocks.

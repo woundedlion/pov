@@ -274,7 +274,7 @@ inline void test_emitter_boundary_censoring() {
   }
 }
 
-/** @brief Mid-burst lateness aborts remaining pulses without emitting a valid symbol. */
+/** @brief A late burst is truncated to an invalid count within the gap timeout; past it the emitter sends nothing more. */
 inline void test_emitter_mid_burst_abort() {
   const Config cfg = test_config();
   bool aborted = false;

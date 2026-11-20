@@ -435,8 +435,7 @@ struct GeodesicEdgeSampler {
  *          has no arc to pole.
  */
 struct GeodesicEdgeSpan {
-  float
-      total; /**< Arc-length estimate from unit_arc_length(a, b), in radians. */
+  float total;    /**< Arc length between the endpoints, in radians. */
   bool antipodal; /**< axis came from stable_perpendicular_axis, not cross. */
   bool have_axis; /**< axis holds a unit arc pole. */
   bool

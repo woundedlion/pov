@@ -19,7 +19,7 @@ HS_O3_BEGIN
 
 /** @brief Walks one edge's planned columns and plots their lattice samples.
  * @tparam W,H Canvas dimensions.
- * @tparam Cfg Register interpolation configuration.
+ * @tparam Cfg Register interpolation and column edge-length configuration.
  * @tparam SPLIT Walk the arc as its two sides of its closest approach to a
  * pole, each with its own column tests.
  * @tparam LOCAL Resolve the continuous lattice pitch from each column's arc.
@@ -353,7 +353,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
 
 /** @brief walk_edge_columns() for split arcs, out of line.
  * @tparam W,H Canvas dimensions.
- * @tparam Cfg Register interpolation configuration.
+ * @tparam Cfg Register interpolation and column edge-length configuration.
  * @tparam RECORD_WORLD Record samples in source history.
  * @param state The edge's walk. */
 template <int W, int H, RasterConfig Cfg, bool RECORD_WORLD = false>
@@ -363,7 +363,7 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
 
 /** @brief Walks an edge with local column-time cadence.
  * @tparam W,H Canvas dimensions.
- * @tparam Cfg Register interpolation configuration.
+ * @tparam Cfg Register interpolation and column edge-length configuration.
  * @tparam RECORD_WORLD Record samples in source history.
  * @param state Prepared column walk. */
 template <int W, int H, RasterConfig Cfg, bool RECORD_WORLD = false>
@@ -373,7 +373,7 @@ HS_HOT_FLASH_MEMBER void walk_local_edge_columns(const ColumnWalk<W> &state) {
 
 /** @brief Walks an edge with its prepared uniform color.
  * @tparam W,H Canvas dimensions.
- * @tparam Cfg Register interpolation configuration.
+ * @tparam Cfg Register interpolation and column edge-length configuration.
  * @tparam SPLIT,LOCAL Edge split and lattice policies.
  * @tparam RECORD_WORLD Record samples in source history.
  * @param state Prepared column walk. */

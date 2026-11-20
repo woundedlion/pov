@@ -20,7 +20,7 @@ HS_O3_BEGIN
 
 /** @brief Rasterizes mesh edges one destination column at a time.
  * @tparam W,H Canvas dimensions.
- * @tparam Cfg Register interpolation configuration.
+ * @tparam Cfg Register interpolation and column edge-length configuration.
  * @tparam RECORD_WORLD Record samples in source history.
  * @param pipeline Destination pipeline; its world stages are @p poses.
  * @param canvas Frame context.
@@ -194,7 +194,7 @@ HS_HOT_INLINE void rasterize_column_edges_impl(
 
 /** @brief Walks edges without source-history recording.
  * @tparam W,H Canvas dimensions.
- * @tparam Cfg Register interpolation configuration.
+ * @tparam Cfg Register interpolation and column edge-length configuration.
  * @param pipeline,canvas,points Destination and endpoint registers.
  * @param shader Source shader.
  * @param batch Captured source edges.
@@ -217,7 +217,7 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
 
 /** @brief Walks edges while recording source history.
  * @tparam W,H Canvas dimensions.
- * @tparam Cfg Register interpolation configuration.
+ * @tparam Cfg Register interpolation and column edge-length configuration.
  * @param pipeline,canvas,points Destination and endpoint registers.
  * @param shader Source shader.
  * @param batch Captured source edges.

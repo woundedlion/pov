@@ -111,11 +111,11 @@ using Pullback::instance_hash;
 
 /** @brief One ordered layer's authored spatial/displacement transition. */
 struct ModulationMorph {
-  std::string_view key; ///< Modulation instance.
-  /// Controls of the outgoing endpoint.
-  ColorModulation::Params from, to; ///< Authored mechanic strengths.
-  float mix = 0.0f;                 ///< Incoming endpoint weight.
-  bool from_spatial = false; ///< Outgoing endpoint uses the prepared source.
+  std::string_view key;         ///< Modulation instance.
+  ColorModulation::Params from; ///< Outgoing endpoint's mechanic strengths.
+  ColorModulation::Params to;   ///< Incoming endpoint's mechanic strengths.
+  float mix = 0.0f;             ///< Incoming endpoint weight.
+  bool from_spatial = false;    ///< Outgoing endpoint uses the prepared source.
 };
 
 /**
@@ -204,13 +204,13 @@ struct BlockLayout {
  * @brief The erased runtime ABI of one operator-table entry.
  * @details Blocks are arena-allocated by chain compilation from the declared
  * layouts. Param blocks must be trivially copyable: the value channel copies
- * them bytewise. `init` is infallible and constructs owned resources eagerly for
- * every topology variant; `migrate` clones `src` into unconstructed `dst`
- * storage (on failure `dst` is left unconstructed and `src` untouched);
- * `advance` steps per-frame clocks; `prepare` derives the frame's prepared
- * block from context, params, state and the next entry's TranslationLattice;
- * `run` placement-constructs the output carrier, licensed by validated
- * adjacency.
+ * them bytewise. `init` is infallible and initializes instance state.
+ * `migrate` clones `src` into unconstructed `dst` storage. On failure, `dst`
+ * remains unconstructed and `src` is untouched. `advance` steps per-frame clocks.
+ * `prepare` derives the prepared block from context, params, state and the next
+ * entry's TranslationLattice. State may cache parameter-derived resources in
+ * `prepare`. `run` placement-constructs the output carrier after validation
+ * of adjacency.
  */
 struct OperatorRuntime {
   BlockLayout param;    ///< Parameter block layout.
@@ -265,7 +265,8 @@ struct OperatorRuntime {
                               const void *to) = nullptr;
   /** Whether the endpoints are compatible for column-time sampling. */
   bool (*history_continuous)(const void *from, const void *to) = nullptr;
-  /** Sets the preview blend; empty clears it. Returns true on a change. */
+  /** Sets the preview blend or clears it when empty. Returns whether an
+   * override was present before the call. */
   bool (*set_enum_blend)(void *params,
                          const std::optional<EnumBlend> &blend) = nullptr;
   /** Conservative fold advisory for a field operator, or infinity. */
