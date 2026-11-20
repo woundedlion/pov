@@ -263,6 +263,8 @@ private:
   static constexpr int TRAIL_LEN = 8;
   /** Trail capacity including the live tip. */
   static constexpr int TRAIL_POINTS = TRAIL_LEN + 1;
+  static_assert(TRAIL_POINTS < 32,
+                "the uint32_t trail visibility mask needs one bit per edge");
 
   /** @brief Frames between stored trail anchors. */
   static constexpr int TRAIL_SAMPLE_STRIDE = 3;
