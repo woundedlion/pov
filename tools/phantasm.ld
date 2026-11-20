@@ -217,6 +217,7 @@ SECTIONS
 		*(.text.*construct_profiled*)
 		*(.text._ZN2hs12CycleCounter8log_nodeE*)
 		*(.text._ZN4math6detail15upsample_framesE*)
+		*(.text._ZN8Pullback10Modulation20StationaryCubicNoise9curvature*)
 		/* Frame bookkeeping. */
 		*(.text._ZZN12POVSegmentedI*8run_showI*)
 		*(.text.*ProfiledEffect*10draw_frameEv*)
