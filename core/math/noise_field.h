@@ -308,6 +308,21 @@ enum class TangentLimit : uint8_t {
 };
 
 /**
+ * @brief Samples a multi-octave displacement vector.
+ * @param noise Prepared generator.
+ * @param basis Octave structure to apply.
+ * @param q Lattice coordinate.
+ * @return Three sampled displacement components.
+ */
+HS_HOT_FLASH_MEMBER inline math::Vector
+sample_octave_vector(const FastNoiseLite &noise, NoiseBasis basis,
+                     const math::Vector &q) {
+  return math::Vector(sample_noise_vector_channel(noise, basis, q, 0),
+                      sample_noise_vector_channel(noise, basis, q, 1),
+                      sample_noise_vector_channel(noise, basis, q, 2));
+}
+
+/**
  * @brief Tangent field from a 3D noise vector projected onto the sphere.
  * @param noise Prepared generator.
  * @param basis Octave structure to apply.
@@ -319,7 +334,7 @@ enum class TangentLimit : uint8_t {
  * @details Takes the DIRECT_VECTOR_V2 path for SIMPLEX and DIRECT_V1
  * otherwise.
  */
-HS_O3_FN inline math::Vector
+HS_HOT_ITCM_MEMBER inline math::Vector
 sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
                       const math::Vector &q, const math::Vector &v,
                       float direction_cos, float direction_sin) {
@@ -327,9 +342,7 @@ sample_direct_tangent(const FastNoiseLite &noise, NoiseBasis basis,
   if (basis == NoiseBasis::SIMPLEX)
     u = sample_simplex_vector(noise, q);
   else
-    u = math::Vector(sample_noise_vector_channel(noise, basis, q, 0),
-                     sample_noise_vector_channel(noise, basis, q, 1),
-                     sample_noise_vector_channel(noise, basis, q, 2));
+    u = sample_octave_vector(noise, basis, q);
   u -= math::dot(u, v) * v;
   clamp_tangent_to_unit(u);
   return direction_cos * u + direction_sin * math::cross(v, u);
