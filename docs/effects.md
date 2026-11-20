@@ -738,12 +738,17 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
 | `river-stones` | `RiverStones` | 2 |
+| `jade-filigree` | `JadeFiligree` | 2 |
+| `ember-tracery` | `EmberTracery` | 3 |
 
-These 24 effects form the product-only `shader-collection` group. The Phantasm
-playlist defines fixed show windows for single-preset effects and the
-30-second River Stones opener.
-The remaining multi-preset effects derive their show windows from the full
-preset cycle with 600-frame dwells and 480-frame segues. Frame budgets convert
+Jade Filigree uses a Direct Lens and Tiling Edges to move from Golden Mesh to
+Jade Weave. Ember Tracery adds a third preset with camera wander, directional
+lightness and hue driven by lens displacement. Both keep the authored 600-frame
+dwells and 480-frame segues.
+
+These 26 effects form the product-only `shader-collection` group. Phantasm
+assigns some entries fixed show windows and derives other entries from their
+authored preset cycle. Frame budgets convert
 to show seconds at the nominal 16 fps. A slower render cadence can leave a
 cycle unfinished when its window ends. The playlist omits
 KaleidoscopeStainedGlass.
@@ -988,7 +993,7 @@ operator and palette clocks keep advancing while its authored-preset pause is
 set.
 
 The simulator interprets admitted chains even when they have no promoted
-firmware match. Firmware can build the 24 promoted fixed descriptors. A
+firmware match. Firmware can build the 26 promoted fixed descriptors. A
 catalog choice alone does not promise a Teensy specialization.
 
 The `ComposedEffect` derivation layer in `composed_policies.h` selects source, warp, surface and lens policies from their parameter families with `SourcePolicyFor`, `WarpPolicyFor`, `SurfacePolicyFor` and `LensPolicyFor`. `tests/composed_effect/derivation_reach.h` checks at compile time that every source, warp, displacement and lens operator family derives a composed policy. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Projected Noise has a composed policy, but no shipped Spec selects it. Value Cutout is reachable and selected by Ash Cloud.

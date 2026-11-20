@@ -117,7 +117,7 @@ Firmware, WebAssembly and native test targets share one engine:
 
 ```text
 C++ codebase
-  effects/ (47 visual algorithms) + workbench/
+  effects/ (49 visual algorithms) + workbench/
               |
   core/                       Rendering engine
     scan / plot -> filter pipeline -> Canvas pixel buffer
@@ -727,7 +727,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 Every effect — screenshot, description and parameter list — plus the shader authoring workbench and the legacy roster is documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
-The compile-time roster and tests carry 47 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`targets/Phantasm/phantasm_playlist.def`) contains 42 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile, and KaleidoscopeStainedGlass and RingShower by product curation, as recorded by its `exclude` rows. Each entry carries its own on-air duration alongside its name in the 42-entry roster. Current shipping-segment Teensy measurements for all 42 effects are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 49 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`targets/Phantasm/phantasm_playlist.def`) contains 44 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile, and KaleidoscopeStainedGlass and RingShower by product curation, as recorded by its `exclude` rows. Each entry carries its own on-air duration alongside its name in the 44-entry roster. Current shipping-segment Teensy measurements for all 44 effects are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ### 6.7 Fenced Effect Transitions (`control/transition.h`)
 
@@ -1467,11 +1467,14 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── authored_lens.h         Keyed glitch and kaleidoscope controls
 │   │   │   ├── tangent_surface.h       Polynomial tangent-field and configurable noise displacements
 │   │   │   ├── sphere_tiling.h          Radially projected solid faces and edge queries
+│   │   │   ├── sphere_tiling_edges.h    Shared spherical edge query and coverage
+│   │   │   ├── sphere_tiling_edges_baked.h  Flash-resident edge tables for promoted tilings
 │   │   │   ├── spherical_tiling_source.h  ShaderChain tiling parameters and scalar field
 │   │   │   ├── composed_providers.h    Composed-effect provider bindings
 │   │   │   ├── composed_parameters.h   Composed-effect parameter interpolation and validation, runtime storage mixins and Spec kind enums
 │   │   │   ├── composed_planar.h       Composed planar source selection and morphing
 │   │   │   ├── composed_policies.h     Composed-effect stage policies
+│   │   │   ├── composed_tiling.h       Compiled Tiling Edges source policy
 │   │   │   ├── composed_spec_policies.h Composed-effect Spec runtime policies: temporal sampling, palette caches, projection motion
 │   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
 │   │   │   ├── composed_runtime.h      Composed-effect runtime
@@ -1613,7 +1616,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    47 headers covering 47 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    49 headers covering 49 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                common/ for code two or more effects share (the
 │                                reaction-diffusion base reaction_diffusion.h and the
@@ -1897,6 +1900,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
 │   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table
 │   ├── showlength.cpp         Nominal Phantasm show runtime for `just showlength`
+│   ├── sphere_tiling_bake.cpp  Generates flash-resident spherical edge tables
 │   ├── teensy_size_trail.py    Per-commit firmware size trail: ELF section parser, recorder, regression report
 │   ├── teensy_cold_build.sh    Cold `pio run -v` over every environment, teed for the warning gate
 │   ├── profile_variants.sh     Shared profile variant names and build flags for size and cold-build gates
