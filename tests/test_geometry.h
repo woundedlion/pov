@@ -798,6 +798,9 @@ inline void test_fast_wrap_float() {
  *          is exactly m/2 for antipodal points, and is always bounded by [0, m/2].
  */
 inline void test_shortest_distance() {
+  constexpr float CLOSE = 0x1p-26f;
+  HS_EXPECT_EQ(math::shortest_distance(CLOSE, 0.0f, 1.0f), CLOSE);
+  HS_EXPECT_EQ(math::shortest_distance(0.0f, CLOSE, 1.0f), CLOSE);
   HS_EXPECT_NEAR(math::shortest_distance(0.0f, 1.0f, 10.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(math::shortest_distance(1.0f, 0.0f, 10.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(math::shortest_distance(1.0f, 9.0f, 10.0f), 2.0f, 1e-5f);

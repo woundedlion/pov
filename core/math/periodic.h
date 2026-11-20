@@ -166,8 +166,7 @@ inline float fast_wrap(float x, int W) {
 inline float shortest_distance(float a, float b, float m) {
   HS_AUDIT_CHECK(m > 0.0f);
   m = std::fmax(m, std::numeric_limits<float>::min());
-  // Double-fmod for full range reduction of an arbitrary a - b into [0, m).
-  float d = std::fmod(std::fmod(a - b, m) + m, m);
+  const float d = std::fabs(std::fmod(a - b, m));
   return std::min(d, m - d);
 }
 
