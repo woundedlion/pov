@@ -78,6 +78,10 @@ Use `HS_FLASH_MEMBER` for internal cold inline, template and COMDAT functions.
 non-inlined function kept in ITCM at the translation unit's optimization; on
 host it expands to nothing, unlike `HS_NOINLINE_NOCLONE`.
 
+Place new out-of-line shared render kernels in cached flash with
+`HS_HOT_FLASH_MEMBER`. Use ITCM when a Teensy measurement shows a live-frame
+timing benefit, and record the comparison with the placement change.
+
 Before landing a refactor, search the old identifiers and behavior wording
 across source comments and maintained documentation with `rg -n -i -F --
 'old behavior phrase' .`. Read each match and correct stale contracts in the
