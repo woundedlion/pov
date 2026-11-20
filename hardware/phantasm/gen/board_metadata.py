@@ -258,7 +258,7 @@ def parse_board(text):
 def load_board(path):
     try:
         return parse_board(path.read_text(encoding="utf-8"))
-    except OSError as error:
+    except (OSError, UnicodeError) as error:
         raise MetadataError(f"cannot read {path}: {error}") from error
 
 
@@ -344,7 +344,10 @@ def main(argv=None):
         validate_mechanical_width(metadata)
         facts = render_facts(metadata)
         if args.check or args.write_readme:
-            readme = args.readme.read_text(encoding="utf-8")
+            try:
+                readme = args.readme.read_text(encoding="utf-8")
+            except UnicodeError as error:
+                raise MetadataError(f"cannot read {args.readme}: {error}") from error
             if args.check:
                 check_facts(readme, facts)
             else:

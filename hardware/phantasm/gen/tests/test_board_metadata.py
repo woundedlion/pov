@@ -53,6 +53,18 @@ class BoardMetadataTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()) as errors:
             self.assertEqual(board_metadata.main([*args, "--check"]), 1)
         self.assertIn(str(board), errors.getvalue())
+
+    def test_invalid_utf8_reports_the_input_path(self):
+        for target in ("board", "readme"):
+            with self.subTest(target=target):
+                board, readme, _, args = self.cli_fixture()
+                self.assertEqual(board_metadata.main([*args, "--write-readme"]), 0)
+                path = board if target == "board" else readme
+                path.write_bytes(b"\xff")
+                with contextlib.redirect_stderr(io.StringIO()) as errors:
+                    self.assertEqual(board_metadata.main([*args, "--check"]), 1)
+                self.assertIn(f"ERROR: cannot read {path}:", errors.getvalue())
+
     def test_copper_layer_names_use_the_shared_stack_reader(self):
         source = '''(kicad_pcb
             (gr_rect (start 0 0) (end 10 10) (layer "Edge.Cuts"))
