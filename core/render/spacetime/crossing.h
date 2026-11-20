@@ -205,6 +205,26 @@ struct LongitudeTrack {
   float guard;  ///< Bound on a pass's column error under the model.
 };
 
+/** @brief Horizontal distance and chord terms at a segment's closest approach. */
+struct HorizontalApproach {
+  float chord2;    ///< Squared horizontal chord length.
+  float dot0;      ///< Horizontal dot product of the origin and chord.
+  float distance2; ///< Minimum squared horizontal distance from the axis.
+};
+
+/** @brief Finds the closest approach of a segment to the polar axis.
+ * @param origin Segment start.
+ * @param dx,dz Horizontal displacement from start to end.
+ * @return Squared horizontal distance and the chord terms used to compute it. */
+HS_HOT_INLINE inline HorizontalApproach
+closest_horizontal_approach(const math::Vector &origin, float dx, float dz) {
+  const float chord2 = dx * dx + dz * dz;
+  const float dot0 = origin.x * dx + origin.z * dz;
+  const float at = chord2 > 0.0f ? hs::clamp(-dot0 / chord2, 0.0f, 1.0f) : 0.0f;
+  const float x = origin.x + dx * at, z = origin.z + dz * at;
+  return {chord2, dot0, x * x + z * z};
+}
+
 /**
  * @brief Models a point's longitude between two positions as linear in time.
  * @tparam W Canvas width.
@@ -235,21 +255,16 @@ HS_HOT_INLINE bool model_track(const math::Vector &from, const math::Vector &to,
   track.travel = math::centered_remainder(
       math::vector_to_column<W>(to) - track.origin, static_cast<float>(W));
   const float cx = to.x - from.x, cz = to.z - from.z;
-  const float chord2 = cx * cx + cz * cz;
-  const float along =
-      chord2 > 0.0f
-          ? hs::clamp(-(from.x * cx + from.z * cz) / chord2, 0.0f, 1.0f)
-          : 0.0f;
-  const float nx = from.x + cx * along, nz = from.z + cz * along;
-  const float near2 = nx * nx + nz * nz;
+  const auto approach = closest_horizontal_approach(from, cx, cz);
+  const float near2 = approach.distance2;
   if (!(4.0f * deviation * deviation <= near2 &&
         fabsf(track.travel) < 0.5f * sweep))
     return false;
   const float near = sqrtf(near2);
-  const float radians =
-      (0.25f * fabsf(from.x * cz - from.z * cx) * sqrtf(chord2) / near2 +
-       1.05f * deviation) /
-      near;
+  const float radians = (0.25f * fabsf(from.x * cz - from.z * cx) *
+                             sqrtf(approach.chord2) / near2 +
+                         1.05f * deviation) /
+                        near;
   if (!(radians < 0.5f))
     return false;
   track.rate = 1.0f / (1.0f - track.travel / sweep);

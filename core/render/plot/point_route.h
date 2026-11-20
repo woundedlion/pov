@@ -387,16 +387,12 @@ public:
       return 0.0f;
     }
     const float norm2 = fmaxf(0.0f, 1.0f - 0.25f * v2);
-    const float horizontal_v2 = v.x * v.x + v.z * v.z;
-    const float dot0 = origin.x * v.x + origin.z * v.z;
-    const float at = horizontal_v2 > 0.0f
-                         ? hs::clamp(-dot0 / horizontal_v2, 0.0f, 1.0f)
-                         : 0.0f;
-    const float x = origin.x + v.x * at, z = origin.z + v.z * at;
+    const auto [horizontal_v2, dot0, distance2] =
+        Spacetime::closest_horizontal_approach(origin, v.x, v.z);
     if (minimum_horizontal2)
-      *minimum_horizontal2 = x * x + z * z;
+      *minimum_horizontal2 = distance2;
     const float rho2 =
-        fmaxf(x * x + z * z, horizontal_floor * horizontal_floor * norm2);
+        fmaxf(distance2, horizontal_floor * horizontal_floor * norm2);
     if (!(rho2 > 0.0f && norm2 > 0.0f))
       return std::numeric_limits<float>::infinity();
     const float cross = origin.x * v.z - origin.z * v.x;
@@ -412,7 +408,7 @@ public:
             : rho2;
     const float rho3 = rho2 * sqrtf(rho2);
     const float longitude =
-        horizontal_floor * horizontal_floor * norm2 > x * x + z * z
+        horizontal_floor * horizontal_floor * norm2 > distance2
             ? 2.0f * fabsf(cross) * dot_max / (sqrtf(norm2) * rho3)
         : peak_rho2 > 0.0f ? 2.0f * fabsf(cross) * peak_dot /
                                  (sqrtf(norm2 * peak_rho2) * peak_rho2)
@@ -431,20 +427,12 @@ private:
   static bool reaches_pole_row(const math::Vector &origin,
                                const math::Vector &end,
                                const math::Vector &offset) {
-    const math::Vector delta = end - origin;
-    const float horizontal2 = delta.x * delta.x + delta.z * delta.z;
-    const float at =
-        horizontal2 > 0.0f
-            ? hs::clamp(-(origin.x * delta.x + origin.z * delta.z) /
-                            horizontal2,
-                        0.0f, 1.0f)
-            : 0.0f;
-    const float x = origin.x + delta.x * at;
-    const float z = origin.z + delta.z * at;
+    const auto approach = Spacetime::closest_horizontal_approach(
+        origin, end.x - origin.x, end.z - origin.z);
     const float departure = sqrtf(offset.x * offset.x + offset.z * offset.z);
     const float support =
         sinf(math::RADIANS_PER_ROW<H>) * (1.0f + offset.magnitude());
-    return x * x + z * z <= (support + departure) * (support + departure);
+    return approach.distance2 <= (support + departure) * (support + departure);
   }
 
   /** @brief Emits a captured polar curve at each column's own frame time.
