@@ -939,6 +939,19 @@ class RegressionClassifier(unittest.TestCase):
 
 
 class Rendering(unittest.TestCase):
+    def test_show_distinguishes_unmeasured_regions_from_zero(self):
+        rows = tst.parse_trail(
+            "#sha\tdate\tenv\titcm\tsubject\n"
+            "aaaa\t2026-08-01\tphantasm\t12\told\n"
+            "#sha\tdate\tenv\titcm\tdma\tsubject\n"
+            "bbbb\t2026-08-02\tphantasm\t12\t0\tnew\n")
+        _, _, old, new, changes = tst.render_show(rows).splitlines()
+        dma = tst.REGIONS.index("dma")
+        self.assertEqual(old.split()[2 + dma], "n/a")
+        self.assertEqual(new.split()[2 + dma], "0")
+        self.assertEqual(changes.split()[dma], "n/a")
+        self.assertEqual(changes.split()[tst.REGIONS.index("itcm")], ".")
+
     def test_show_marks_deltas_and_honours_last(self):
         rows = [_row("1" * 40, "phantasm", itcm=100),
                 _row("2" * 40, "phantasm", itcm=140),

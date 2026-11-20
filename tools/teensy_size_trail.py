@@ -494,7 +494,9 @@ def cmd_commit(args) -> int:
     return 0
 
 
-def _fmt_delta(value: int) -> str:
+def _fmt_delta(value: int | None) -> str:
+    if value is None:
+        return "n/a"
     return f"{value:+,}" if value else "."
 
 
@@ -509,11 +511,12 @@ def render_show(rows: list[TrailRow], last: int | None = None, *,
     head = f"{'sha':<9} {'env':<15} " + " ".join(f"{r:>10}" for r in REGIONS)
     lines = [head, "-" * len(head)]
     for d in deltas:
-        sizes = " ".join(f"{d.row.sizes.get(r, 0):>10,}" for r in REGIONS)
+        sizes = " ".join(f"{d.row.sizes[r]:>10,}" if r in d.row.sizes else f"{'n/a':>10}"
+                         for r in REGIONS)
         lines.append(f"{d.row.sha[:8]:<9} {d.row.env:<15} {sizes}"
                      f"  {d.row.date[:10]} {d.row.subject}")
         if not d.first:
-            marks = " ".join(f"{_fmt_delta(d.changes.get(r, 0)):>10}"
+            marks = " ".join(f"{_fmt_delta(d.changes.get(r)):>10}"
                              for r in REGIONS)
             lines.append(f"{'':<9} {'':<15} {marks}")
     return "\n".join(lines)
