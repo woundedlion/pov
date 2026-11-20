@@ -209,9 +209,11 @@ public:
    *         `OptionalHueRotationLut` members.
    * @param frame Receives the palette, hue table, mapping and wobble phase.
    * @param storage Arena-owned palette storage.
+   * @param needs_hue_table Whether to bake a missing table.
    */
   template <typename Storage>
-  HS_SIZE_FLASH_MEMBER void prepare(FrameState &frame, Storage &storage) {
+  HS_SIZE_FLASH_MEMBER void prepare(FrameState &frame, Storage &storage,
+                                    bool needs_hue_table = true) {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     const auto [palette_ptr, palette_generation] = prepared_palette(storage);
     const BakedPalette &palette = *palette_ptr;
@@ -223,15 +225,16 @@ public:
         palette_generation =
             (storage.authored_palette.bake_generation() << 1) | 1U;
 #endif
-    if constexpr (HUE_ROTATION_LUT)
-      storage.refresh_hue_rotation_lut(palette, palette_generation);
     frame.palette = &palette;
+    frame.hue_rotation_lut = nullptr;
+    frame.hue_rotation_gamut = nullptr;
     if constexpr (HUE_ROTATION_LUT) {
-      frame.hue_rotation_lut = storage.hue_rotation_lut.data();
-      frame.hue_rotation_gamut = &storage.hue_rotation_gamut;
-    } else {
-      frame.hue_rotation_lut = nullptr;
-      frame.hue_rotation_gamut = nullptr;
+      if (needs_hue_table ||
+          storage.hue_rotation_lut_bake == palette_generation) {
+        storage.refresh_hue_rotation_lut(palette, palette_generation);
+        frame.hue_rotation_lut = storage.hue_rotation_lut.data();
+        frame.hue_rotation_gamut = &storage.hue_rotation_gamut;
+      }
     }
     frame.palette_mapping = mapping;
     frame.palette_oscillation_phase = oscillation_phase;

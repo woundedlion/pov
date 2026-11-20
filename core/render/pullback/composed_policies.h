@@ -147,6 +147,8 @@ struct Spec {
   static constexpr TemporalPolicy TEMPORAL = TemporalPolicy::off();
   /// Bakes palette-coordinate by hue-rotation tables.
   static constexpr bool HUE_ROTATION_LUT = true;
+  /// Rebakes hue tables only when a live modulation uses hue rotation.
+  static constexpr bool LAZY_HUE_ROTATION_LUT = false;
   /// Limits interval caches to the initial color and modulation controls.
   static constexpr bool INITIAL_CACHE_CONTROLS_ONLY = false;
   /// Palette-coordinate nodes per cached time row.

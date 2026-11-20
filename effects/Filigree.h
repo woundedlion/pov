@@ -20,6 +20,7 @@ struct FiligreeSpec : Pullback::Spec {
   static constexpr bool AUTHORED_TOPOLOGY = true;
   static constexpr bool SOURCE_MORPH = true;
   static constexpr bool FACTORED_SPHERE_COLUMNS = true;
+  static constexpr bool LAZY_HUE_ROTATION_LUT = true;
   static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
 
   template <typename B>

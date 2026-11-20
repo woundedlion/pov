@@ -239,7 +239,7 @@ public:
                       Control::ChoreographyHook::AFTER_COMPOSED_INIT>())
       this->template invoke_hook<
           Control::ChoreographyHook::AFTER_COMPOSED_INIT>();
-    palette.prepare(state->current, *state);
+    palette.prepare(state->current, *state, hue_rotation_lut_needed());
   }
 
   /**
@@ -887,6 +887,23 @@ private:
       return true;
   }
 
+  bool hue_rotation_lut_needed() const {
+    if constexpr (!SpecT::LAZY_HUE_ROTATION_LUT)
+      return true;
+    else {
+      bool needed = false;
+      params.visit([&]<typename Resource>(const auto &family) {
+        if constexpr (Resource::KIND == ResourceKind::MODULATION) {
+          const auto &config = family.modulation;
+          needed |=
+              config.mechanic.kind == ColorModulation::Mechanic::HUE_ROTATION &&
+              ColorModulation::active(config.enabled, config.mechanic);
+        }
+      });
+      return needed;
+    }
+  }
+
   /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
    * @details Temporal draws retain palette and source endpoints through the
@@ -895,7 +912,7 @@ private:
    */
   HS_FLASH_MEMBER void prepare_frame(FrameState &frame) {
     HS_PROFILE(fx_prepare_frame);
-    palette.prepare(frame, *state);
+    palette.prepare(frame, *state, hue_rotation_lut_needed());
     frame.projection_conjugate = this->frame_conjugate();
     frame.outer_conjugate = this->camera_conjugate();
     frame.palette_lab_lut = nullptr;

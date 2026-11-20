@@ -513,9 +513,11 @@ struct FrameHistory<Frame, true, Hue> : HueRotationGamutStorage<Hue> {
     previous = frame;
     previous.palette = &palette.view();
     if constexpr (Hue) {
-      std::memcpy(hue_rotation.data(), frame.hue_rotation_lut,
-                  sizeof(hue_rotation));
-      previous.hue_rotation_lut = hue_rotation.data();
+      if (frame.hue_rotation_lut) {
+        std::memcpy(hue_rotation.data(), frame.hue_rotation_lut,
+                    sizeof(hue_rotation));
+        previous.hue_rotation_lut = hue_rotation.data();
+      }
       if (frame.hue_rotation_gamut) {
         this->retained_hue_rotation_gamut = *frame.hue_rotation_gamut;
         previous.hue_rotation_gamut = &this->retained_hue_rotation_gamut;
