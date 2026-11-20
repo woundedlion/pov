@@ -92,7 +92,7 @@ struct StationaryCubicNoise : ImmutableTable {
    * @param cell Destination coefficients.
    * @param edges Lower and upper row samples.
    * @param x First sample index of the cell. */
-  static void fit(Cell &cell, const Edges &edges, int x) {
+  HS_SIZE_FLASH_MEMBER static void fit(Cell &cell, const Edges &edges, int x) {
     const float a = edges[0][x], b = edges[0][x + 3];
     const float c = edges[3][x], d = edges[3][x + 3];
     const auto bottom = curvature(a, edges[0][x + 1], edges[0][x + 2], b);

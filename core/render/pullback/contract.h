@@ -2596,7 +2596,7 @@ public:
    * @param column Bound color evaluator.
    * @return Final straight-alpha color. */
   template <typename Column>
-  HS_HOT_ITCM_MEMBER static Color4
+  HS_HOT_FLASH_MEMBER static Color4
   shade(const math::Vector &view, const Frame &frame, const Column &column)
     requires(MODULATION_STACK)
   {
@@ -2727,7 +2727,7 @@ public:
    * @param column Bound color evaluator.
    * @return Final straight-alpha color. */
   template <typename Column>
-  HS_HOT_ITCM_MEMBER static Color4
+  HS_HOT_FLASH_MEMBER static Color4
   shade_column(float sine, float cosine, const Frame &frame,
                const ColumnBasis &basis, const Column &column)
     requires(LINEAR_COLUMNS && MODULATION_STACK)

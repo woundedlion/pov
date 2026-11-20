@@ -329,8 +329,8 @@ class OrderedModulationKernel {
     return result;
   }
 
-  HS_HOT_ITCM_MEMBER Color4 finish_simple(const FieldSample &field, float hue,
-                                          float lift, float alpha) const {
+  HS_HOT_FLASH_MEMBER Color4 finish_simple(const FieldSample &field, float hue,
+                                           float lift, float alpha) const {
     if (lift == 0.0f && hue != 0.0f && base.hue_rotation.active) {
       Pixel rotated;
       if (sample_guarded_hue_lut(base.hue_rotation.data,
@@ -344,7 +344,7 @@ class OrderedModulationKernel {
     return Color4(finish_hue_lift_pixel(rgb, nullptr, lift, hue, 1.0f), alpha);
   }
 
-  HS_HOT_ITCM_MEMBER Color4 shade_ordered(const FieldSample &field) const {
+  HS_HOT_FLASH_MEMBER Color4 shade_ordered(const FieldSample &field) const {
     float previous_alpha;
     ColorSample result;
     if (simple_palette) {
@@ -666,8 +666,8 @@ protected:
    * @param field Scalar field and sample provenance.
    * @return Color from independently sampled layers. */
   template <LayerLayout... Layout, size_t... I>
-  HS_HOT_ITCM_MEMBER Color4 shade_independent(const FieldSample &field,
-                                              std::index_sequence<I...>) const {
+  HS_HOT_FLASH_MEMBER Color4
+  shade_independent(const FieldSample &field, std::index_sequence<I...>) const {
     const auto direction = sample_direction(field.sphere);
     Pattern::SphereLutSample tap{};
     if constexpr (((Layout.source == LayerSampling::BYTE_CUBE) || ...))

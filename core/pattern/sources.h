@@ -430,8 +430,8 @@ HS_HOT_ITCM_MEMBER inline float square_cells(const PlanePosition &coordinate,
  * @return 1 inside the primitive, -1 outside, ramped across the edge.
  */
 template <typename Params>
-HS_HOT_ITCM_MEMBER inline float hexagonal_cells(const PlanePosition &coordinate,
-                                                const Params &params) {
+HS_HOT_FLASH_MEMBER inline float
+hexagonal_cells(const PlanePosition &coordinate, const Params &params) {
   float x, y;
   const float squared = nearest_hexagonal_offset<true>(
       params.cell_scale * coordinate.value.re,
