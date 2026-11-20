@@ -1072,6 +1072,38 @@ inline void test_one_shot_timer_ends_by_completion_not_cancel() {
   HS_EXPECT_FALSE(random.is_canceled());
 }
 
+/** @brief Rewinding a timer restarts its delay and preserves cancellation. */
+inline void test_timer_rewind() {
+  int fires = 0;
+  Animation::PeriodicTimer repeating(3, [&](Canvas &) { ++fires; },
+                                     {.repeat = true});
+  repeating.step(fake_canvas());
+  repeating.step(fake_canvas());
+  repeating.rewind();
+  repeating.step(fake_canvas());
+  repeating.step(fake_canvas());
+  HS_EXPECT_EQ(fires, 0);
+  repeating.step(fake_canvas());
+  HS_EXPECT_EQ(fires, 1);
+
+  Animation::RandomTimer once({.min = 2, .max = 2}, [&](Canvas &) { ++fires; });
+  once.step(fake_canvas());
+  once.step(fake_canvas());
+  HS_EXPECT_TRUE(once.done());
+  once.rewind();
+  HS_EXPECT_FALSE(once.done());
+  once.step(fake_canvas());
+  HS_EXPECT_EQ(fires, 2);
+  once.step(fake_canvas());
+  HS_EXPECT_EQ(fires, 3);
+  HS_EXPECT_TRUE(once.done());
+
+  repeating.cancel();
+  repeating.rewind();
+  HS_EXPECT_TRUE(repeating.done());
+  HS_EXPECT_TRUE(repeating.is_canceled());
+}
+
 /**
  * @brief A repeating animation that ends itself through the protected finish().
  */

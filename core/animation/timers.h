@@ -45,6 +45,15 @@ public:
     }
   }
 
+  /** @brief Restarts the active-frame delay of a live or naturally completed timer. */
+  void rewind() override {
+    if (this->is_canceled())
+      return;
+    AnimationBase<Derived>::rewind();
+    this->duration = -1;
+    static_cast<Derived *>(this)->reset();
+  }
+
   /** @brief A one-shot timer is removed on its single trigger, so it is finite.
    * @return True for a one-shot timer.
    */

@@ -241,6 +241,7 @@ inline int run_animation_tests() {
 
   HS_RUN(test_random_timer_fires_within_range);
   HS_RUN(test_one_shot_timer_ends_by_completion_not_cancel);
+  HS_RUN(test_timer_rewind);
   HS_RUN(test_finish_terminates_a_repeating_animation);
   HS_RUN(test_finished_param_animation_progress_is_finite);
   HS_RUN(test_periodic_timer_set_period_reschedules_from_now);
