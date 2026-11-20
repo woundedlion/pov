@@ -1982,7 +1982,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
 
   /** @brief Runs the prefix into the prebound ordered color tail.
    * @tparam Index First node.
-   * @tparam DiscardTransparent Whether the raster may discard hidden RGB.
+   * @tparam DiscardTransparent Whether the raster may discard sub-code coverage.
    * @tparam Input Carrier entering the node.
    * @tparam Column Bound endpoint or phase evaluator.
    * @param input Prefix carrier.
@@ -2026,9 +2026,11 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
           run_stage_endpoint<Index, false>(input, ctx, prepared), ctx, prepared,
           column);
     else {
-      if constexpr (DiscardTransparent)
-        if (input.coverage == 0.0f)
+      if constexpr (DiscardTransparent) {
+        constexpr float BLACK_COVERAGE = 0x1p-17f;
+        if (input.coverage <= BLACK_COVERAGE)
           return {};
+      }
       if constexpr (requires { ctx.temporal.fraction; } &&
                     phase_tail_supported<STACK_BEGIN + 1>()) {
         if (auto *phase = std::get_if<1>(&column))
