@@ -191,12 +191,12 @@ public:
   // clang-format on
   // End generated params.
 
-  /** @brief Evaluates the composed pixel pipeline from ITCM.
+  /** @brief Evaluates the composed pixel pipeline.
    * @param view Unit view direction.
    * @param frame Prepared column state.
    * @return Straight-alpha pixel color. */
-  HS_HOT_ITCM_MEMBER static Color4 shade(const math::Vector &view,
-                                         const typename Base::Frame &frame) {
+  HS_HOT_FLASH_MEMBER static Color4 shade(const math::Vector &view,
+                                          const typename Base::Frame &frame) {
     return Base::RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
   }
 
