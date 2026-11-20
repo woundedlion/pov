@@ -70,6 +70,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Ship board | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|---|
+| [Filigree](shipping/profile_filigree_teensy_2026-11-19.md) § ● | `fx_shader_draw`<br>worst: Ember Lattice, 71.527 ms / 8 fps budget tier | 🔴 71.527 (1)<br>🟢 57.614 (1) | 110.198 | — | 🔴 1/1073 (0.09%)<br>🟢 0/598 (0.00%) | — | — | — | COM3 | ship 2026-11-19 22:42 |
 | [RiverStones](shipping/profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | — | 🟢 0/1667 (0.00%) | — | — | — | COM3 | ship 2026-11-18 23:32 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-11-17.md) / [O3](O3/profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 57.095 (16) | 🟢 0/4895 (0.00%) | 🟢 0/4895 (0.00%) | +28,528 B | +9,456 B | COM3 | ship 2026-11-17 09:09<br>O3 2026-11-17 10:34 |
 | [GridWarp](shipping/profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | — | 🟢 0/479 (0.00%) | — | — | — | COM3 | ship 2026-11-17 09:41 |
