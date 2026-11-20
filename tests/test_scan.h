@@ -39,6 +39,7 @@ inline int run_scan_tests() {
   HS_RUN(test_scan_epilogue_contract);
   HS_RUN(test_shader_constant_fills_canvas);
   HS_RUN(test_shader_ssaa_premultiplies_partial_coverage);
+  HS_RUN(test_shader_ssaa_uniform_color);
   HS_RUN(test_shader_split_ssaa_averages_subsamples);
   HS_RUN(test_shader_positional_maps_latitude);
   HS_RUN(test_shader_respects_clip_band);

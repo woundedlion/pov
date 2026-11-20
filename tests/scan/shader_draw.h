@@ -117,6 +117,46 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
   }
 }
 
+/** @brief Four-sample shaders preserve uniform premultiplied color. */
+inline void test_shader_ssaa_uniform_color() {
+  constexpr int W = 16, H = 8;
+  hs_test::StubEffect fx(W, H);
+  Canvas canvas(fx);
+  auto check = [&](auto draw) {
+    draw.template operator()<1>();
+    const Pixel expected = canvas(0, 0);
+    draw.template operator()<4>();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const Pixel actual = canvas(x, y);
+        HS_EXPECT_EQ(actual.r, expected.r);
+        HS_EXPECT_EQ(actual.g, expected.g);
+        HS_EXPECT_EQ(actual.b, expected.b);
+      }
+  };
+  for (uint16_t residue = 0; residue < 4; ++residue) {
+    const Pixel pixel{residue, static_cast<uint16_t>(31 - residue),
+                      static_cast<uint16_t>(65535 - residue)};
+    check([&]<int N>() {
+      Scan::Shader::draw<W, H, N>(canvas,
+                                  [&](const math::Vector &) { return pixel; });
+    });
+    for (float alpha : {0.5f, 1.0f}) {
+      const Color4 color{pixel, alpha};
+      check([&]<int N>() {
+        Scan::Shader::draw<W, H, N>(
+            canvas, [&](const math::Vector &) { return color; });
+      });
+      check([&]<int N>() {
+        Scan::Shader::draw<W, H, N>(
+            canvas,
+            [&](const math::Vector &, Fragment &frag) { frag.color = color; },
+            [](Fragment &) {});
+      });
+    }
+  }
+}
+
 /**
  * @brief Verifies the split vertex/fragment draw averages SAMPLES==4 sub-samples
  *        over one per-pixel vertex seed.

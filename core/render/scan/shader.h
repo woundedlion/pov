@@ -146,6 +146,19 @@ private:
     return clip;
   }
 
+  template <typename Sample> static Pixel average_four(Sample &&sample) {
+    float red = 0.0f, green = 0.0f, blue = 0.0f;
+    for (int i = 0; i < 4; ++i) {
+      const Color4 color = sample(i);
+      red += color.color.r * color.alpha;
+      green += color.color.g * color.alpha;
+      blue += color.color.b * color.alpha;
+    }
+    return {round_linear_channel(red * 0.25f),
+            round_linear_channel(green * 0.25f),
+            round_linear_channel(blue * 0.25f)};
+  }
+
   // Shared traversal for typed shader entry points.
   template <int W, int H, int SAMPLES, typename ShaderFn,
             typename RowFn = std::nullptr_t>
@@ -187,7 +200,6 @@ private:
         });
       }
     } else {
-      constexpr float INV_SAMPLES = 1.0f / SAMPLES;
       SsaaGrid<W, H> grid;
 
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
@@ -195,20 +207,8 @@ private:
           begin_row(y);
         grid.set_row(y);
         walk_clip_columns<W>(xc, [&](int x) {
-          // Premultiplied SSAA: accumulate each sample's coverage-weighted color
-          // (color * alpha / N), matching the SAMPLES==1 path.
-          Pixel accum(0, 0, 0);
-
-          for (int i = 0; i < SAMPLES; ++i) {
-            if constexpr (PREMULTIPLIED)
-              accum += sample(grid.at(x, i), x, y) * INV_SAMPLES;
-            else {
-              Color4 color = sample(grid.at(x, i), x, y);
-              accum += color.color * (color.alpha * INV_SAMPLES);
-            }
-          }
-
-          canvas(x, y) = accum;
+          canvas(x, y) =
+              average_four([&](int i) { return sample(grid.at(x, i), x, y); });
         });
       }
     }
@@ -368,16 +368,13 @@ public:
         fragment_shader(frag_base.pos, frag_base);
         return frag_base.color.color * frag_base.color.alpha;
       } else {
-        constexpr float INV_SAMPLES = 1.0f / SAMPLES;
-        Pixel accum(0, 0, 0);
-        for (int i = 0; i < SAMPLES; ++i) {
+        return average_four([&](int i) {
           const math::Vector v = grid.at(x, i);
           Fragment sub_frag = frag_base;
           sub_frag.pos = v;
           fragment_shader(v, sub_frag);
-          accum += sub_frag.color.color * (sub_frag.color.alpha * INV_SAMPLES);
-        }
-        return accum;
+          return sub_frag.color;
+        });
       }
     };
     draw_grid<W, H>(canvas, vertex_shader, shade);
