@@ -122,11 +122,8 @@ export function catalogAssignmentFixture(catalog) {
       `  ${FAMILIES[operator.id]} params;`);
     emit(presetAssignments(document, values, { authoredTopology: true }));
     for (const field of operator.params.filter(field => field.topology))
-      for (const [ordinal, choice] of field.values.entries()) {
-        if (operator.id === 'sample.spherical-tiling.v1')
-          lines.push(`  params.${field.id.replaceAll('-', '_')} = ${ordinal};`);
-        else emit(presetAssignments(document, { [`authored.${field.id}`]: choice }, { authoredTopology: true }));
-      }
+      for (const choice of field.values)
+        emit(presetAssignments(document, { [`authored.${field.id}`]: choice }, { authoredTopology: true }));
     lines.push('  (void)params;', '}');
   }
   lines.push('', '// clang-format on', '', '} // namespace hs_test::composed_effect_tests', '');

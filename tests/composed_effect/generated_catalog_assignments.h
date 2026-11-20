@@ -795,6 +795,8 @@ inline void catalog_assignments_sample_spherical_tiling_v1() {
   Pullback::Source::SphericalTilingSourceParams params;
   params.line_thickness = 1.0f;
   params.line_softness = 0.5f;
+  params.solid = 14;
+  params.output = 0;
   params.solid = 0;
   params.solid = 1;
   params.solid = 2;

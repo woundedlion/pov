@@ -448,10 +448,23 @@ test('spherical source documents compile and round-trip without a planar stage',
     assert.equal(restored.status, 'VALID', JSON.stringify(restored.diagnostics));
     assert.equal(restored.descriptor_digest, compiled.descriptor_digest);
     assert.deepEqual(restored.document.descriptor.chain, chain);
-    const diagnostics = promotionDiagnostics(restored.document, { catalog: CATALOG, authoredTopology: true });
-    assert.equal(diagnostics.some((issue) => issue.code === 'WORKBENCH_ONLY_SOURCE'),
-      source === 'sample.spherical-tiling.v1');
     if (source === 'sample.spherical-tiling.v1') {
+      const options = { catalog: CATALOG, authoredTopology: true };
+      const diagnostics = promotionDiagnostics(restored.document, options);
+      assert.ok(!diagnostics.some(issue => issue.code.startsWith('UNSUPPORTED_TILING_')));
+      assert.ok(promotionDiagnostics(restored.document, { catalog: CATALOG })
+        .some(issue => issue.code === 'AUTHORED_TILING_TOPOLOGY'));
+      const preset = restored.document.preset_bank.presets.at(-1);
+      for (const solid of ['truncated-icosahedron-truncate50d-ambo-dual', 'dodecahedron-hk54-ambo-hk72']) {
+        preset.values['source.solid'] = solid;
+        assert.ok(!promotionDiagnostics(restored.document, options)
+          .some(issue => issue.code === 'UNSUPPORTED_TILING_SOLID' || issue.code === 'NON_UNIFORM_TOPOLOGY'));
+      }
+      preset.values['source.solid'] = 'icosahedron';
+      preset.values['source.output'] = 'faces';
+      const rejected = promotionDiagnostics(restored.document, options);
+      assert.ok(rejected.some(issue => issue.code === 'UNSUPPORTED_TILING_SOLID' && issue.parameter_id === 'source.solid'));
+      assert.ok(rejected.some(issue => issue.code === 'UNSUPPORTED_TILING_OUTPUT' && issue.parameter_id === 'source.output'));
       for (const [previous, current] of [['borders', 'edges'], ['face-type', 'faces'], ['tile-value', 'faces']]) {
         const legacy = structuredClone(document);
         const output = legacy.descriptor.parameters.find((parameter) => parameter.id === 'source.output');

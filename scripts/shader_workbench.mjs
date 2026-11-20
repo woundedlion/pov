@@ -1145,6 +1145,9 @@ const TILING_OPERATOR = 'sample.spherical-tiling.v1';
 const TILING_OUTPUT_MIGRATION = new Map([
   ['borders', 'edges'], ['face-type', 'faces'], ['tile-value', 'faces'],
 ]);
+const PROMOTABLE_TILING_SOLIDS = [
+  'truncated-icosahedron', 'truncated-icosahedron-truncate50d-ambo-dual', 'dodecahedron-hk54-ambo-hk72',
+];
 
 /** Updates superseded field declarations and selections.
  * @param {Object} document Decoded shader document.
@@ -1573,7 +1576,7 @@ export function hasLiveComposedTopology(slot, field, catalog, { authoredTopology
     .some(parameter => parameter.id === field && parameter.topology)) return true;
   if (authoredPalette && slot.operator.startsWith('colorize.')) return true;
   if (!authoredTopology) return false;
-  if (['sample.spherical-noise.v1', 'sample.spherical-cells.v1'].includes(slot.operator)) return true;
+  if (['sample.spherical-noise.v1', 'sample.spherical-cells.v1', TILING_OPERATOR].includes(slot.operator)) return true;
   if (slot.operator.startsWith('sample.')) return ['basis', 'weight-mode', 'coverage-mode'].includes(field);
   if (slot.operator === 'warp.affine.v4') return field !== 'path-length';
   return slot.operator !== 'sphere.rotate.v2';
@@ -1608,9 +1611,23 @@ export function promotionDiagnostics(document, { catalog, authoredTopology = fal
   authoredPalette = false, hasAuthoredAffine, latticeAllowsEdge } = {}) {
   const { descriptor, preset_bank: bank } = document;
   const diagnostics = [];
-  const tiling = descriptor.chain.find(slot => slot.operator === 'sample.spherical-tiling.v1');
-  if (tiling)
-    diagnostics.push({ code: 'WORKBENCH_ONLY_SOURCE', message: 'Tiling requires the shader workbench interpreter' });
+  const tiling = descriptor.chain.find(slot => slot.operator === TILING_OPERATOR);
+  if (tiling) {
+    if (!authoredTopology)
+      diagnostics.push({ code: 'AUTHORED_TILING_TOPOLOGY', message: 'Tiling promotion requires authored topology' });
+    for (const [field, choices, code] of [
+      ['output', ['edges'], 'UNSUPPORTED_TILING_OUTPUT'],
+      ['solid', PROMOTABLE_TILING_SOLIDS, 'UNSUPPORTED_TILING_SOLID'],
+    ]) {
+      const parameterId = `${tiling.label}.${field}`;
+      const defaultValue = descriptor.parameters.find(parameter => parameter.id === parameterId)?.default;
+      const selections = [defaultValue, ...bank.presets.map(preset => preset.values[parameterId])];
+      const unsupported = selections.find(value => value !== undefined && !choices.includes(value));
+      if (unsupported !== undefined)
+        diagnostics.push({ code, parameter_id: parameterId,
+          message: `Composed Tiling does not support ${field} ${unsupported}` });
+    }
+  }
   const dwell = Object.values(bank.choreography.dwell ?? {});
   if (dwell.length === 0) {
     diagnostics.push({ code: 'MISSING_DWELL', message: 'Composed documents must declare choreography.dwell' });
@@ -1629,7 +1646,6 @@ export function promotionDiagnostics(document, { catalog, authoredTopology = fal
     if (parameter.storage !== 'enum8' || !varies(parameter.id)) continue;
     const [label, field] = parameter.id.split('.');
     const slot = descriptor.chain.find(slot => slot.label === label);
-    if (slot === tiling) continue;
     if (!hasLiveComposedTopology(slot, field, catalog, { authoredTopology, authoredPalette, hasAuthoredAffine }))
       diagnostics.push({ code: 'NON_UNIFORM_TOPOLOGY', parameter_id: parameter.id,
         message: `Composed topology must be uniform: ${parameter.id}` });

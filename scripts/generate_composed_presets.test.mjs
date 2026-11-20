@@ -21,7 +21,7 @@ const selector = (operatorId, fieldId, choice) => {
 };
 
 test('authored spherical source selectors remain live in generated presets', () => {
-  for (const id of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1']) {
+  for (const id of ['sample.spherical-noise.v1', 'sample.spherical-cells.v1', 'sample.spherical-tiling.v1']) {
     const source = { descriptor: { chain: [{ label: 'sample', operator: id }] } };
     const operator = catalog.operators.find((entry) => entry.id === id);
     assert.ok(operator);
@@ -364,10 +364,6 @@ test('authored topology emits each composed catalog choice as its stored selecto
       if (field.id === 'palette-mapping') continue;
       for (const [index, choice] of field.values.entries()) {
         const result = [...presetAssignments(authored, { [`node.${field.id}`]: choice }, { authoredTopology: true })];
-        if (operator.id === 'sample.spherical-tiling.v1') {
-          assert.equal(result.length, 0, `${operator.id}/${field.id}/${choice} is workbench-only`);
-          continue;
-        }
         if (operator.id === 'sample.tessellation.v3' && ['kind', 'fill'].includes(field.id)) {
           assert.equal(result.length, 0, `${operator.id}/${field.id}/${choice} is pinned by the source family`);
           continue;
