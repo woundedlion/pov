@@ -194,6 +194,7 @@ inline void test_shader_chain_spherical_tiling() {
                0.0f);
 
   params.output = static_cast<uint8_t>(Output::FACES);
+  params.line_softness = 20.0f / 44.0f;
   const auto faces = Model::prepare({}, params, state);
   HS_EXPECT_TRUE(faces.geometry == prepared.geometry);
   const auto cutout = Model::run(seam, {}, params, faces);
@@ -202,6 +203,10 @@ inline void test_shader_chain_spherical_tiling() {
   const auto fringe = Model::run(face_point(2.0f), {}, params, faces);
   HS_EXPECT_NEAR(fringe.value, 1.0f / 44.0f, 2.0e-6f);
   HS_EXPECT_NEAR(fringe.coverage, 0.5f, 2.0e-6f);
+  HS_EXPECT_NEAR(Model::run(face_point(1.5f), {}, params, faces).coverage,
+                 0.25f, 5.0e-6f);
+  HS_EXPECT_NEAR(Model::run(face_point(2.5f), {}, params, faces).coverage,
+                 0.75f, 5.0e-6f);
   const auto middle = Model::run(face_point(23.0f), {}, params, faces);
   HS_EXPECT_NEAR(middle.value, 0.5f, 2.0e-6f);
   HS_EXPECT_EQ(middle.coverage, 1.0f);
@@ -210,11 +215,11 @@ inline void test_shader_chain_spherical_tiling() {
   HS_EXPECT_EQ(face_center.coverage, 1.0f);
 
   params.line_thickness = 0.0f;
-  params.line_softness = 0.5f;
+  params.line_softness = 5.0f / 45.0f;
   const auto zero_width = Model::prepare({}, params, state);
   const auto seam_field = Model::run(seam, context, params, zero_width);
   HS_EXPECT_NEAR(seam_field.value, 0.0f, 2.0e-6f);
-  HS_EXPECT_NEAR(seam_field.coverage, 0.0546875f, 2.0e-6f);
+  HS_EXPECT_NEAR(seam_field.coverage, 0.125f, 2.0e-6f);
   const auto zero_width_middle =
       Model::run(face_point(22.5f), context, params, zero_width);
   HS_EXPECT_NEAR(zero_width_middle.value, 0.5f, 2.0e-6f);
@@ -223,31 +228,37 @@ inline void test_shader_chain_spherical_tiling() {
   const auto zero_width_fringe =
       Model::run(face_point(0.25f), context, params, zero_width);
   HS_EXPECT_NEAR(zero_width_fringe.coverage, 0.5f, 1.0e-5f);
-  params.line_softness = 1.0f;
+  params.line_softness = 10.0f / 45.0f;
   const auto softer_zero = Model::prepare({}, params, state);
   HS_EXPECT_NEAR(Model::run(seam, context, params, softer_zero).coverage,
-                 0.0146484375f, 2.0e-6f);
+                 0.0625f, 2.0e-6f);
 
-  params.line_softness = 0.5f;
   params.line_thickness = 0.002f;
+  params.line_softness = 5.0f / 44.999f;
   const auto near_zero = Model::prepare({}, params, state);
   HS_EXPECT_NEAR(Model::run(seam, context, params, near_zero).coverage,
-                 0.053446484f, 2.0e-6f);
+                 0.123008f, 2.0e-6f);
 
-  params.line_softness = 2.0f;
   params.line_thickness = 0.5f;
+  params.line_softness = 20.0f / 44.75f;
   const auto thin = Model::prepare({}, params, state);
   const auto inside_edge = face_point(0.0625f);
   const auto within_fringe = face_point(1.25f);
   HS_EXPECT_EQ(Model::run(inside_edge, context, params, thin).coverage, 0.0f);
   const auto thin_fringe = Model::run(within_fringe, context, params, thin);
   HS_EXPECT_NEAR(thin_fringe.coverage, 0.5f, 5.0e-6f);
-  params.line_softness = 4.0f;
+  const auto farther_in = face_point(3.25f);
+  HS_EXPECT_EQ(Model::run(farther_in, context, params, thin).coverage, 1.0f);
+  params.line_softness = 40.0f / 44.75f;
   const auto softer = Model::prepare({}, params, state);
   HS_EXPECT_EQ(Model::run(inside_edge, context, params, softer).coverage, 0.0f);
   const auto softer_fringe = Model::run(within_fringe, context, params, softer);
-  HS_EXPECT_NEAR(softer_fringe.coverage, 0.15673828125f, 5.0e-6f);
+  HS_EXPECT_NEAR(softer_fringe.coverage, 0.25f, 5.0e-6f);
   HS_EXPECT_EQ(softer_fringe.value, thin_fringe.value);
+  HS_EXPECT_NEAR(Model::run(farther_in, context, params, softer).coverage,
+                 0.75f, 5.0e-6f);
+  HS_EXPECT_EQ(Model::run(face_point(5.25f), context, params, softer).coverage,
+               1.0f);
   params.line_thickness = 0.0f;
 
   const auto &geometry = *prepared.geometry;
@@ -269,7 +280,6 @@ inline void test_shader_chain_spherical_tiling() {
   }
 
   params.solid = static_cast<uint8_t>(Solids::BaseMesh::CUBOCTAHEDRON);
-  params.line_softness = 8.0f;
   const auto square_center = math::X_AXIS;
   const auto triangle_center = math::Vector{1.0f, 1.0f, 1.0f}.normalized();
   const auto shared_seam = math::Vector{2.0f, 1.0f, 1.0f}.normalized();
@@ -283,13 +293,13 @@ inline void test_shader_chain_spherical_tiling() {
   };
   for (float thickness : {0.0f, 2.0f}) {
     params.line_thickness = thickness;
+    params.line_softness = 2.0f;
     const auto mixed = Model::prepare({}, params, state);
     const float half_width = 0.5f * thickness * DEG;
-    const float triangle_fringe = 8.0f * DEG * (triangle_depth - half_width) /
-                                  (square_depth - half_width);
-    const auto square = from_seam(square_center, half_width + 4.0f * DEG);
-    const auto triangle =
-        from_seam(triangle_center, half_width + 0.5f * triangle_fringe);
+    const auto square = from_seam(
+        square_center, half_width + 0.1f * (square_depth - half_width));
+    const auto triangle = from_seam(
+        triangle_center, half_width + 0.1f * (triangle_depth - half_width));
     HS_EXPECT_NEAR(Model::run(square, {}, params, mixed).coverage, 0.5f,
                    2.0e-5f);
     HS_EXPECT_NEAR(Model::run(triangle, {}, params, mixed).coverage, 0.5f,
@@ -297,9 +307,24 @@ inline void test_shader_chain_spherical_tiling() {
     HS_EXPECT_EQ(
         Model::run({triangle_center, 0.0f}, context, params, mixed).coverage,
         1.0f);
+
+    params.line_softness = 10.0f;
+    const auto full = Model::prepare({}, params, state);
+    for (float fraction : {0.25f, 0.75f, 1.0f}) {
+      const auto square_sample = from_seam(
+          square_center, half_width + fraction * (square_depth - half_width));
+      const auto triangle_sample =
+          from_seam(triangle_center,
+                    half_width + fraction * (triangle_depth - half_width));
+      HS_EXPECT_NEAR(Model::run(square_sample, {}, params, full).coverage,
+                     fraction, 2.0e-5f);
+      HS_EXPECT_NEAR(Model::run(triangle_sample, {}, params, full).coverage,
+                     fraction, 2.0e-5f);
+    }
   }
 
   params.line_thickness = 0.0f;
+  params.line_softness = 2.0f;
   context.angular_sample_radius = DEG;
   const auto mixed = Model::prepare({}, params, state);
   const auto square = from_seam(square_center, 0.0005f * DEG);

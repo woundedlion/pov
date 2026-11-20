@@ -63,10 +63,12 @@ struct SphericalTilingSourceParams {
       "sample.spherical-tiling.v1"; ///< Catalog identity.
   static constexpr uint8_t DEFAULT_SOLID =
       Solids::SEED_TRUNCATED_ICOSAHEDRON; ///< Default registry entry.
+  static constexpr float MAX_SOFTNESS =
+      10.0f; ///< Full face depth in Faces mode.
 
   float line_thickness = 1.0f; ///< Full edge width in degrees.
   float line_softness =
-      0.5f; ///< Fringe width in degrees for Edges or the deepest face.
+      0.5f; ///< Fringe width in degrees for Edges or tenths of face depth for Faces.
   uint8_t solid = DEFAULT_SOLID; ///< Registry entry ordinal.
   uint8_t output = static_cast<uint8_t>(TilingOutput::EDGES); ///< Scalar mode.
 
@@ -82,7 +84,7 @@ struct SphericalTilingSourceParams {
           "Edge Thickness (deg)", 0.0f, 10.0f, FieldCurve::LERP},
       Field<SphericalTilingSourceParams>{
           "line-softness", &SphericalTilingSourceParams::line_softness,
-          "Edge Softness (deg)", 0.05f, 10.0f, FieldCurve::LOG_POSITIVE}};
+          "Softness", 0.05f, MAX_SOFTNESS, FieldCurve::LOG_POSITIVE}};
 
   /// Registry solid and scalar output selectors.
   static constexpr auto TOPOLOGY =

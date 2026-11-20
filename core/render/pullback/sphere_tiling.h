@@ -84,10 +84,6 @@ public:
     return {distance, polygon.center_depth, across};
   }
 
-  /** @brief Finds the depth used to scale the face fringes.
-   * @return Largest face center depth from its seam, in radians. */
-  float max_center_depth() const { return largest_center_depth; }
-
   /** @brief Samples the nearest finite seam arc within the distance limit.
    * @param unit_direction Unit direction in the solid's frame.
    * @param max_distance_radians Maximum reported distance in [0, pi].
@@ -161,7 +157,6 @@ private:
   std::vector<Edge> edges;
   Index face_index;
   Index edge_index;
-  float largest_center_depth = 0.0f;
 
   static float chord_squared(float angle) {
     const float half = sinf(0.5f * angle);
@@ -316,7 +311,6 @@ private:
     }
     const auto center_direction = math::normalized_or(center, axis);
     face.center_depth = boundary_at(face, center_direction).first;
-    largest_center_depth = std::max(largest_center_depth, face.center_depth);
     return face;
   }
 

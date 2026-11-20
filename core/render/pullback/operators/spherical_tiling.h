@@ -59,10 +59,8 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
     if (params.output == static_cast<uint8_t>(Source::TilingOutput::EDGES))
       return {state.geometry.get(), half_width,
               (half_width_degrees + params.line_softness) * DEGREES_TO_RADIANS};
-    const float softness = params.line_softness * DEGREES_TO_RADIANS;
-    const float largest_span = state.geometry->max_center_depth() - half_width;
     return {state.geometry.get(), half_width,
-            softness / std::max(softness, largest_span)};
+            params.line_softness / Params::MAX_SOFTNESS};
   }
 
   static FieldSample run(const SphereSample &input, const FrameContext &ctx,
@@ -101,8 +99,7 @@ private:
       return 0.0f;
     if (depth >= softness)
       return depth - 0.5f * softness;
-    const float t = depth / softness;
-    return softness * t * t * t * (1.0f - 0.5f * t);
+    return 0.5f * depth * (depth / softness);
   }
 
   static float face_coverage(float distance, float radius, float half_width,
@@ -114,7 +111,7 @@ private:
     if (inner - half_width >= softness)
       return 1.0f;
     if (radius == 0.0f)
-      return math::cubic_kernel((distance - half_width) / softness);
+      return (distance - half_width) / softness;
     const float outer_area = integrated_fade(outer - half_width, softness);
     const float inner_area = integrated_fade(
         fabsf(inner) - half_width, inner < 0.0f ? across_softness : softness);
