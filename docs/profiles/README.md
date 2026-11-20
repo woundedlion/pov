@@ -1,12 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **44 effects in the Phantasm image**, captured on
+On-device timing for the **43 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each display window uses one 288×144 image quadrant (about 10,368 pixels).
 MeshFeedback renders the full 41,472-pixel canvas for feedback. The 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Shipping reports cover all 44 effects with 44 completed captures.
+Shipping reports cover all 43 effects with 43 completed captures.
 
 Recorded capture revisions retain their original IDs. The
 [source revision crosswalk](source_revisions.json) preserves each one-to-one
@@ -70,7 +70,6 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Ship board | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|---|
-| [EmberTracery](shipping/profile_embertracery_teensy_2026-11-19.md) ? | `fx_shader_draw` | 🟢 60.930 | 115.671 | ? | 🟢 0/599 (0.00%) | ? | ? | ? | COM4 | ship 2026-11-19 20:07 |
 | [RiverStones](shipping/profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | — | 🟢 0/1667 (0.00%) | — | — | — | COM3 | ship 2026-11-18 23:32 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-11-17.md) / [O3](O3/profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 57.095 (16) | 🟢 0/4895 (0.00%) | 🟢 0/4895 (0.00%) | +28,528 B | +9,456 B | COM3 | ship 2026-11-17 09:09<br>O3 2026-11-17 10:34 |
 | [GridWarp](shipping/profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | — | 🟢 0/479 (0.00%) | — | — | — | COM3 | ship 2026-11-17 09:41 |
@@ -86,7 +85,6 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [RingSpin](shipping/profile_ringspin_teensy_2026-11-17.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) ● | `rs_draw_rings` | 🟢 51.117 | 3.279 | 🟢 50.750 | 🟢 0/959 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | COM3 | ship 2026-11-17 08:54<br>O3 2026-09-24 20:18 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-11-17.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles`<br>worst: 7, 50.810 ms / 16 fps | 🟢 50.810 (8) | 0.372 | 🟢 54.539 (8) | 🟢 0/1279 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | COM3 | ship 2026-11-17 09:03<br>O3 2026-10-01 09:22 |
 | [KaleidoscopeMelt](shipping/profile_kaleidoscopemelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 50.074 | 78.699 | — | 🟢 0/959 (0.00%) | — | — | — | COM3 | ship 2026-11-17 09:45 |
-| [JadeFiligree](shipping/profile_jadefiligree_teensy_2026-11-19.md) ? | `fx_shader_draw` | 🟢 48.421 | 95.949 | ? | 🟢 0/598 (0.00%) | ? | ? | ? | COM3 | ship 2026-11-19 22:09 |
 | [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-11-17.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § ● | `fx_shader_draw`<br>worst: Kaleidoscope Hex Oil 2, 48.354 ms / 16 fps | 🟢 48.354 (2) | 68.013 | 🟢 38.94 (3) | 🟢 0/1679 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | COM3 | ship 2026-11-17 09:26<br>O3 2026-08-26 02:49 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-11-17.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) ● | `grd_render` | 🟢 47.331 | 24.651 | 🔴 279.686 | 🟢 0/479 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | COM3 | ship 2026-11-17 08:43<br>O3 2026-09-30 19:15 |
 | [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-11-17.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 45.898 | 68.306 | 🟢 54.55 | 🟢 0/479 (0.00%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | COM3 | ship 2026-11-17 09:37<br>O3 2026-08-26 02:43 |
@@ -234,6 +232,11 @@ are no longer available to rederive these buckets.
 Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). Historical matched clock measurements at the recorded sources; the current canonical report measures shipping bounded channel phases.
 
 Integer direct-AA validation: [ShapeShifter paired capture](shipping/profile_shapeshifter_integer_aa_teensy_2026-10-10.md). Both images preserve 16 fps throughout the cycle.
+
+## Retired effect profiles
+
+- [Jade Filigree](retired/profile_jadefiligree_teensy_2026-11-19.md)
+- [Ember Tracery](retired/profile_embertracery_teensy_2026-11-19.md)
 
 ## Effects excluded from the Phantasm image
 

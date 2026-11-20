@@ -10,8 +10,7 @@
 // an exclude row. Expanded through phantasm_playlist_rows.h.
 
 show(RiverStones)
-show(JadeFiligree)
-show(EmberTracery)
+show(Filigree)
 show(LiquidWindows, 60)
 show(Iridescence, 60)
 show(GridWarp, 60)

@@ -71,8 +71,7 @@
   X(LiquidWindows)                                                             \
   X(Iridescence)                                                               \
   X(RiverStones)                                                               \
-  X(JadeFiligree)                                                              \
-  X(EmberTracery)                                                              \
+  X(Filigree)                                                                  \
   X(HyperLattice)                                                              \
   X(AshCloud)                                                                  \
   X(KaleidoscopeMelt)                                                          \
@@ -161,8 +160,7 @@ template <template <int, int> class EffectT> constexpr int hs_cycle_seconds() {
   X(LiquidWindows)                                                             \
   X(Iridescence)                                                               \
   X(RiverStones)                                                               \
-  X(JadeFiligree)                                                              \
-  X(EmberTracery)                                                              \
+  X(Filigree)                                                                  \
   X(KaleidoscopeMelt)                                                          \
   X(ChromaticLichen)                                                           \
   X(MermaidSkin)                                                               \

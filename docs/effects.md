@@ -738,15 +738,14 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `liquid-windows` | `LiquidWindows` | 1 |
 | `iridescence` | `Iridescence` | 1 |
 | `river-stones` | `RiverStones` | 2 |
-| `jade-filigree` | `JadeFiligree` | 1 |
-| `ember-tracery` | `EmberTracery` | 1 |
+| `filigree` | `Filigree` | 2 |
 
-Jade Filigree uses a Direct Lens and Tiling Edges to animate its Jade Weave
-preset. Ember Tracery uses
-one preset, Ember Lattice, with camera wander, directional lightness and hue
-driven by lens displacement.
+Filigree cycles between Jade Weave and Ember Lattice. Both use a Direct Lens
+and Tiling Edges. Ember Lattice adds camera wander, directional lightness and
+hue driven by lens displacement. The presets hold for 600 frames and segue
+over 480 frames.
 
-These 26 effects form the product-only `shader-collection` group. Phantasm
+These 25 effects form the product-only `shader-collection` group. Phantasm
 assigns some entries fixed show windows and derives other entries from their
 authored preset cycle. Frame budgets convert
 to show seconds at the nominal 16 fps. A slower render cadence can leave a
@@ -993,7 +992,7 @@ operator and palette clocks keep advancing while its authored-preset pause is
 set.
 
 The simulator interprets admitted chains even when they have no promoted
-firmware match. Firmware can build the 26 promoted fixed descriptors. A
+firmware match. Firmware can build the 25 promoted fixed descriptors. A
 catalog choice alone does not promise a Teensy specialization.
 
 The `ComposedEffect` derivation layer in `composed_policies.h` selects source, warp, surface and lens policies from their parameter families with `SourcePolicyFor`, `WarpPolicyFor`, `SurfacePolicyFor` and `LensPolicyFor`. `tests/composed_effect/derivation_reach.h` checks at compile time that every source, warp, displacement and lens operator family derives a composed policy. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Projected Noise has a composed policy, but no shipped Spec selects it. Value Cutout is reachable and selected by Ash Cloud.

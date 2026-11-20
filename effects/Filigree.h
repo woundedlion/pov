@@ -5,8 +5,8 @@
  */
 #pragma once
 
-/** @file EmberTracery.h
- * @brief A wandering lattice of embers.
+/** @file Filigree.h
+ * @brief Animated spherical tilings in jade and embers.
  */
 
 #include "core/platform/effect_identity.h"
@@ -15,8 +15,8 @@
 #include <array>
 #include <string_view>
 
-/** @brief Authored stages for EmberTracery. */
-struct EmberTracerySpec : Pullback::Spec {
+/** @brief Authored stages for Filigree. */
+struct FiligreeSpec : Pullback::Spec {
   static constexpr bool AUTHORED_TOPOLOGY = true;
   static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
 
@@ -40,30 +40,31 @@ struct EmberTracerySpec : Pullback::Spec {
               Pattern::Evaluation::BAKED_CUBE, true>>>>;
 };
 
-using EmberTraceryParams = Pullback::ParamsFor<EmberTracerySpec>;
+using FiligreeParams = Pullback::ParamsFor<FiligreeSpec>;
 
-/** @brief A wandering lattice of embers.
+/** @brief Animated spherical tilings in jade and embers.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
  */
 template <int W, int H>
-class EmberTracery : public Pullback::ComposedEffect<W, H, EmberTracery<W, H>,
-                                                     EmberTracerySpec> {
+class Filigree
+    : public Pullback::ComposedEffect<W, H, Filigree<W, H>, FiligreeSpec> {
 public:
-  using Params = EmberTraceryParams;
+  using Params = FiligreeParams;
 
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   /// Machine/display identity and compatibility keys.
-  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::EmberTracery::VALUE;
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::Filigree::VALUE;
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "55267516d86ad06dc7393684284678776506b1d775d46304a1730912df8adbac";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "97d447e61456e096b9b6b1d93d164932a4e2d405bad17ca377ae55f8147d5969";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "009e0c5a343f715ec9cfba2524d97e60555095e5d4b8b5d2d10d1a7b9fecb708";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "4f45ac9359fbd414db2c4aa146174b7070a7b36407c1160773bda2ccff783da8";
   /// Preset identities, indexed by preset number.
-  static constexpr std::array<std::string_view, 1> PRESET_IDS{
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{
+      "jade-weave",
       "ember-lattice"
   };
   /// Frames each preset holds before advancing.
@@ -111,7 +112,7 @@ public:
     value.template get<"color">().palette_mapping = Pullback::Color::PaletteMapping::CUP;
     value.template get<"color">().palette_mode = 2;
     value.template get<"color">().palette_mutation = 0.0f;
-    value.template get<"color">().palette_name = 10;
+    value.template get<"color">().palette_name = 9;
     value.template get<"color">().palette_name_b = 19;
     value.template get<"color">().palette_spread = 0.07f;
     value.template get<"color">().palette_type = 2;
@@ -146,7 +147,7 @@ public:
     value.template get<"modulate">().modulation.interference.offset = 0.0f;
     value.template get<"modulate">().modulation.interference.offset_b = 0.0f;
     value.template get<"modulate">().modulation.interference.speed = 0.0f;
-    value.template get<"modulate">().modulation.mechanic.amount = 0.43235293f;
+    value.template get<"modulate">().modulation.mechanic.amount = 0.0f;
     value.template get<"modulate">().modulation.enabled = true;
     value.template get<"modulate">().modulation.evaluation = Pattern::Evaluation::DIRECT;
     value.template get<"modulate">().modulation.mechanic.kind = ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT;
@@ -184,7 +185,7 @@ public:
     value.template get<"modulate1">().modulation.interference.offset = 0.0f;
     value.template get<"modulate1">().modulation.interference.offset_b = 0.0f;
     value.template get<"modulate1">().modulation.interference.speed = 0.0f;
-    value.template get<"modulate1">().modulation.mechanic.amount = -0.7294118f;
+    value.template get<"modulate1">().modulation.mechanic.amount = 0.0f;
     value.template get<"modulate1">().modulation.enabled = true;
     value.template get<"modulate1">().modulation.evaluation = Pattern::Evaluation::DIRECT;
     value.template get<"modulate1">().modulation.mechanic.kind = ColorModulation::Mechanic::HUE_ROTATION;
@@ -201,23 +202,43 @@ public:
     value.template get<"modulate1">().modulation.sine.offset = 0.0f;
     value.template get<"modulate1">().modulation.sine.speed = 0.0f;
     value.template get<"rotate">().spin_speed = 0.0f;
-    value.template get<"rotate">().wander = 1.0f;
-    value.template get<"source">().line_softness = 1.2350903f;
+    value.template get<"rotate">().wander = 0.0f;
+    value.template get<"source">().line_softness = 1.398054f;
     value.template get<"source">().line_thickness = 0.0f;
     value.template get<"source">().output = 0;
-    value.template get<"source">().solid = 50;
+    value.template get<"source">().solid = 52;
     return value;
+  }
+
+  /**
+   * @brief The preset at index in PRESET_IDS and how it departs.
+   * @param index Preset number; an index past the last yields preset 0.
+   * @return The preset's parameters and departure segue.
+   */
+  HS_FLASH_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
+    Params value = initial_params();
+    if (index == 1) {
+      value.template get<"color">().palette_name = 10;
+      value.template get<"modulate">().modulation.mechanic.amount = 0.43235293f;
+      value.template get<"modulate1">().modulation.mechanic.amount = -0.7294118f;
+      value.template get<"rotate">().wander = 1.0f;
+      value.template get<"source">().line_softness = 1.2350903f;
+      value.template get<"source">().solid = 50;
+    }
+    return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
   }
   // clang-format on
   // End generated params.
 
   /** @brief Binds the authored preset bank. */
   static consteval auto choreography_hooks() {
-    return Pullback::ComposedEffect<W, H, EmberTracery<W, H>,
-                                    EmberTracerySpec>::choreography_hooks()
+    return Pullback::ComposedEffect<W, H, Filigree<W, H>,
+                                    FiligreeSpec>::choreography_hooks()
         .template extend<
-            EmberTracery,
+            Filigree,
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
-                                 &EmberTracery::initial_params>>();
+                                 &Filigree::initial_params>,
+            Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                                 &Filigree::preset>>();
   }
 };

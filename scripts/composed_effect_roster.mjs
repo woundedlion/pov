@@ -6,13 +6,12 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'ash-cloud',
   'chromatic-lichen',
   'cosmic-eyeball',
-  'ember-tracery',
+  'filigree',
   'grid-space',
   'grid-warp',
   'grid-worms',
   'involution',
   'iridescence',
-  'jade-filigree',
   'jewel-melt',
   'kaleidoscope-flowers',
   'kaleidoscope-hex-bright',
@@ -29,9 +28,8 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
 ]);
 
 export const SHADER_DOCUMENT_PROMOTION_OPTIONS = Object.freeze({
-  'ember-tracery': Object.freeze({ authoredTopology: true, authoredPalette: true }),
+  'filigree': Object.freeze({ authoredTopology: true, authoredPalette: true }),
   'involution': Object.freeze({ authoredTopology: true, authoredPalette: true }),
   'iridescence': Object.freeze({ authoredPalette: true }),
-  'jade-filigree': Object.freeze({ authoredTopology: true, authoredPalette: true }),
   'river-stones': Object.freeze({ authoredPalette: true }),
 });

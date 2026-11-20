@@ -1,13 +1,12 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-44 effects in `targets/Phantasm/phantasm_playlist.def`. All 44 have canonical reports. Steady peak is worst-frame render within the scheduled show slot, excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
+43 effects in `targets/Phantasm/phantasm_playlist.def`. All 43 have canonical reports. Steady peak is worst-frame render within the scheduled show slot, excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
 the 62.5 ms display window. Rows rank by spill fraction, then steady peak render.
 🟢 zero spill; 🔴 any spill.
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Captured |
 |---|---|--:|--:|--:|---|---|
-| [EmberTracery](profile_embertracery_teensy_2026-11-19.md) ? | `fx_shader_draw` | 🟢 60.930 | 115.671 | 🟢 0/599 (0.00%) | COM4 | 2026-11-19 20:07 |
 | [RiverStones](profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | 🟢 0/1667 (0.00%) | COM3 | 2026-11-18 23:32 |
 | [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 0/4895 (0.00%) | COM3 | 2026-11-17 09:09 |
 | [GridWarp](profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:41 |
@@ -23,7 +22,6 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [RingSpin](profile_ringspin_teensy_2026-11-17.md) ● | `rs_draw_rings` | 🟢 51.117 | 3.279 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:54 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-11-17.md) § ● | `msp_draw_particles`<br>worst: 7, 50.810 ms / 16 fps | 🟢 50.810 (8) | 0.372 | 🟢 0/1279 (0.00%) | COM3 | 2026-11-17 09:03 |
 | [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 50.074 | 78.699 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:45 |
-| [JadeFiligree](profile_jadefiligree_teensy_2026-11-19.md) ? | `fx_shader_draw` | 🟢 48.421 | 95.949 | 🟢 0/598 (0.00%) | COM3 | 2026-11-19 22:09 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Kaleidoscope Hex Oil 2, 48.354 ms / 16 fps | 🟢 48.354 (2) | 68.013 | 🟢 0/1679 (0.00%) | COM3 | 2026-11-17 09:26 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-11-17.md) ● | `grd_render` | 🟢 47.331 | 24.651 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:43 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 45.898 | 68.306 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:37 |

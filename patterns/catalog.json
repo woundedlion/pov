@@ -25,8 +25,7 @@
     "liquid-windows": "liquid_windows.shader.json",
     "iridescence": "iridescence.shader.json",
     "river-stones": "river_stones.shader.json",
-    "jade-filigree": "jade_filigree.shader.json",
-    "ember-tracery": "ember_tracery.shader.json"
+    "filigree": "filigree.shader.json"
   },
   "product_group": {
     "id": "shader-collection",
@@ -129,12 +128,8 @@
         "display_name": "River Stones"
       },
       {
-        "effect_id": "jade-filigree",
-        "display_name": "Jade Filigree"
-      },
-      {
-        "effect_id": "ember-tracery",
-        "display_name": "Ember Tracery"
+        "effect_id": "filigree",
+        "display_name": "Filigree"
       }
     ]
   }

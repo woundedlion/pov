@@ -230,10 +230,8 @@ inline void test_promoted_document_pipelines() {
   composed_chain_tests::verify_export<Iridescence<SMALL_W, SMALL_H>>(0);
   for (size_t i = 0; i < RiverStones<SMALL_W, SMALL_H>::PRESET_IDS.size(); ++i)
     composed_chain_tests::verify_export<RiverStones<SMALL_W, SMALL_H>>(i);
-  for (size_t i = 0; i < JadeFiligree<SMALL_W, SMALL_H>::PRESET_IDS.size(); ++i)
-    composed_chain_tests::verify_export<JadeFiligree<SMALL_W, SMALL_H>>(i);
-  for (size_t i = 0; i < EmberTracery<SMALL_W, SMALL_H>::PRESET_IDS.size(); ++i)
-    composed_chain_tests::verify_export<EmberTracery<SMALL_W, SMALL_H>>(
+  for (size_t i = 0; i < Filigree<SMALL_W, SMALL_H>::PRESET_IDS.size(); ++i)
+    composed_chain_tests::verify_export<Filigree<SMALL_W, SMALL_H>>(
         i, DOCUMENT_CHANNEL_TOLERANCE);
   composed_chain_tests::verify_export<CosmicEyeball<SMALL_W, SMALL_H>>(0);
   composed_chain_tests::verify_export<KaleidoscopeHexOil<SMALL_W, SMALL_H>>(0);
