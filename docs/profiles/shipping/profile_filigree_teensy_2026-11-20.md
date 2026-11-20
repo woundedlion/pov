@@ -2,6 +2,10 @@
 
 Raw capture `C:/work/temp/holosphere-20261119-filigree-profile/morph-shared-cell/filigree_ship.log`.
 
+**Filigree passed with 0 spills in 2,791 live frames.** The 176 s capture
+covered both preset holds and both transition directions. Peak render and
+foreground wall time were **60.862 ms** against the **62.5 ms** budget.
+
 ## Setup
 
 | Item | Configuration |
@@ -27,17 +31,12 @@ Compared with the previous combined Filigree build, FLASH code changed by
 
 ## Frame cadence
 
-Setup frame 1 took **76.754 ms** to render. Both steady-state holds and
-both transition directions passed the 62.5 ms display budget. Across
-**2,791 live frames**, the peak was **60.862 ms**
-on frame 2159 (Ember Lattice → Jade Weave). Peak foreground wall time was
-60.862 ms. Every live render and foreground wall measurement
-stayed within budget.
+The full capture peaked on frame 2159 at the end of Ember Lattice's
+transition into Jade Weave. The 105 s playlist slot covered 1,667 live
+frames, with **0 spills** and a **57.375 ms** peak during the transition
+into Ember Lattice.
 
-The review extended beyond Filigree's 105 s playlist slot to include the
-complete reverse transition. Within the scheduled slot, **0/1,667**
-live frames exceeded budget. Peak render was **57.375 ms**
-(Jade Weave → Ember Lattice).
+The live count starts at frame 2. Setup frame 1 took **76.754 ms**.
 
 README cells: peak 🟢 57.375 (2), spilled 🟢 0/1667 (0.00%).
 
@@ -56,10 +55,6 @@ eased steps. Each transition range includes the incoming endpoint frame.
 | Ember Lattice → Jade Weave | 1679–2159 | 481 | 53.755 | 60.862 | 2159 | 0 |
 | Jade Weave hold | 2160–2757 | 598 | 41.282 | 42.683 | 2561 | 0 |
 | Jade Weave → Ember Lattice | 2758–2792 | 35 | 53.844 | 55.852 | 2785 | 0 |
-
-The previous combined effect peaked at 71.527 ms with a discrete solid switch
-on frame 1080. The first source-morph build peaked at 70.021 ms with two
-misses at the final transition frames.
 
 Filigree blends both edge fields in the source stage. Packed narrow lookups
 and bounded short-angle kernels preserve oriented arc coordinates and coverage.

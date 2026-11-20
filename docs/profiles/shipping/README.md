@@ -5,6 +5,10 @@ Ranked on-device results for the shipping `profile` image, covering the
 the 62.5 ms display window. Rows rank by spill fraction, then steady peak render.
 🟢 zero spill; 🔴 any spill.
 
+Filigree's row covers the 105 s playlist slot. Its full capture covered both
+transition directions with **0 spills in 2,791 live frames** and a
+**60.862 ms** peak. [Full Filigree capture](profile_filigree_teensy_2026-11-20.md#frame-cadence)
+
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Captured |
 |---|---|--:|--:|--:|---|---|
 | [RiverStones](profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | 🟢 0/1667 (0.00%) | COM3 | 2026-11-18 23:32 |

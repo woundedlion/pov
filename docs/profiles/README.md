@@ -68,6 +68,10 @@ and colours; they have not been reanalyzed to the current show scope. O3 code-si
 deltas and timestamps belong to each O3 capture's original source pair, including
 MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization pair.
 
+Filigree's row covers the 105 s playlist slot. Its full capture covered both
+transition directions with **0 spills in 2,791 live frames** and a
+**60.862 ms** peak. [Full Filigree capture](shipping/profile_filigree_teensy_2026-11-20.md#frame-cadence)
+
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Ship board | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|---|
 | [RiverStones](shipping/profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | — | 🟢 0/1667 (0.00%) | — | — | — | COM3 | ship 2026-11-18 23:32 |
