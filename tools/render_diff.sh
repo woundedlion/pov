@@ -53,12 +53,33 @@ if [ "$report" = 1 ] && ! git cat-file -e "$sha:tests/test_render_hashes.h" 2>/d
 fi
 
 checkout_base() {
-  if [ -e "$dir/.git" ]; then
+  local admin registered path
+  if [ ! -e "$dir" ]; then
+    git worktree add --quiet --detach "$dir" "$sha" || return 1
+    admin=$(git -C "$dir" rev-parse --absolute-git-dir) || return 1
+    printf '%s\n' "$dir" > "$admin/render-diff-owner"
+    return
+  fi
+
+  registered=0
+  while IFS= read -r -d '' path; do
+    case "$path" in
+      "worktree "*)
+        if [ "$(realpath -m "${path#worktree }")" = "$dir" ]; then registered=1; fi;;
+    esac
+  done < <(git worktree list --porcelain -z)
+  if [ "$registered" = 1 ] && [ "$dir" != "$(realpath "$main")" ] &&
+      [[ "$(realpath "$root")/" != "$dir/"* ]] &&
+      admin=$(git -C "$dir" rev-parse --absolute-git-dir) &&
+      [ "$(realpath "$(dirname "$admin")")" = "$(realpath "$common/worktrees")" ] &&
+      [ -f "$admin/gitdir" ] && [ "$(realpath "$(cat "$admin/gitdir")")" = "$dir/.git" ] &&
+      [ -f "$admin/render-diff-owner" ] && [ "$(cat "$admin/render-diff-owner")" = "$dir" ]; then
     git -C "$dir" checkout --quiet --detach --force "$sha" &&
       git -C "$dir" clean -ffdq
-  else
-    git worktree add --quiet --detach "$dir" "$sha"
+    return
   fi
+  echo "render_diff: refusing to reuse unowned checkout $dir" >&2
+  return 1
 }
 
 # Configures (once) and builds the hash target of the tree at $1 in $2.

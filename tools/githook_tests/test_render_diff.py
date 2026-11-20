@@ -71,6 +71,25 @@ fi
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("unchanged" if not args else "no pixel changes", result.stdout)
 
+    def test_unowned_checkouts_keep_local_work(self):
+        sibling = self.root / "other"
+        git_run(self.root, "worktree", "add", "--quiet", "--detach", str(sibling),
+                env=self.env)
+        for checkout in (self.root, sibling):
+            tracked = checkout / "tests/test_render_hashes.h"
+            untracked = checkout / "untracked"
+            tracked.write_text("local edit")
+            untracked.write_text("local file")
+            self.env["HS_RENDER_DIFF_DIR"] = str(checkout)
+            for args in ((), ("--report",)):
+                with self.subTest(checkout=checkout, args=args):
+                    result = self.compare(*args)
+                    self.assertEqual(result.returncode, 0 if args else 3,
+                                     result.stdout + result.stderr)
+                    self.assertIn("refusing to reuse", result.stderr)
+                    self.assertEqual(tracked.read_text(), "local edit")
+                    self.assertEqual(untracked.read_text(), "local file")
+
     def test_changed_renders_fail_and_report_the_changed_preset(self):
         (self.root / "tests" / "test_render_hashes.h").write_text("changed fixture\n")
         result = self.compare()
