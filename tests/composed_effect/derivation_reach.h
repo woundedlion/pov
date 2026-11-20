@@ -151,16 +151,12 @@ template <typename Model> consteval bool family_derivable() {
 
 /** @brief Checks composed policy derivation across the operator roster.
  * @tparam Models Operator models.
- * @return True when each family outside the interpreter-only tiling model
- *         derives its applicable policy. */
+ * @return True when each family derives its applicable policy. */
 template <typename... Models>
 consteval bool families_derivable(Pullback::Detail::TypeList<Models...>) {
-  return ((std::is_same_v<Models, In::Op::SampleSphericalTiling> ||
-           family_derivable<Models>()) &&
-          ...);
+  return (family_derivable<Models>() && ...);
 }
 
-static_assert(!DerivableSource<In::Op::SampleSphericalTiling::Params>);
 static_assert(families_derivable(In::OperatorModels{}));
 
 // The shared noise field group is not itself a family, so it names no single

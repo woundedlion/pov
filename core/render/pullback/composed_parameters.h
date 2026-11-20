@@ -49,7 +49,7 @@ inline PotentialParams interpolate(const PotentialParams &a,
  * @param from Outgoing parameters.
  * @param to Incoming parameters.
  * @param progress Incoming endpoint weight. */
-template <HasFields Family>
+template <bool HoldModulationTopology = false, HasFields Family>
 inline void sample_parameter_family(Family &result, const Family &from,
                                     const Family &to, float progress) {
   result = interpolate(from, to, progress);
@@ -72,15 +72,19 @@ sample_modulation_controls(Modulation::Config &result,
  * @param from Outgoing family.
  * @param to Incoming family.
  * @param progress Incoming endpoint weight. */
-template <Pattern::SourceKind Source, Pattern::Evaluation Evaluation,
-          bool Dynamic, bool Path>
+template <bool HoldModulationTopology = false, Pattern::SourceKind Source,
+          Pattern::Evaluation Evaluation, bool Dynamic, bool Path>
 inline void sample_parameter_family(
     Modulation::Params<Source, Evaluation, Dynamic, Path> &result,
     const Modulation::Params<Source, Evaluation, Dynamic, Path> &from,
     const Modulation::Params<Source, Evaluation, Dynamic, Path> &to,
     float progress) {
-  sample_modulation_controls(result.modulation, from.modulation, to.modulation,
-                             progress);
+  if constexpr (HoldModulationTopology)
+    result.modulation = Modulation::interpolate_held_topology(
+        from.modulation, to.modulation, progress);
+  else
+    sample_modulation_controls(result.modulation, from.modulation,
+                               to.modulation, progress);
 }
 
 /**
@@ -91,7 +95,7 @@ inline void sample_parameter_family(
  * @param to Parameters at progress 1.
  * @param progress Progress fraction, already eased by the caller.
  */
-template <typename... Resources>
+template <bool HoldModulationTopology = false, typename... Resources>
 inline void interpolate_into(
     ComposedDetail::ParameterSet<ComposedDetail::ResourceList<Resources...>>
         &out,
@@ -100,9 +104,9 @@ inline void interpolate_into(
     const ComposedDetail::ParameterSet<
         ComposedDetail::ResourceList<Resources...>> &to,
     float progress) {
-  (sample_parameter_family(out.template get<Resources::KEY>(),
-                           from.template get<Resources::KEY>(),
-                           to.template get<Resources::KEY>(), progress),
+  (sample_parameter_family<HoldModulationTopology>(
+       out.template get<Resources::KEY>(), from.template get<Resources::KEY>(),
+       to.template get<Resources::KEY>(), progress),
    ...);
 }
 

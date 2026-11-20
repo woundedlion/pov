@@ -134,6 +134,7 @@ struct Detail::CoordinateOnlyWarp<
 struct Spec {
   static constexpr bool AUTHORED_TOPOLOGY =
       false; ///< Uses canonical authored node identities.
+  static constexpr bool HOLD_MODULATION_TOPOLOGY = false;
   static constexpr bool SOURCE_MORPH =
       false; ///< Blends endpoint fields for a fixed tessellation.
   /// Hue harmony of generated palettes.

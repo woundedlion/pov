@@ -62,6 +62,30 @@ inline void test_composed_modulation_blends_axes() {
   check(Pattern::SourceKind::SPHERE_SMOOTH_GRID, &Config::grid);
 }
 
+/** @brief EmberTracery's selectors hold while authored amounts interpolate. */
+inline void test_ember_tracery_modulation_transition() {
+  using FX = EmberTracery<SMALL_W, SMALL_H>;
+  const auto jade = preset_params<FX>(1);
+  const auto ember = preset_params<FX>(2);
+  auto check = []<Pullback::ResourceKey Key>(const auto &from, const auto &to) {
+    FX::Params mid;
+    Pullback::interpolate_into<true>(mid, from, to, 0.5f);
+    const auto &a = from.template get<Key>().modulation;
+    const auto &b = to.template get<Key>().modulation;
+    const auto &value = mid.template get<Key>().modulation;
+    HS_EXPECT_TRUE(Pullback::Modulation::same_topology(a, value));
+    HS_EXPECT_EQ(value.mechanic.amount,
+                 0.5f * (a.mechanic.amount + b.mechanic.amount));
+    Pullback::interpolate_into<true>(mid, from, to, 1.0f);
+    HS_EXPECT_TRUE(Pullback::Modulation::same_topology(
+        b, mid.template get<Key>().modulation));
+  };
+  check.template operator()<"modulate">(jade, ember);
+  check.template operator()<"modulate">(ember, jade);
+  check.template operator()<"modulate1">(jade, ember);
+  check.template operator()<"modulate1">(ember, jade);
+}
+
 /** @brief Every shipped default and preset uses a qualified modulation configuration. */
 inline void test_composed_modulation_is_device_qualified() {
   const auto check = []<template <int, int> class E>() {

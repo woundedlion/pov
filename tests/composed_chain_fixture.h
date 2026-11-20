@@ -180,14 +180,20 @@ void verify_export(size_t preset, int channel_tolerance, float alpha_tolerance,
       });
     } else if (id == "sphere.displace.curl.v2" ||
                id == "sphere.displace.direct.v2") {
-      if constexpr (!std::is_void_v<
-                        typename FX::Params::template Family<"surface">>) {
-        auto &state = shader_chain_tests::state_as<In::Op::NoisePhaseState>(
-            program, index);
-        const auto &resource = own.resources.template get<"surface">();
-        state.phase = resource.phase;
-        state.noise = *resource.noise;
-      }
+      own.params.visit([&]<typename Resource>(const auto &) {
+        if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE &&
+                      (std::is_same_v<typename Resource::Family,
+                                      Pullback::AuthoredDirectSurfaceParams> ||
+                       Resource::KEY.view() == "surface"))
+          if (Resource::KEY.view() == "surface" ||
+              Resource::KEY.view() == op.instance) {
+            auto &state = shader_chain_tests::state_as<In::Op::NoisePhaseState>(
+                program, index);
+            const auto &clock = own.resources.template get<Resource::KEY>();
+            state.phase = clock.phase;
+            state.noise = *clock.noise;
+          }
+      });
     } else if (id == "sample.planar.v1") {
       auto &state = shader_chain_tests::state_as<In::Op::PlanarSourceState>(
           program, index);

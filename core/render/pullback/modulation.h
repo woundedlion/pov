@@ -244,6 +244,28 @@ inline Config interpolate(const Config &a, const Config &b, float fraction) {
   }
   return result;
 }
+
+/** @brief Interpolates controls while holding outgoing modulation selectors.
+ * @param from Outgoing recipe.
+ * @param to Incoming recipe.
+ * @param progress Eased transition progress.
+ * @return Transition recipe.
+ */
+HS_SIZE_FLASH_MEMBER inline Config interpolate_held_topology(const Config &from,
+                                                             const Config &to,
+                                                             float progress) {
+  if (progress >= 1.0f)
+    return to;
+  Config target = to;
+  target.enabled = from.enabled;
+  target.source = from.source;
+  target.version = from.version;
+  target.evaluation = from.evaluation;
+  target.mechanic.kind = from.mechanic.kind;
+  target.noise.basis = from.noise.basis;
+  target.noise.variant = from.noise.variant;
+  return interpolate(from, target, progress);
+}
 /** @brief Immutable prepared source variant. */
 using Source = std::variant<
     Pattern::SphereNoise::Prepared, Pattern::DirectionalSine::Prepared,
