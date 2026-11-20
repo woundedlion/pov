@@ -230,7 +230,6 @@ def register_symbols(b, revision):
 class Circuit:
     def __init__(self, builder, revision):
         self.b = builder
-        self.revision = revision
         self.policy = circuit_policy(revision)
         self.power_index = 0
         self.enable_net = self.policy.enable_net
