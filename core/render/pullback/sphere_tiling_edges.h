@@ -56,8 +56,8 @@ inline float chord_angle(float distance_squared) {
   return 2.0f * asinf(0.5f * sqrtf(std::min(4.0f, distance_squared)));
 }
 
-inline int cell_at(const math::Vector &direction, int steps) {
-  const auto [face, u, v, major] = math::project_cube_face(direction);
+inline int cell_at(const math::CubeFaceProjection &point, int steps) {
+  const auto [face, u, v, major] = point;
   const float half_steps = 0.5f * steps;
   const float scale = half_steps / major;
   const auto x =
@@ -65,6 +65,10 @@ inline int cell_at(const math::Vector &direction, int steps) {
   const auto y =
       hs::clamp(static_cast<int>(v * scale + half_steps), 0, steps - 1);
   return (face * steps + y) * steps + x;
+}
+
+inline int cell_at(const math::Vector &direction, int steps) {
+  return cell_at(math::project_cube_face(direction), steps);
 }
 
 inline bool projects_to_arc(const SphereTilingEdge &edge,
@@ -89,18 +93,6 @@ inline float edge_chord_squared(const SphereTilingEdge &edge,
     return 2.0f * sine_sq / (1.0f + sqrtf(1.0f - sine_sq));
   }
   return endpoint_chord_squared(edge, direction, vertices);
-}
-
-inline float edge_sine_squared(const SphereTilingEdge &edge,
-                               const math::Vector &direction,
-                               std::span<const math::Vector> vertices) {
-  if (projects_to_arc(edge, direction)) {
-    const float sine = math::dot(edge.normal, direction);
-    return sine * sine;
-  }
-  const float chord =
-      std::min(2.0f, endpoint_chord_squared(edge, direction, vertices));
-  return chord * (1.0f - 0.25f * chord);
 }
 
 inline float edge_position(const SphereTilingEdge &edge,
@@ -128,6 +120,18 @@ inline SphereTilingEdgeBand::SphereTilingEdgeBand(float line_thickness,
   sine_squared = sine * sine;
 }
 
+/// Narrow-band cubemap shared by the denser baked solids.
+struct SphereTilingNarrowIndex {
+  static constexpr int STEPS = 48; ///< Cells along one cube face axis.
+  static constexpr float OUTER =
+      1.5f * (math::PI_F / 180.0f); ///< Outer angle limit.
+  static constexpr uint16_t INTERIOR =
+      0x8000;                        ///< Arc contains every projected foot.
+  std::span<const uint16_t> offsets; ///< Cell offsets into the candidate list.
+  std::span<const uint16_t>
+      candidates; ///< Edge IDs with optional interior flags.
+};
+
 /// Non-owning cubemap index over projected mesh edges.
 struct SphereTilingEdgeView {
   std::span<const math::Vector> vertices;  ///< Unit vertex directions.
@@ -135,6 +139,7 @@ struct SphereTilingEdgeView {
   std::span<const uint32_t> offsets;       ///< Cell offsets into candidate_ids.
   std::span<const uint16_t> candidate_ids; ///< Candidate arc IDs.
   int steps = 0;                           ///< Cells along one cube face axis.
+  SphereTilingNarrowIndex narrow{};        ///< Optional narrow-band candidates.
 
   /** @brief Samples edge color position and coverage.
    * @param unit_direction Direction in the solid frame.
@@ -142,20 +147,55 @@ struct SphereTilingEdgeView {
    * @return Edge palette coordinate and coverage. */
   SphereTilingEdgeValue sample(const math::Vector &unit_direction,
                                const SphereTilingEdgeBand &band) const {
+    return sample(unit_direction, band,
+                  math::project_cube_face(unit_direction));
+  }
+
+  /** @brief Samples edges using a shared cube-face projection.
+   * @param unit_direction Direction in the solid frame.
+   * @param band Prepared edge width and fringe.
+   * @param projection Dominant cube face for the unit direction.
+   * @return Edge palette coordinate and coverage. */
+  SphereTilingEdgeValue
+  sample(const math::Vector &unit_direction, const SphereTilingEdgeBand &band,
+         const math::CubeFaceProjection &projection) const {
     using namespace tiling_edges_detail;
     if (edges.empty())
       return {};
+    std::span<const uint16_t> candidates;
+    const bool use_narrow =
+        !narrow.offsets.empty() && band.outer <= SphereTilingNarrowIndex::OUTER;
+    if (use_narrow) {
+      const int cell = cell_at(projection, SphereTilingNarrowIndex::STEPS);
+      const size_t begin = narrow.offsets[cell];
+      candidates =
+          narrow.candidates.subspan(begin, narrow.offsets[cell + 1] - begin);
+    } else {
+      const int cell = cell_at(projection, steps);
+      const size_t begin = offsets[cell];
+      candidates = candidate_ids.subspan(begin, offsets[cell + 1] - begin);
+    }
+
     // Squared sine orders distances within the admitted band below 90 degrees.
     float best = band.sine_squared;
+    float plane_limit = best * 1.00001f + 1.0e-9f;
     const SphereTilingEdge *selected = nullptr;
-    const int cell = cell_at(unit_direction, steps);
-    const auto candidates =
-        candidate_ids.subspan(offsets[cell], offsets[cell + 1] - offsets[cell]);
-    for (uint16_t id : candidates) {
-      const auto &edge = edges[id];
-      const float distance = edge_sine_squared(edge, unit_direction, vertices);
+    const uint16_t flag = use_narrow ? SphereTilingNarrowIndex::INTERIOR : 0;
+    for (uint16_t candidate : candidates) {
+      const auto &edge = edges[candidate & ~flag];
+      const float sine = math::dot(edge.normal, unit_direction);
+      const float plane = sine * sine;
+      if (plane > plane_limit)
+        continue;
+      float distance = plane;
+      if (!(candidate & flag) && !projects_to_arc(edge, unit_direction)) {
+        const float chord = std::min(
+            2.0f, endpoint_chord_squared(edge, unit_direction, vertices));
+        distance = chord * (1.0f - 0.25f * chord);
+      }
       if (distance < best) {
         best = distance;
+        plane_limit = best * 1.00001f + 1.0e-9f;
         selected = &edge;
       }
     }

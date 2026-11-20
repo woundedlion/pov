@@ -3,7 +3,9 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #include <cstdio>
+#include <cstdlib>
 #include <string_view>
+#include <vector>
 
 #include "core/render/pullback/sphere_tiling.h"
 
@@ -13,11 +15,12 @@ constexpr struct BakeSpec {
   const char *name;
   const char *symbol;
   int steps;
+  bool narrow = false;
 } BAKES[] = {
     {"truncatedIcosahedron", "TRUNCATED_ICOSAHEDRON", 16},
     {"truncatedIcosahedron_truncate50d_ambo_dual",
-     "TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL", 20},
-    {"dodecahedron_hk54_ambo_hk72", "DODECAHEDRON_HK54_AMBO_HK72", 24},
+     "TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL", 20, true},
+    {"dodecahedron_hk54_ambo_hk72", "DODECAHEDRON_HK54_AMBO_HK72", 24, true},
 };
 
 size_t solid_index(std::string_view name) {
@@ -52,6 +55,71 @@ void integer_table(FILE *output, std::span<const T> values, const char *type,
     std::fputc(i % 16 == 15 || i + 1 == values.size() ? '\n' : ' ', output);
   }
   std::fputs("};\n\n", output);
+}
+
+void emit_narrow(FILE *output, const char *symbol,
+                 const Pullback::Source::SphereTilingEdgeView &view) {
+  using namespace Pullback::Source;
+  using namespace tiling_edges_detail;
+  constexpr int STEPS = SphereTilingNarrowIndex::STEPS;
+  constexpr float STEP = 2.0f / STEPS;
+  constexpr float PAD = 1.0e-4f;
+  if (view.edges.size() > SphereTilingNarrowIndex::INTERIOR) {
+    std::fputs("narrow candidate IDs overflow\n", stderr);
+    std::exit(1);
+  }
+  const float limit_sine = sinf(SphereTilingNarrowIndex::OUTER + PAD);
+  std::vector<uint16_t> offsets{0};
+  std::vector<uint16_t> candidates;
+  for (int face = 0; face < 6; ++face) {
+    for (int y = 0; y < STEPS; ++y) {
+      for (int x = 0; x < STEPS; ++x) {
+        const float u = -1.0f + x * STEP;
+        const float v = -1.0f + y * STEP;
+        const math::Vector center = Pattern::sphere_face_direction(
+            face, u + 0.5f * STEP, v + 0.5f * STEP);
+        const math::Vector corners[] = {
+            Pattern::sphere_face_direction(face, u, v),
+            Pattern::sphere_face_direction(face, u + STEP, v),
+            Pattern::sphere_face_direction(face, u, v + STEP),
+            Pattern::sphere_face_direction(face, u + STEP, v + STEP)};
+        float radius_chord = 0.0f;
+        for (const auto &corner : corners)
+          radius_chord =
+              std::max(radius_chord, math::distance_squared(center, corner));
+        const float limit_chord = chord_squared(
+            chord_angle(radius_chord) + SphereTilingNarrowIndex::OUTER + PAD);
+        for (size_t id = 0; id < view.edges.size(); ++id) {
+          const auto &edge = view.edges[id];
+          if (edge_chord_squared(edge, center, view.vertices) > limit_chord)
+            continue;
+          bool front = true, back = true, interior = edge.inv_length > 0.0f;
+          for (const auto &corner : corners) {
+            const float sine = math::dot(edge.normal, corner);
+            front &= sine > limit_sine;
+            back &= sine < -limit_sine;
+            interior &= math::dot(edge.from_a, corner) > PAD &&
+                        math::dot(edge.from_b, corner) > PAD;
+          }
+          if (front || back)
+            continue;
+          candidates.push_back(static_cast<uint16_t>(
+              id | (interior ? SphereTilingNarrowIndex::INTERIOR : 0)));
+        }
+        if (candidates.size() > UINT16_MAX) {
+          std::fputs("narrow candidate offsets overflow\n", stderr);
+          std::exit(1);
+        }
+        offsets.push_back(static_cast<uint16_t>(candidates.size()));
+      }
+    }
+  }
+  std::fprintf(stderr, "  narrow: %zu cells, %zu candidates\n",
+               offsets.size() - 1, candidates.size());
+  integer_table(output, std::span<const uint16_t>(offsets), "uint16_t", symbol,
+                "NARROW_OFFSETS");
+  integer_table(output, std::span<const uint16_t>(candidates), "uint16_t",
+                symbol, "NARROW_CANDIDATES");
 }
 
 void emit(FILE *output, const BakeSpec &spec, size_t solid) {
@@ -90,6 +158,8 @@ void emit(FILE *output, const BakeSpec &spec, size_t solid) {
   integer_table(output, view.offsets, "uint32_t", spec.symbol, "OFFSETS");
   integer_table(output, view.candidate_ids, "uint16_t", spec.symbol,
                 "CANDIDATES");
+  if (spec.narrow)
+    emit_narrow(output, spec.symbol, view);
 }
 
 void write_header(FILE *output) {
@@ -145,10 +215,20 @@ inline SphereTilingEdgeView baked_sphere_tiling_edges(unsigned solid) {
   for (const auto &spec : BAKES) {
     const auto *name = spec.symbol;
     std::fprintf(output, "  case %s_SOLID:\n", name);
-    std::fprintf(output, "    return {%s_VERTICES, %s_EDGES,\n", name, name);
-    std::fprintf(output, "            %s_OFFSETS, %s_CANDIDATES,\n", name,
-                 name);
-    std::fprintf(output, "            %s_STEPS};\n", name);
+    if (spec.narrow) {
+      std::fprintf(output, "    return {%s_VERTICES,\n", name);
+      std::fprintf(output, "            %s_EDGES,\n", name);
+      std::fprintf(output, "            %s_OFFSETS,\n", name);
+      std::fprintf(output, "            %s_CANDIDATES,\n", name);
+      std::fprintf(output, "            %s_STEPS,\n", name);
+      std::fprintf(output, "            {%s_NARROW_OFFSETS,\n", name);
+      std::fprintf(output, "             %s_NARROW_CANDIDATES}};\n", name);
+    } else {
+      std::fprintf(output, "    return {%s_VERTICES, %s_EDGES,\n", name, name);
+      std::fprintf(output, "            %s_OFFSETS, %s_CANDIDATES,\n", name,
+                   name);
+      std::fprintf(output, "            %s_STEPS};\n", name);
+    }
   }
   std::fputs(R"(  default:
     return {};
