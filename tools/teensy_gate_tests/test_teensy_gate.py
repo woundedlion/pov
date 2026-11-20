@@ -706,7 +706,7 @@ class TestBudgetSchema(unittest.TestCase):
 
     def test_gutted_component_object_is_rejected(self):
         # Both component ceilings are optional individually; declaring neither
-        # retires the ITCM bank-boundary ratchet with nothing else observing it.
+        # removes the derived ITCM bank ceiling.
         text = _read("good_teensy_size.txt").replace(
             "RAM1: variables:351280, code:62240, padding:30496"
             "   free for local variables: 68256",

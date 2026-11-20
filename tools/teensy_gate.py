@@ -333,7 +333,7 @@ def _check_derived_component_ceiling(
         f"{cmeasured:,} B of {ceiling:,} B ({itcm_banks} x {bank:,} B banks; "
         f"{dtcm_banks} DTCM banks cover {variables:,} B variables + the "
         f"{floor:,} B stack floor); remaining {ceiling - cmeasured:,} B; "
-        f"boundary headroom ratchet {min_headroom:,} B; "
+        f"boundary headroom reserve {min_headroom:,} B; "
         f"{to_boundary:,} B to the next bank boundary.")
 
 
