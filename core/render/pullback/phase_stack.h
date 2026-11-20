@@ -37,6 +37,51 @@ class PhaseModulationStack {
   Apply apply;
   uint8_t count;
   bool cached_base;
+  uint16_t color_weight;
+  float common_alpha = -1.0f;
+
+  HS_HOT_INLINE ColorSample canonical_base(const FieldSample &field) const {
+    const auto controls = palette_controls(field, palette.current);
+    if (fraction <= 0.0f || fraction >= 1.0f)
+      return apply_palette_endpoint_impl(
+          field, fraction <= 0.0f ? palette.previous : palette.current,
+          controls.value, controls.opacity, controls.gain);
+
+    const auto &a = palette.previous;
+    const auto &b = palette.current;
+    const auto sample = [&](const BakedPalette &endpoint) {
+      return common_alpha >= 0.0f
+                 ? Color4(endpoint.get_color(controls.value), common_alpha)
+                 : endpoint.get(controls.value);
+    };
+    const Color4 current = sample(*b.palette);
+    const bool same_palette = a.palette == b.palette;
+    const Color4 previous = same_palette ? current : sample(*a.palette);
+    const bool same_rgb = previous.color == current.color;
+    const auto *a_hue = a.hue_rotation.active ? a.hue_rotation.data : nullptr;
+    const auto *b_hue = b.hue_rotation.active ? b.hue_rotation.data : nullptr;
+    const bool retain_hue =
+        same_rgb && a_hue == b_hue &&
+        a.hue_rotation.gamut_mask == b.hue_rotation.gamut_mask;
+
+    const Pixel rgb = same_rgb
+                          ? current.color
+                          : previous.color.lerp16(current.color, color_weight);
+    const float alpha = current.alpha * controls.opacity;
+    ColorSample result{
+        Color4(rgb, same_palette || common_alpha >= 0.0f
+                        ? alpha
+                        : hs::lerp(previous.alpha * controls.opacity, alpha,
+                                   fraction)),
+        field,
+        retain_hue ? b_hue : nullptr,
+        controls.value,
+        0.0f,
+        controls.gain};
+    result.hue_rotation_gamut =
+        retain_hue ? b.hue_rotation.gamut_mask : nullptr;
+    return result;
+  }
 
   template <size_t I, typename Tuple, size_t... Earlier>
   void bind_source(const Tuple &layers, std::index_sequence<Earlier...>) {
@@ -137,7 +182,15 @@ public:
   PhaseModulationStack(const TemporalGeneratedPaletteState &base, float weight,
                        bool cached, Layers... inputs)
       : palette(base), fraction(weight), apply(&apply_distinct<Layers...>),
-        count(sizeof...(Layers)), cached_base(cached) {
+        count(sizeof...(Layers)), cached_base(cached),
+        color_weight(frac_to_q16(weight)) {
+    if (!cached && weight > 0.0f && weight < 1.0f &&
+        base.previous.palette != base.current.palette) {
+      const auto a = base.previous.palette->constant_alpha();
+      const auto b = base.current.palette->constant_alpha();
+      if (a && b == a)
+        common_alpha = *a;
+    }
     static_assert(sizeof...(Layers) <= MAX_ORDERED_MODULATION_LAYERS);
     const auto layers = std::tuple{inputs...};
     [&]<size_t... I>(std::index_sequence<I...>) {
@@ -160,15 +213,8 @@ public:
           field, palette, sample);
       return shade_layers(sample);
     }
-    const auto controls = palette_controls(field, palette.current);
-    const auto previous =
-        apply_palette_endpoint(field, palette.previous, controls.value,
-                               controls.opacity, controls.gain);
-    auto current =
-        apply_palette_endpoint(field, palette.current, controls.value,
-                               controls.opacity, controls.gain);
-    blend_color_samples_in_place(previous, current, fraction);
-    return shade_layers(current);
+    auto sample = canonical_base(field);
+    return shade_layers(sample);
   }
 };
 
