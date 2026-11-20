@@ -923,8 +923,7 @@ jobs:
 
   render-hash-report:
     name: Render-hash report (non-blocking)
-    # Report only: the report and cache steps continue on error, so a failed
-    # report never fails the job ci-green needs.
+    # Report only: CI green tolerates every outcome of this job.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -955,6 +954,7 @@ jobs:
 
       - name: Compare render hashes with the parent
         id: report
+        timeout-minutes: 25
         continue-on-error: true
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -1007,7 +1007,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Assert every job is a dependency and succeeded
+      - name: Assert every job is a dependency and required jobs succeeded
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
@@ -1036,7 +1036,7 @@ jobs:
             exit 1
           fi
 
-          awk '$2 != "success" { print }' /tmp/ci-results.txt > /tmp/ci-bad.txt
+          awk '$1 != "render-hash-report" && $2 != "success" { print }' /tmp/ci-results.txt > /tmp/ci-bad.txt
           if [ -s /tmp/ci-bad.txt ]; then
             while read -r job result; do
               if [ "$result" = skipped ]; then
@@ -1047,4 +1047,4 @@ jobs:
             done < /tmp/ci-bad.txt
             exit 1
           fi
-          echo "CI green: $(wc -l < /tmp/ci-results.txt) jobs, every one success."
+          echo "CI green: all required jobs passed."
