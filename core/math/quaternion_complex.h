@@ -7,6 +7,7 @@
 /** @file quaternion_complex.h @brief Quaternion and complex number types. */
 
 #include <limits>
+#include <utility>
 #include "core/math/fast_math.h"
 
 namespace math {
@@ -372,15 +373,24 @@ inline Complex clog(const Complex &z) {
   return Complex(logf(hypotf(z.re, z.im)), atan2f(z.im, z.re));
 }
 
+/** @brief Computes both complex hyperbolic functions with shared factors.
+ * @param z Argument.
+ * @return Hyperbolic cosine followed by hyperbolic sine. */
+HS_HOT_INLINE inline std::pair<Complex, Complex> ccosh_csinh(const Complex &z) {
+  const float exponential = expf(z.re);
+  const float inverse = 1.0f / exponential;
+  const float real_cosh = 0.5f * (exponential + inverse);
+  const float real_sinh = 0.5f * (exponential - inverse);
+  const float cosine = cosf(z.im);
+  const float sine = sinf(z.im);
+  return {Complex(real_cosh * cosine, real_sinh * sine),
+          Complex(real_sinh * cosine, real_cosh * sine)};
+}
+
 /** @brief Complex hyperbolic cosine.
  * @param z Argument.
  * @return Hyperbolic cosine. */
-inline Complex ccosh(const Complex &z) {
-  const float exponential = expf(z.re);
-  const float inverse = 1.0f / exponential;
-  return Complex(0.5f * (exponential + inverse) * cosf(z.im),
-                 0.5f * (exponential - inverse) * sinf(z.im));
-}
+inline Complex ccosh(const Complex &z) { return ccosh_csinh(z).first; }
 
 /** @brief Complex hyperbolic sine.
  * @param z Argument.

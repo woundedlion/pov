@@ -146,14 +146,9 @@ HS_FLASH_MEMBER inline MobiusParams mobius_exp(const MobiusGenerator &generator,
                    fourth * Complex(1.0f / 120.0f, 0.0f));
   } else {
     const Complex delta = csqrt(square);
-    const float exponential = expf(delta.re);
-    const float inverse = 1.0f / exponential;
-    const float sin_im = sinf(delta.im), cos_im = cosf(delta.im);
-    cosine = Complex(0.5f * (exponential + inverse) * cos_im,
-                     0.5f * (exponential - inverse) * sin_im);
-    const Complex hyperbolic(0.5f * (exponential - inverse) * cos_im,
-                             0.5f * (exponential + inverse) * sin_im);
-    factor = t_value * (hyperbolic / delta);
+    const auto [hyperbolic_cosine, hyperbolic_sine] = ccosh_csinh(delta);
+    cosine = hyperbolic_cosine;
+    factor = t_value * (hyperbolic_sine / delta);
   }
   const Complex diagonal = factor * generator.alpha;
   return {cosine + diagonal, factor * generator.beta, factor * generator.gamma,
