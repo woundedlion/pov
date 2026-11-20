@@ -2426,6 +2426,51 @@ inline void test_modulation_stack_direct_or_path() {
   compare.template operator()<M::OPACITY, M::OPACITY, true>();
 }
 
+/** @brief Typed spatial layouts preserve the opacity blend with displacement. */
+inline void test_modulation_stack_spatial_path_mix() {
+  using namespace Pullback;
+  using FX = RiverStones<SMALL_W, SMALL_H>;
+  using M = ColorModulation::Mechanic;
+  reset_globals();
+  FX effect;
+  effect.init();
+  const auto frame = FX::RenderPipeline::prepare(effect.frame_for_test());
+  constexpr size_t PALETTE = FX::RenderPipeline::NODE_COUNT - 4;
+  auto palette = std::get<PALETTE>(frame.prepared);
+  palette.previous = palette.current;
+  palette.fraction = 1.0f;
+  auto direct = std::get<PALETTE + 1>(frame.prepared);
+  auto cube = std::get<PALETTE + 2>(frame.prepared);
+  auto prepared = *cube.current;
+  std::array<int8_t, Pattern::SphereLutView::SIZE> bytes{};
+  bytes.fill(61);
+  prepared.cube = {bytes.data(), true};
+  cube.previous = cube.current = &prepared;
+
+  const auto compare =
+      [&]<Color::LayerSampling Sampling>(Color::ModulationState layer) {
+        constexpr Color::LayerLayout layout{Sampling, M::OPACITY};
+        layer.enabled = true;
+        layer.mechanic = {M::OPACITY, 1.0f};
+        layer.path_mix = {0.6f, 0.8f, 0.7f, false};
+        const Color::ModulationStack<1, layout> typed(palette, true, {&layer});
+        const Color::ModulationStack<1> ordered(palette, true, {&layer});
+        const FieldSample start{0.47f, 0.61f, math::Z_AXIS, 0.0f};
+        const FieldSample end{0.47f, 0.61f, math::Z_AXIS, 1.0f};
+        const auto expected_start = ordered.shade(start);
+        const auto expected_end = ordered.shade(end);
+        HS_EXPECT_GT(expected_end.alpha, expected_start.alpha);
+        const auto actual_start = typed.shade(start);
+        const auto actual_end = typed.shade(end);
+        HS_EXPECT_EQ(actual_start.color, expected_start.color);
+        HS_EXPECT_EQ(actual_start.alpha, expected_start.alpha);
+        HS_EXPECT_EQ(actual_end.color, expected_end.color);
+        HS_EXPECT_EQ(actual_end.alpha, expected_end.alpha);
+      };
+  compare.template operator()<Color::LayerSampling::DIRECT>(direct);
+  compare.template operator()<Color::LayerSampling::BYTE_CUBE>(cube);
+}
+
 /** @brief Static direct noise shares a sample across the two color endpoints. */
 inline void test_temporal_direct_noise_endpoint_reuse() {
   using namespace Pullback;

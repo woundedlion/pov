@@ -80,6 +80,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_modulation_stack_direct_sample_counts);
   HS_RUN(test_modulation_stack_cube_corners);
   HS_RUN(test_modulation_stack_direct_or_path);
+  HS_RUN(test_modulation_stack_spatial_path_mix);
   HS_RUN(test_modulation_stack_required_endpoints);
   HS_RUN(test_baked_cube_column_phase);
   HS_RUN(test_chamber_noise_cache_bake_lifetime);

@@ -532,11 +532,11 @@ protected:
       const auto &op = ops[i];
       if (op.mechanic.kind != layout[i].mechanic)
         return false;
-      if (op.current == PATH) {
-        if (layout[i].source != LayerSampling::DIRECT_OR_PATH)
-          return false;
+      if ((op.path_mix || op.current == PATH) &&
+          layout[i].source != LayerSampling::DIRECT_OR_PATH)
+        return false;
+      if (op.current == PATH)
         continue;
-      }
       const auto compatible = [&](uint8_t source) {
         const auto k = sources[source].kind;
         return layout[i].source != LayerSampling::BYTE_CUBE
