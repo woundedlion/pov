@@ -1381,6 +1381,11 @@ inline void test_mobius_interval_exponential() {
       const auto sampled = interval.at(fraction);
       const auto &phase = sampled.resources.template get<"lens">();
       HS_EXPECT_EQ(phase.mobius_base != nullptr, cached);
+      auto temporary_sample = from;
+      Pullback::FrameInterval(from, to).at_into(temporary_sample, fraction);
+      HS_EXPECT_TRUE(
+          temporary_sample.resources.template get<"lens">().mobius_base ==
+          nullptr);
       if (cached) {
         if (shared)
           HS_EXPECT_TRUE(shared == phase.mobius_base);

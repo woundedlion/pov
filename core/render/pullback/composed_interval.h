@@ -298,10 +298,17 @@ public:
   /** @brief Writes a sampled context into storage separate from the endpoints.
    * @param frame Receives the context borrowing the endpoint resources.
    * @param fraction Frame progress in [0, 1]. */
-  HS_FLASH_INLINE void at_into(Frame &frame, float fraction) const {
+  HS_FLASH_INLINE void at_into(Frame &frame, float fraction) const & {
     fraction = sample_fraction(fraction);
     frame = fraction <= 0.0f ? from : to;
     apply_sample(frame, fraction);
+  }
+
+  /** @brief Samples a temporary interval without retaining its cache.
+   * @param frame Receives the sampled context.
+   * @param fraction Frame progress in [0, 1]. */
+  HS_FLASH_INLINE void at_into(Frame &frame, float fraction) const && {
+    frame = std::move(*this).at(fraction);
   }
 
 private:
