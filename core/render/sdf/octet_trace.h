@@ -475,14 +475,13 @@ walk_octet_family(const OctetWalk4 &state, int flipped, float sign,
     return true;
   // The first plane lies at or past the near bound. A crossing within rounding of the far bound
   // carries no fog-weighted opacity either way.
-  const int count = first <= state.far
-                        ? static_cast<int>((state.far - first) * speed) + 1
-                        : 0;
-  state.crossings += count;
-  if (state.crossings > state.budget)
-    return false;
-  if (count == 0)
+  if (first > state.far)
     return true;
+  const float additional = (state.far - first) * speed;
+  if (additional >= static_cast<float>(state.budget - state.crossings))
+    return false;
+  const int count = static_cast<int>(additional) + 1;
+  state.crossings += count;
   // The plane bound runs in 16-bit fixed point: the low 16 bits of Q * 2^16
   // wrap exactly as Q mod 1, so their signed value is Q's nearest-integer
   // residual. FIXED_ERROR bounds quantization and t drift over the crossing budget.

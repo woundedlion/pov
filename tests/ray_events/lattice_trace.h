@@ -489,6 +489,15 @@ inline void test_octet_4d_canonical_boundary_directions() {
     }
   }
   HS_EXPECT_GT(lit, directions.size() * 9 / 3);
+  auto prepared = Trace::prepare(settings);
+  auto camera = prepared.camera;
+  camera.interval.far = 1e12f;
+  auto limits = prepared.limits;
+  limits.max_candidates = 2;
+  const auto long_ray = SDF::OctetTrace::trace_4d(
+      math::X_AXIS, camera, prepared.octet4, prepared.octet4_projection,
+      prepared.footprint, limits, prepared.appearance, *prepared.crossings);
+  HS_EXPECT_EQ(long_ray.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
 }
 
 /**
