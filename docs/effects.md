@@ -740,6 +740,8 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `river-stones` | `RiverStones` | 2 |
 | `filigree` | `Filigree` | 2 |
 
+![Filigree running in the simulator](screenshots/Filigree.png)
+
 Filigree cycles between Jade Weave and Ember Lattice. Both use a Direct Lens
 and Tiling Edges. Ember Lattice adds camera wander, directional lightness and
 hue driven by lens displacement. The presets hold for 600 frames and segue

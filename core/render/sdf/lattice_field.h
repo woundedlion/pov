@@ -90,9 +90,9 @@ template <int Dimensions> struct WireLattice {
   }
 
   /**
-   * @brief Signed distance to the wire surface.
+   * @brief Signed distance to the nearest wire cylinder.
    * @param p World-space point.
-   * @return World-space distance; negative inside a wire.
+   * @return Exact outside the union. Inside, its magnitude bounds the clearance from below.
    */
   float distance(const Point &p) const {
     int axis;
@@ -129,7 +129,7 @@ template <int Dimensions> struct WireLattice {
 
   /**
    * @brief Query guarantees of this field.
-   * @return Exact exterior and interior clearance and exact surface tests.
+   * @return Exact exterior distance, conservative interior clearance, and surface tests.
    */
   Raycast::QueryCapabilities capabilities() const {
     return {true, true, true, 0.0f};
@@ -138,7 +138,7 @@ template <int Dimensions> struct WireLattice {
   /**
    * @brief Field sample for ray queries.
    * @param p World-space point.
-   * @return Signed distance, its magnitude as clearance, and the free axis
+   * @return Signed cylinder distance, its magnitude as a safe step, and the free axis
    *   as the feature.
    */
   Raycast::QuerySample sample(const Point &p) const {
