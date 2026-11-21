@@ -47,7 +47,7 @@ inline void test_four_stroke_clock() {
 inline void test_four_stroke_roles() {
   using namespace FourStroke;
   Controls controls;
-  const Colors beat = {
+  const FourStroke::Colors beat = {
       {1000, 2000, 3000}, {31000, 52000, 63000}, {400, 500, 600}};
   const Pixel base(7000, 8000, 9000);
   for (float degrees : {17.25f, 37.0f, 123.4f, 271.5f}) {

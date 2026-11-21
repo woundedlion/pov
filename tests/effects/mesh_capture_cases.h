@@ -168,8 +168,23 @@ inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
   HS_EXPECT(!image_path || images, "image audit path must open");
   HS_EXPECT(!audit_path || audit, "pixel audit path must open");
 #pragma clang diagnostic pop
-  static FILE *audit_sink = nullptr;
-  audit_sink = audit;
+  struct CaptureOutput {
+    FILE *stream;
+    bool short_write = false;
+
+    void write(const void *data, size_t size, size_t count = 1) {
+      if (!short_write)
+        short_write = std::fwrite(data, size, count, stream) != count;
+    }
+
+    bool close() {
+      const bool failed = short_write || std::ferror(stream);
+      return std::fclose(stream) == 0 && !failed;
+    }
+  };
+  CaptureOutput audit_output{audit}, image_output{images};
+  static CaptureOutput *audit_sink = nullptr;
+  audit_sink = &audit_output;
   if (audit)
     Scan::face_audit_candidate = [](size_t face, int x, int y, float d,
                                     bool convex) {
@@ -177,7 +192,7 @@ inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
           static_cast<uint32_t>(face), static_cast<uint32_t>(x),
           static_cast<uint32_t>(y), std::bit_cast<uint32_t>(d),
           static_cast<uint32_t>(convex)};
-      std::fwrite(record, sizeof(record), 1, audit_sink);
+      audit_sink->write(record, sizeof(record));
     };
   Scan::MeshCaptureCounters window;
   size_t deformations = 0;
@@ -197,12 +212,12 @@ inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
     if (audit) {
       const uint32_t record[] = {UINT32_MAX, static_cast<uint32_t>(frame), 0, 0,
                                  0};
-      std::fwrite(record, sizeof(record), 1, audit);
+      audit_output.write(record, sizeof(record));
     }
     if (images) {
       const uint32_t index = static_cast<uint32_t>(frame);
-      std::fwrite(&index, sizeof(index), 1, images);
-      std::fwrite(effect.display_buffer(), sizeof(Pixel), W * H, images);
+      image_output.write(&index, sizeof(index));
+      image_output.write(effect.display_buffer(), sizeof(Pixel), W * H);
     }
     const auto &w = Scan::mesh_capture_counters;
     deformations += w.deformations;
@@ -246,10 +261,15 @@ inline size_t replay_islamicstars_profile(size_t preset, float trans_speed,
                 scratch_arena_b.get_capacity());
   Scan::face_audit_candidate = nullptr;
   Scan::face_audit_reference = false;
-  if (images)
-    std::fclose(images);
-  if (audit)
-    std::fclose(audit);
+  audit_sink = nullptr;
+  if (images) {
+    HS_CONTEXT(image_path);
+    HS_EXPECT(image_output.close(), "image audit capture must write and close");
+  }
+  if (audit) {
+    HS_CONTEXT(audit_path);
+    HS_EXPECT(audit_output.close(), "pixel audit capture must write and close");
+  }
   hs::clear_mock_time();
   return deformations;
 }

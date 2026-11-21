@@ -771,8 +771,10 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     int worst_p_idx = -1; // shape at the worst persistent/budget ratio
     int frames = 0, shapes = 0, builds = 0;
     bool was_building = false;
-    int last = IslamicBuildProbe::solid_idx(effect);
-    while (frames < MAX_FRAMES && shapes <= entries) {
+    std::vector<bool> visited(solids.size());
+    int previous_shape = IslamicBuildProbe::solid_idx(effect);
+    bool played = false;
+    while (frames < MAX_FRAMES && shapes < entries) {
       effect.draw_frame();
       effect.advance_display();
       ++frames;
@@ -812,9 +814,17 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
       HS_EXPECT_LE(p, p_budget);
       if (building)
         ++builds;
-      if (cur != last) {
-        last = cur;
-        ++shapes;
+      HS_EXPECT_TRUE(cur >= 0 && cur < entries);
+      if (cur == previous_shape) {
+        played |= !building;
+      } else {
+        if (played && previous_shape >= 0 && previous_shape < entries &&
+            !visited[previous_shape]) {
+          visited[previous_shape] = true;
+          ++shapes;
+        }
+        previous_shape = cur;
+        played = false;
       }
     }
 
@@ -827,7 +837,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
         "persistent %zu/%zu at %s\n",
         shapes, frames, builds, a_peak, b_peak, persist_peak, worst_p,
         worst_p_budget, worst_name);
-    HS_EXPECT_GT(shapes, entries - 1);
+    HS_EXPECT_EQ(shapes, entries);
     HS_EXPECT_GT(builds, 0);
   }
 

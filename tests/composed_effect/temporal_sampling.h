@@ -961,7 +961,7 @@ inline void test_gridspace_column_basis_geometry() {
         const auto expected =
             math::rotate(rotated.dir, Policy::frame_conjugate(frame.ctx));
         const auto actual = sin_phi * basis.equator + cos_phi * basis.up;
-        maximum_error = std::max(maximum_error, (actual - expected).length());
+        maximum_error = fold_worst(maximum_error, (actual - expected).length());
       }
     }
   }

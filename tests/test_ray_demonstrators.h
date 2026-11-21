@@ -870,9 +870,9 @@ shell_neighborhood(const Raycast::PreparedCamera &camera,
     if (discriminant >= 0) {
       const float half_chord = sqrtf(discriminant) / a;
       const float center = -b / a;
-      for (const float T : {center - half_chord, center + half_chord}) {
-        if (T < near || T > far ||
-            (T == center + half_chord && half_chord == 0))
+      for (const int sign : {-1, 1}) {
+        const float T = center + sign * half_chord;
+        if (T < near || T > far || (sign == 1 && half_chord == 0))
           continue;
         float g[4] = {};
         for (int k = 0; k < dimensions; ++k)
@@ -912,6 +912,20 @@ shell_neighborhood(const Raycast::PreparedCamera &camera,
               return x.t < y.t;
             });
   return found;
+}
+
+/** @brief An exact tangent contributes once at half coverage. */
+inline void test_periodic_shell_tangent_reference() {
+  Raycast::PreparedCamera camera;
+  camera.center = {{-.5f, .25f, 0, 0}};
+  camera.interval = {.25f, .75f};
+  const auto hits =
+      shell_neighborhood(camera, math::Vector{1, 0, 0}, 1, .25f, {.01f, 0});
+  HS_EXPECT_EQ(hits.size(), size_t{1});
+  if (hits.size() == 1) {
+    HS_EXPECT_EQ(hits.front().t, .5f);
+    HS_EXPECT_EQ(hits.front().coverage, .5f);
+  }
 }
 
 /**
@@ -1131,6 +1145,7 @@ inline int run_ray_demonstrator_tests() {
   hs_test::ModuleFixture fixture("ray_demonstrators");
   HS_RUN(test_appearance_palette_interval);
   HS_RUN(test_octet_crossing_coverage_against_ray_line_distance);
+  HS_RUN(test_periodic_shell_tangent_reference);
   HS_RUN(test_periodic_shell_roots_and_slices);
   HS_RUN(test_shell_shading_preserves_opacity);
   HS_RUN(test_periodic_shell_traversal_budgets);

@@ -383,6 +383,14 @@ add_test(NAME unit_death_child_dispatch COMMAND ${CMAKE_COMMAND}
     -DTEST_BIN=$<TARGET_FILE:run_tests>
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_death_child_dispatch.cmake)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND EXISTS "/dev/full")
+    add_test(NAME unit_mesh_capture_write_failure
+        COMMAND ${CMAKE_COMMAND} -DTEST_BIN=$<TARGET_FILE:run_tests>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mesh_capture_write_failure.cmake)
+    set_tests_properties(unit_mesh_capture_write_failure PROPERTIES
+        TIMEOUT ${_hs_test_timeout})
+endif()
+
 # run_tests --check-modules fails if _hs_test_modules and HS_TEST_MODULE_LIST
 # diverge in either direction.
 add_test(NAME unit_module_roster

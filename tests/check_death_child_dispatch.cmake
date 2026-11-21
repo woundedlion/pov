@@ -41,7 +41,9 @@ foreach(lever IN ITEMS HS_EFFECTS_FULL HS_REQUIRE_EFFECTS_FULL)
   expect_dispatch(1 "HS_EFFECTS_FULL and HS_REQUIRE_EFFECTS_FULL" ENV
     HS_DEATH_CHILD= HS_EFFECTS_FULL=1 HS_REQUIRE_EFFECTS_FULL=1 "${lever}=true" ARGS effects)
 endforeach()
-expect_dispatch(1 "HS_SMOKE_FRAMES" ENV HS_SMOKE_FRAMES=8)
+foreach(value IN ITEMS "8" "1200/2" "120e1" "2147483648")
+  expect_dispatch(1 "HS_SMOKE_FRAMES" ENV "HS_SMOKE_FRAMES=${value}")
+endforeach()
 expect_dispatch(1 "QUICK tier" ENV HS_DEATH_CHILD= HS_EFFECTS_FULL=0 HS_REQUIRE_EFFECTS_FULL=1 ARGS effects)
 expect_dispatch(2 "invalid death-child invocation" ARGS death)
 expect_dispatch(2 "unknown module" ENV HS_DEATH_CHILD= ARGS __unknown_module__)
@@ -67,3 +69,34 @@ foreach(lever IN ITEMS HS_RING_TEMPORAL_SCENARIO HS_SURFACE_LOBE_DIAGNOSTICS
     expect_dispatch(0 "" ENV CI= "${lever}=${value}")
   endforeach()
 endforeach()
+
+get_filename_component(bin_dir "${TEST_BIN}" DIRECTORY)
+get_filename_component(runner "${TEST_BIN}" NAME)
+set(shard_dir "${CMAKE_CURRENT_BINARY_DIR}/dispatch-shard")
+file(MAKE_DIRECTORY "${shard_dir}")
+set(executable "${TEST_BIN}")
+set(path_env)
+if(UNIX)
+  set(executable "${runner}")
+  set(path_env "PATH=${bin_dir}:$ENV{PATH}")
+endif()
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env ${child_env} ${path_env} HS_DEATH_CHILD= HS_DEATH_CASE=
+    HS_DEATH_SHARD=1023/1024 "HS_DEATH_SHARD_DIR=${shard_dir}" "${executable}" death
+  WORKING_DIRECTORY "${shard_dir}"
+  RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error TIMEOUT 60)
+if(NOT result EQUAL 0)
+  message(FATAL_ERROR "death shard failed: ${output}${error}")
+endif()
+file(READ "${shard_dir}/death_shard_1023.txt" record)
+if(NOT record MATCHES "^hs-death-shard 1023 1024 ([0-9]+)")
+  message(FATAL_ERROR "missing shard case count: ${record}")
+endif()
+file(WRITE "${shard_dir}/death_shard_0.txt" "hs-death-shard 0 1 ${CMAKE_MATCH_1}\n0 -1\n")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env ${child_env} HS_DEATH_CHILD= HS_DEATH_CASE=
+    HS_DEATH_SHARD=census/1 "HS_DEATH_SHARD_DIR=${shard_dir}" "${TEST_BIN}" death
+  RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error TIMEOUT 15)
+if(result EQUAL 0 OR NOT output MATCHES "has a bad row: 0 -1")
+  message(FATAL_ERROR "census missed the invalid source line: ${output}${error}")
+endif()

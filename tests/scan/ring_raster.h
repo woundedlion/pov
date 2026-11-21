@@ -96,8 +96,9 @@ inline void test_ring_long_radius_azimuth_unflipped() {
                            static_cast<double>(p.y) * basis.w.y +
                            static_cast<double>(p.z) * basis.w.z;
           const double turn = std::atan2(w, u) / (2.0 * 3.14159265358979323846);
-          double delta = std::fabs(f.v0 - (turn < 0 ? turn + 1 : turn));
-          delta = std::min(delta, 1.0 - delta);
+          HS_EXPECT_GE(f.v0, 0.0f);
+          HS_EXPECT_LT(f.v0, 1.0f);
+          const double delta = std::fabs(std::remainder(f.v0 - turn, 1.0));
           HS_EXPECT_LT(delta, 0.00061);
           ++lit;
           f.color = Color4(Pixel(60000, 60000, 60000), f.v2);

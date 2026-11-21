@@ -76,8 +76,9 @@
 #include "targets/wasm/document_parameters.h"
 
 #if !defined(_WIN32)
-#include <csignal>    // SIGILL / SIGTRAP
-#include <fcntl.h>    // open / O_WRONLY for the capture file
+#include <csignal> // SIGILL / SIGTRAP
+#include <fcntl.h> // open / O_WRONLY for the capture file
+#include <sys/stat.h>
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
 #include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn
 #else
@@ -127,6 +128,28 @@ inline void set_self_exe(const char *argv0) {
   }
 #else
   self_exe() = argv0;
+  if (!argv0 || !*argv0 || std::strchr(argv0, '/'))
+    return;
+  const char *env = std::getenv("PATH");
+  self_exe() = nullptr;
+  if (!env)
+    return;
+  const std::string search(env);
+  static std::string path;
+  for (size_t start = 0;;) {
+    const auto end = search.find(':', start);
+    const auto dir = search.substr(start, end - start);
+    path = (dir.empty() ? "." : dir) + "/" + argv0;
+    struct stat st{};
+    if (stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode) &&
+        access(path.c_str(), X_OK) == 0) {
+      self_exe() = path.c_str();
+      return;
+    }
+    if (end == std::string::npos)
+      return;
+    start = end + 1;
+  }
 #endif
 }
 

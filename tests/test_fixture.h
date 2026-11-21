@@ -20,6 +20,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <charconv>
+#include <cstring>
 #include <concepts>
 #include <cstdio>
 #include <cstdlib>
@@ -189,8 +191,10 @@ constexpr int CI_MIN_SMOKE_FRAMES = 120;
  */
 inline int smoke_frames() {
   if (const char *e = hs_test::env_var("HS_SMOKE_FRAMES")) {
-    int n = std::atoi(e);
-    if (n > 0)
+    int n = 0;
+    const char *end = e + std::strlen(e);
+    const auto parsed = std::from_chars(e, end, n);
+    if (parsed.ec == std::errc{} && parsed.ptr == end && n > 0)
       return n;
   }
   return DEFAULT_SMOKE_FRAMES;
@@ -216,11 +220,10 @@ inline bool runs_in_ci() {
 
 /** @brief Rejects a shallow roster window when running under CI. */
 inline bool require_ci_smoke_frames() {
-  const char *frames = hs_test::env_var("HS_SMOKE_FRAMES");
-  if (!runs_in_ci() || (frames && std::atoi(frames) >= CI_MIN_SMOKE_FRAMES))
+  if (!runs_in_ci() || smoke_frames() >= CI_MIN_SMOKE_FRAMES)
     return true;
   std::fprintf(stderr,
-               "CI=on but HS_SMOKE_FRAMES is unset or below %d — "
+               "CI=on but HS_SMOKE_FRAMES must be an integer of at least %d — "
                "a shallower window skips frame-cyclic paths and arms no "
                "preset transition. Set HS_SMOKE_FRAMES in the workflow "
                "step's env.\n",

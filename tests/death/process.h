@@ -575,7 +575,7 @@ inline void merge_shard_records(const ShardSpec &shard, const Case *cs, int n,
         const bool parsed = parse_record_row(row, fields, 2);
         const int i = fields[0];
         const int line = fields[1];
-        if (!parsed || i < 0 || i >= n || i % shard.count != k) {
+        if (!parsed || i < 0 || i >= n || i % shard.count != k || line <= 0) {
           std::printf("  [FAIL] shard record %s has a bad row: %s\n",
                       path.c_str(), row);
           ++problems;

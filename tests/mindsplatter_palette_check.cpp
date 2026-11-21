@@ -88,7 +88,7 @@ int main() {
                 worst_palette, worst_index, worst, MAX_CHANNEL_DELTA);
     return 1;
   }
-  if (mean_milli > MAX_MEAN_DELTA_MILLI) {
+  if (delta_sum * 1000 > MAX_MEAN_DELTA_MILLI * channels) {
     std::printf(
         "mindsplatter palette bank: mean channel delta %lld/1000 units "
         "exceeds %lld/1000 — the bank has drifted as a whole, which the "

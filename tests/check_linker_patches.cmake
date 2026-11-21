@@ -9,9 +9,11 @@ file(READ "${PLATFORMIO_INI}" _ini)
 
 set(_missing "")
 
-if(_ini MATCHES "framework-arduinoteensy@([0-9]+\\.[0-9]+\\.[0-9]+)")
-  set(_framework "${CMAKE_MATCH_1}")
-  if(NOT _script MATCHES "FORKED FROM: framework-arduinoteensy ${_framework}")
+string(REGEX REPLACE "[;#][^\n]*" "" _ini "${_ini}")
+if(_ini MATCHES "(^|\n)[ \t]*(platformio/)?framework-arduinoteensy@([^ \t\r\n]+)[ \t\r]*(\n|$)")
+  set(_framework "${CMAKE_MATCH_3}")
+  string(REGEX MATCH "FORKED FROM: framework-arduinoteensy ([^ \t\r\n]+)" _metadata "${_script}")
+  if(NOT _metadata OR NOT CMAKE_MATCH_1 STREQUAL _framework)
     list(APPEND _missing
       "phantasm.ld does not declare FORKED FROM: framework-arduinoteensy ${_framework}, the release platformio.ini pins")
   endif()

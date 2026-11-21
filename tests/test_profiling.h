@@ -898,10 +898,9 @@ inline void test_pc_sample_frame_skip() {
     }
     HS_EXPECT_EQ(sampled, 3u);
     for (uint32_t count : {1u, 2u, 16u, 64u}) {
-      uint32_t bounded = 0;
       for (uint32_t completed = 0; completed < skip + count + 3; ++completed)
-        bounded += hs::pc_sample_frame(completed, skip, count);
-      HS_EXPECT_EQ(bounded, count);
+        HS_EXPECT_EQ(hs::pc_sample_frame(completed, skip, count),
+                     completed >= skip && completed < skip + count);
     }
     HS_EXPECT_EQ(hs::pc_sample_gate(), 0u);
   }

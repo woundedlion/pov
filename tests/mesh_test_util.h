@@ -123,29 +123,32 @@ inline void check_all_unit_vertices(const PolyMesh &m, float tol) {
 /**
  * @brief Verifies the sum of face_counts equals the flat face-index array length.
  * @param m Mesh whose face_counts and faces arrays are checked.
- * @details The mesh must carry at least one face.
+ * @return Whether the nonempty face runs cover the index array.
  */
-inline void check_face_counts_consistent(const PolyMesh &m) {
+inline bool check_face_counts_consistent(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.face_counts.size() > 0);
   size_t total = 0;
   for (size_t i = 0; i < m.face_counts.size(); ++i)
     total += m.face_counts[i];
   HS_EXPECT_EQ(total, m.faces.size());
+  return m.face_counts.size() > 0 && total == m.faces.size();
 }
 
 /**
  * @brief Verifies every face index references a valid vertex.
  * @param m Mesh whose face indices are checked against the vertex count.
+ * @return Whether the nonempty array contains only valid indices.
  * @details The index array must be non-empty. Reports the largest index found
  *          rather than asserting per entry.
  */
-inline void check_indices_in_range(const PolyMesh &m) {
+inline bool check_indices_in_range(const PolyMesh &m) {
   HS_EXPECT_TRUE(m.faces.size() > 0);
   size_t v = m.vertices.size();
   size_t max_index = 0;
   for (size_t i = 0; i < m.faces.size(); ++i)
     max_index = std::max<size_t>(max_index, m.faces[i]);
   HS_EXPECT_LT(max_index, v);
+  return m.faces.size() > 0 && max_index < v;
 }
 
 /**
@@ -525,10 +528,11 @@ inline void check_consistent_winding(const PolyMesh &m) {
  * unit vertices, and consistent winding. */
 inline void check_basic_invariants(const PolyMesh &m) {
   check_nonempty(m);
-  check_face_counts_consistent(m);
-  check_indices_in_range(m);
+  const bool counts_valid = check_face_counts_consistent(m);
+  const bool indices_valid = check_indices_in_range(m);
   check_all_unit_vertices(m, 1e-3f);
-  check_consistent_winding(m);
+  if (counts_valid && indices_valid)
+    check_consistent_winding(m);
 }
 
 /**

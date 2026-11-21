@@ -163,6 +163,11 @@ class NewGuardsNeedACase(unittest.TestCase):
         self.assertEqual(self.missing({"core/guard.h": self.GUARD,
                                        "tests/test_death.h": self.OTHER + "\n" + self.PIN}), [])
 
+    def test_block_commented_pin_does_not_cover_added_guard(self):
+        self.assertEqual(self.missing({"core/guard.h": self.GUARD,
+                                       "tests/test_death.h": self.OTHER + "\n/*\n" + self.PIN + "\n*/"}),
+                         ["core/guard.h:1: (value > 0) probe: positive"])
+
     def test_guard_text_already_in_the_base_passes_when_moved(self):
         self.base = self.commit({"core/old.h": self.GUARD})
         (self.repo / "core/old.h").unlink()

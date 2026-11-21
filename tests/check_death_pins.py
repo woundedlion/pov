@@ -24,6 +24,13 @@ def literals(text):
     return "".join(ast.literal_eval(s) for s in re.findall(STRING, text))
 
 
+def blank_comments(text):
+    # Blank comments in place so match offsets still index the original text.
+    return re.sub(CHAR + r"|" + STRING + r"|//[^\n]*|/\*.*?\*/",
+                  lambda m: m[0] if m[0][0] in "\"'" else re.sub(r"[^\n]", " ", m[0]),
+                  text, flags=re.S)
+
+
 def pins(text):
     """Read the literal fields of the death-case table."""
     pattern = (r'\{\s*"([^"\n]+)"\s*,\s*(\w+)\s*,\s*'
@@ -50,10 +57,7 @@ def guard_texts(text):
 
 def guard_sites(text):
     """Yield (offset into text, condition/message pair) for each guard."""
-    # Blank comments in place so match offsets still index the original text.
-    text = re.sub(CHAR + r"|" + STRING + r"|//[^\n]*|/\*.*?\*/",
-                  lambda m: m[0] if m[0][0] in "\"'" else re.sub(r"[^\n]", " ", m[0]),
-                  text, flags=re.S)
+    text = blank_comments(text)
     for match in re.finditer(r"HS_(?:AUDIT_)?CHECK\s*\(", text):
         depth = 1
         condition = []
@@ -208,7 +212,7 @@ def death_registration_text(read):
         if path in seen:
             continue
         seen.add(path)
-        text = read(path)
+        text = blank_comments(read(path))
         sources.append(text)
         pending.extend(re.findall(r'^#include "(tests/death/[a-zA-Z0-9_/]+\.h)"', text, re.MULTILINE))
     return "\n".join(sources)

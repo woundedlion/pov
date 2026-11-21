@@ -75,6 +75,15 @@ inline void test_mesh_seam_dark_sample_guards() {
   HS_EXPECT_EQ(mixed.interior_samples, 3);
   HS_EXPECT_NEAR(mixed.mean_arm_ratios / mixed.arm_samples, 24.0 / 17.0, 1e-12);
   check_guard(mixed, 2, "steps.arm_ratios / steps.arm_samples");
+
+  MeshSeamSteps flat_step;
+  const std::vector<Pixel> bright(W * H, Pixel(1000, 0, 0));
+  for (int frame = 0; frame < 3; ++frame)
+    flat_step.add(lit, lit, W, H);
+  flat_step.add(bright, dark, W, H);
+  HS_EXPECT_EQ(flat_step.arm_samples, 4);
+  HS_EXPECT_EQ(flat_step.interior_samples, 3);
+  check_guard(flat_step, 2, "steps.arm_ratios / steps.arm_samples");
 }
 
 /** @brief Parameter lints reject overwritten sliders and paused animation leaks. */
@@ -105,6 +114,13 @@ inline void test_parameter_lint_failure_guards() {
     float value = 0.0f;
     int frames = 0;
     bool broken;
+    bool discard_write = false;
+
+  protected:
+    void parameter_written() override {
+      if (discard_write)
+        value = 0.0f;
+    }
   };
 
   for (bool broken : {false, true}) {
@@ -120,6 +136,12 @@ inline void test_parameter_lint_failure_guards() {
         [&] { lint_animated_pause(animated, "AnimatedEffect"); }, int(broken),
         broken ? "PAUSE LEAK" : nullptr);
   }
+  reset_globals();
+  AnimatedEffect discard(false);
+  discard.discard_write = true;
+  expect_probe_failures(
+      [&] { lint_animated_pause(discard, "DiscardAnimatedWrite"); }, 2,
+      "animated control must apply the requested write");
 }
 
 /**

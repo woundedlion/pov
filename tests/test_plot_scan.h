@@ -96,6 +96,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_point_route_physical_speed_covers_equator_cell);
   HS_RUN(test_point_route_small_chord_certificate);
   HS_RUN(test_point_route_physical_curvature_bound);
+  HS_RUN(test_point_route_opposite_crossings);
   HS_RUN(test_point_route_near_antipodal_terminates);
   HS_RUN(test_point_route_curved_cap_enters_clip);
   HS_RUN(test_point_route_matches_column_oracle);

@@ -351,7 +351,13 @@ inline void lint_animated_pause(FX &effect, const char *name) {
     HS_EXPECT_EQ(written, ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(effect.animations_paused());
     const auto *written_def = effect.getParameters().find(names[index]);
-    const float written_value = written_def->get_requested();
+    float written_value = probe;
+    HS_EXPECT_EQ(written_def->normalize(written_value),
+                 ParamSetResult::APPLIED);
+    if (written_def->is_bool())
+      written_value = written_value > 0.5f ? 1.0f : 0.0f;
+    HS_EXPECT(written_def->get_requested() == written_value,
+              "animated control must apply the requested write");
     const float eps =
         written_def->is_bool()
             ? 0.0f

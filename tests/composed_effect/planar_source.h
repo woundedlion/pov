@@ -321,7 +321,7 @@ inline void test_hex_morph_table() {
           if (mix == 0.0f || mix == 1.0f)
             exact_endpoints &= actual == (mix == 0.0f ? ca : cb);
           else
-            worst = std::max(worst, fabsf(actual - hs::lerp(ca, cb, mix)));
+            worst = fold_worst(worst, fabsf(actual - hs::lerp(ca, cb, mix)));
         }
       }
     }

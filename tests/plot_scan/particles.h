@@ -577,23 +577,26 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
   };
-  std::vector<math::Vector> shaded_positions;
+  struct OriginalVertex {
+    float particle, progress;
+    math::Vector position;
+  };
+  std::vector<OriginalVertex> original_vertices;
   auto position_pass = [&](Fragment &f) {
+    original_vertices.push_back({f.v2, f.v0, f.pos});
     f.pos = f.pos * -1.0f;
-    shaded_positions.push_back(f.pos);
   };
   int deferred_calls[2] = {0, 0};
   int orig_mismatches = 0;
   auto deferred_pass = [&](FragmentRegisters f, const math::Vector &orig) {
-    // orig must be a pre-shader position: the negation of a shaded one.
-    bool matched = false;
-    for (const math::Vector &s : shaded_positions)
-      if ((orig * -1.0f - s).length() <= 1e-4f) {
-        matched = true;
-        break;
-      }
-    if (!matched)
-      orig_mismatches++;
+    const auto expected = std::find_if(
+        original_vertices.begin(), original_vertices.end(),
+        [&](const OriginalVertex &vertex) {
+          return vertex.particle == f.v2 && vertex.progress == f.v0;
+        });
+    if (expected == original_vertices.end() ||
+        (orig - expected->position).length() > 1e-4f)
+      ++orig_mismatches;
     const float index = f.v2 + 0.5f;
     HS_EXPECT_TRUE(index >= 0.0f && index < 2.0f);
     if (!(index >= 0.0f && index < 2.0f))
@@ -633,6 +636,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   // Full canvas, split shaders: identical everywhere, both trails shaded.
   {
     deferred_calls[0] = deferred_calls[1] = 0;
+    original_vertices.clear();
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> filters;
     {

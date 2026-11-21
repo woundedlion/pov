@@ -816,9 +816,11 @@ inline void test_union_preserves_full_width_fallback() {
   const MockIntervalShape intervals{&spans};
   const auto check = [&](const auto &full) {
     const auto expect_fallback = [](const auto &shape) {
+      int spans_emitted = 0;
       const bool handled = shape.template get_horizontal_intervals<256, 128>(
-          0, [](float, float) {});
+          64, [&](float, float) { ++spans_emitted; });
       HS_EXPECT_FALSE(handled);
+      HS_EXPECT_EQ(spans_emitted, 0);
     };
     expect_fallback(SDF::Union(intervals, full));
     expect_fallback(SDF::Union(full, intervals));

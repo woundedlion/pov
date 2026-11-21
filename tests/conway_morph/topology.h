@@ -178,7 +178,9 @@ inline void test_edge_sweeps_hold_topology() {
     float t_lo, t_hi;
     edge_sweep_interval(e, t_lo, t_hi);
 
-    size_t v0 = 0, f0 = 0, i0 = 0;
+    size_t v0 = 0;
+    std::vector<uint8_t> opening_counts;
+    std::vector<uint16_t> opening_indices;
     for (int s = 0; s < SWEEP_SAMPLES; ++s) {
       const float u = static_cast<float>(s) / (SWEEP_SAMPLES - 1);
       const float t = t_lo + (t_hi - t_lo) * u;
@@ -190,13 +192,18 @@ inline void test_edge_sweeps_hold_topology() {
 
       if (s == 0) {
         v0 = out.vertices.size();
-        f0 = out.face_counts.size();
-        i0 = out.faces.size();
-        expect_op_counts(v0, f0, i0, morph_op_counts(e.op, seed));
+        opening_counts.assign(out.face_counts.begin(), out.face_counts.end());
+        opening_indices.assign(out.faces.begin(), out.faces.end());
+        expect_op_counts(v0, opening_counts.size(), opening_indices.size(),
+                         morph_op_counts(e.op, seed));
       } else {
         HS_EXPECT_EQ(out.vertices.size(), v0);
-        HS_EXPECT_EQ(out.face_counts.size(), f0);
-        HS_EXPECT_EQ(out.faces.size(), i0);
+        HS_EXPECT_TRUE(std::equal(opening_counts.begin(), opening_counts.end(),
+                                  out.face_counts.begin(),
+                                  out.face_counts.end()));
+        HS_EXPECT_TRUE(std::equal(opening_indices.begin(),
+                                  opening_indices.end(), out.faces.begin(),
+                                  out.faces.end()));
       }
       for (size_t fi = 0; fi < out.face_counts.size(); ++fi)
         HS_EXPECT_TRUE(out.face_counts[fi] >= 3);

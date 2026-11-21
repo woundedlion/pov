@@ -15,6 +15,7 @@
 #if defined(_WIN32)
 #include <io.h>
 #else
+#include <cerrno>
 #include <unistd.h>
 #endif
 
@@ -33,7 +34,11 @@ inline int fd_dup2(int from, int to) {
 #if defined(_WIN32)
   return _dup2(from, to);
 #else
-  return dup2(from, to);
+  int result;
+  do {
+    result = dup2(from, to);
+  } while (result < 0 && errno == EINTR);
+  return result;
 #endif
 }
 

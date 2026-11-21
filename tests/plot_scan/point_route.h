@@ -175,11 +175,27 @@ inline int point_route_true_passes(const Position &position) {
   };
   float previous = math::vector_to_pixel<W, 144>(position(0.0f)).x;
   float unwrapped = previous;
-  const float r0 = relative(0.0f, unwrapped, previous);
-  float r = r0;
-  for (int i = 1; i <= N; ++i)
-    r = relative(float(i) / N, unwrapped, previous);
-  return static_cast<int>(floorf(r0) - floorf(r));
+  int previous_band =
+      static_cast<int>(floorf(relative(0.0f, unwrapped, previous)));
+  int passes = 0;
+  for (int i = 1; i <= N; ++i) {
+    const int band =
+        static_cast<int>(floorf(relative(float(i) / N, unwrapped, previous)));
+    passes += std::abs(band - previous_band);
+    previous_band = band;
+  }
+  return passes;
+}
+
+/** @brief A near-pole chord crosses an arm in both directions. */
+inline void test_point_route_opposite_crossings() {
+  const float heading = 0.4f * math::PI_F;
+  const float x = cosf(heading), z = sinf(heading);
+  const auto position = [&](float t) {
+    const float offset = 10.0f * (t - 0.5f);
+    return math::Vector{x - z * offset, 100.0f, z + x * offset}.normalized();
+  };
+  HS_EXPECT_EQ(point_route_true_passes(position), 2);
 }
 
 /** @brief Plots one path through the route.

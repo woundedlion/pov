@@ -8,6 +8,8 @@
 
 #include "tests/effects/fixture.h"
 
+#include <limits>
+
 namespace hs_test::effects_tests {
 
 /** @brief Adjacent-column colour steps at the arm boundaries and mid-arm. */
@@ -51,8 +53,10 @@ struct MeshSeamSteps {
       }
       const double seam =
           column_difference(previous, boundary - 1, current, boundary);
-      if (neighbors > 0.0) {
-        const double ratio = seam / (neighbors / 8.0);
+      if (neighbors > 0.0 || seam > 0.0) {
+        const double ratio = neighbors > 0.0
+                                 ? seam / (neighbors / 8.0)
+                                 : std::numeric_limits<double>::infinity();
         arm = std::max(arm, ratio);
         mean_arm += ratio;
         ++arm_boundaries;
@@ -63,7 +67,7 @@ struct MeshSeamSteps {
         interior_neighbors +=
             column_difference(current, middle - 1 + j, current, middle + j);
     }
-    if (arm_boundaries == 2) {
+    if (arm_boundaries == 2 || std::isinf(arm)) {
       arm_ratios += arm;
       mean_arm_ratios += mean_arm * 0.5;
       ++arm_samples;
