@@ -131,12 +131,14 @@ hs_fw_pio() {
 
 # rc 0 when <entry> is an intact image stored under <key>.
 hs_fw_cache_check_entry() {
-  local entry=$1 key=$2 recorded actual
+  local entry=$1 key=$2 recorded actual ext
   [ -f "$entry/meta" ] && [ -f "$entry/firmware.hex" ] && [ -f "$entry/build.log" ] || return 1
   [ "$(sed -n 's/^key //p' "$entry/meta")" = "$key" ] || return 1
-  recorded=$(sed -n 's/^elf_sha256 //p' "$entry/meta")
-  actual=$(sha256sum "$entry/firmware.elf" 2>/dev/null | cut -d' ' -f1) || return 1
-  [ -n "$recorded" ] && [ "$recorded" = "$actual" ]
+  for ext in elf hex; do
+    recorded=$(sed -n "s/^${ext}_sha256 //p" "$entry/meta")
+    actual=$(sha256sum "$entry/firmware.$ext" 2>/dev/null | cut -d' ' -f1) || return 1
+    [ -n "$recorded" ] && [ "$recorded" = "$actual" ] || return 1
+  done
 }
 
 # Sets HS_FW_KEY; on a hit sets HS_FW_ENTRY. rc 0 hit, 1 miss, 3 uncommitted,
@@ -191,6 +193,7 @@ hs_fw_cache_store() {
   {
     printf 'key %s\n%s\n' "$HS_FW_KEY" "$HS_FW_MATERIAL"
     printf 'commit %s\n' "$(git rev-parse HEAD)"
+    printf 'hex_sha256 %s\n' "$(sha256sum "$tmp/firmware.hex" | cut -d' ' -f1)"
     printf 'elf_sha256 %s\n' "$(sha256sum "$tmp/firmware.elf" | cut -d' ' -f1)"
   } >"$tmp/meta"
   entry=$root/$HS_FW_KEY

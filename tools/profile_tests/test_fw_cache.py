@@ -208,6 +208,19 @@ class CacheStore(FirmwareCacheFixture):
         self.assertEqual(hit.returncode, 0, hit.stderr)
         self.assertEqual(Path(hit.stdout.strip()), entry)
 
+    def test_replaced_hex_and_old_metadata_are_cache_misses(self):
+        stored = self.build_and_store()
+        self.assertEqual(stored.returncode, 0, stored.stderr)
+        entry = Path(stored.stdout.strip())
+        meta = entry / "meta"
+        original = meta.read_bytes()
+        meta.write_bytes(b"".join(row for row in original.splitlines(keepends=True)
+                                  if not row.startswith(b"hex_sha256 ")))
+        self.assertEqual(self.fw("hs_fw_cache_lookup profile").returncode, 1)
+        meta.write_bytes(original)
+        (entry / "firmware.hex").write_bytes(b"another image")
+        self.assertEqual(self.fw("hs_fw_cache_lookup profile").returncode, 1)
+
     def test_a_corrupted_entry_is_a_miss(self):
         stored = self.build_and_store()
         self.assertEqual(stored.returncode, 0, stored.stdout + stored.stderr)
