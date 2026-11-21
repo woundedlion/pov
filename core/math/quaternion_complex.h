@@ -338,6 +338,13 @@ struct Complex {
    * point-at-infinity conventions (magnitude clamp, 0/0 -> 0) use project_div().
    */
   Complex operator/(const Complex &b) const {
+    if (fmaxf(fmaxf(fabsf(re), fabsf(im)), fmaxf(fabsf(b.re), fabsf(b.im))) >
+        0x1p63f) [[unlikely]] {
+      const double a = re, c = b.re, d = b.im;
+      const double norm = c * c + d * d;
+      return {static_cast<float>((a * c + im * d) / norm),
+              static_cast<float>((im * c - a * d) / norm)};
+    }
     float denom = b.squared_magnitude();
     if (denom < std::numeric_limits<float>::min() &&
         (b.re != 0.0f || b.im != 0.0f)) [[unlikely]] {

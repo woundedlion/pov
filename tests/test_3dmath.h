@@ -1471,6 +1471,10 @@ inline void test_stereo_roundtrip() {
  * @brief Verifies ordinary complex arithmetic and finite underflow division.
  */
 inline void test_complex_arithmetic() {
+  const math::Complex large(1e30f, -2e30f);
+  HS_EXPECT_COMPLEX(large / large, math::Complex(1, 0), 1e-6f);
+  HS_EXPECT_COMPLEX(large / large.conjugate(), math::Complex(-0.6f, -0.8f),
+                    1e-6f);
   constexpr math::Complex VALUE(3.0f, -4.0f);
   static_assert(VALUE.squared_magnitude() == 25.0f);
   static_assert(VALUE.conjugate() == math::Complex(3.0f, 4.0f));
