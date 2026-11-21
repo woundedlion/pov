@@ -62,7 +62,7 @@ def project_seed(root_uuid):
     }, indent=2) + "\n"
 
 
-def write_project(path, root_uuid="", unplaced=None):
+def project_text(path, root_uuid="", unplaced=None):
     if os.path.exists(path):
         with open(path, encoding="utf-8") as file:
             project = json.load(file)
@@ -78,7 +78,11 @@ def write_project(path, root_uuid="", unplaced=None):
         "unplaced" if unplaced else "placed")
     apply_project_floors(project, UNPLACED_RULES if unplaced else RULE_MINIMUMS,
                          UNPLACED_DEFAULT_CLASS if unplaced else DEFAULT_CLASS_MINIMUMS)
-    atomic_write_text(path, json.dumps(project, indent=2) + "\n")
+    return json.dumps(project, indent=2) + "\n"
+
+
+def write_project(path, root_uuid="", unplaced=None):
+    atomic_write_text(path, project_text(path, root_uuid, unplaced))
 
 
 def revision_paths(revision, output_dir=None):
@@ -613,7 +617,9 @@ def power_flag_block(ctx):
 
 def write_outputs(b, out, sch):
     os.makedirs(out, exist_ok=True)
-    atomic_write_text(sch, b.dumps())
+    schematic = b.dumps()
+    project = os.path.join(out, "phantasm.kicad_pro")
+    project_data = project_text(project, b.uuid)
 
     lib_lines = ['(kicad_symbol_lib', f'\t(version {sexp.SYMBOL_LIB_FORMAT})',
                  '\t(generator "phantasm-gen")',
@@ -623,14 +629,14 @@ def write_outputs(b, out, sch):
             node = copy.deepcopy(b.lib_defs[lib_id]); node[1] = lib_id.split(":", 1)[1]
             lib_lines.append(sexp.dumps(node, indent=1))
     lib_lines.append(')')
+    atomic_write_text(sch, schematic)
     atomic_write_text(os.path.join(out, "phantasm.kicad_sym"), "\n".join(lib_lines) + "\n")
 
     atomic_write_text(os.path.join(out, "sym-lib-table"), '(sym_lib_table\n\t(version 7)\n'
             '\t(lib (name "phantasm")(type "KiCad")(uri "${KIPRJMOD}/phantasm.kicad_sym")'
             '(options "")(descr "PHANTASM custom symbols"))\n)\n')
 
-    PRO = os.path.join(out, "phantasm.kicad_pro")
-    write_project(PRO, b.uuid, unplaced=None)
+    atomic_write_text(project, project_data)
 
     print("wrote files  symbols:", len(b.symbols), "wires:", len(b.wires),
           "labels:", len(b.labels), "texts:", len(b.texts))

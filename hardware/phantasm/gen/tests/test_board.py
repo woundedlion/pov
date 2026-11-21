@@ -57,6 +57,20 @@ WIRE_OVER_PIN = DANGLING.replace(
 
 
 
+class OutputTests(unittest.TestCase):
+    def test_malformed_project_preserves_existing_outputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in PROJECT_FILES:
+                (root / name).write_bytes(b"original")
+            schematic = unittest.mock.Mock(uuid="fixture", lib_defs={})
+            schematic.dumps.return_value = "replacement"
+            with self.assertRaises(json.JSONDecodeError):
+                board.write_outputs(schematic, root, root / PROJECT_FILES[0])
+            for name in PROJECT_FILES:
+                self.assertEqual((root / name).read_bytes(), b"original")
+
+
 class ImportBoundaryTests(unittest.TestCase):
     def test_pcb_data_modules_do_not_import_the_schematic_generator(self):
         code = (f"import sys;sys.path.insert(0,{str(GEN)!r});"
