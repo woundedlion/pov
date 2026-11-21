@@ -173,6 +173,17 @@ def load_backend(
         raise CaptureError("capture backend header mismatch")
     records = set()
     expected_counts: dict[str, int] = {}
+
+    def pixel_count(mapping):
+        if mapping not in expected_counts:
+            if mapping.startswith(("CASE_", "THROUGH_CLEAR_")) or mapping == "FULL_FRAME":
+                expected_counts[mapping] = width * height
+            else:
+                expected_counts[mapping] = sum(
+                    _selected_pixel(mapping, x, y, width, height)
+                    for y in range(height) for x in range(width))
+        return expected_counts[mapping]
+
     for _ in range(record_count):
         preset, offset = _read_u16(data, offset)
         operation_code, offset = _read_u16(data, offset)
@@ -194,14 +205,7 @@ def load_backend(
         if operation_code != expected_code:
             raise CaptureError(f"capture backend operation mismatch for {key}")
         mapping = specs[key]["mapping"]
-        if mapping not in expected_counts:
-            if mapping.startswith(("CASE_", "THROUGH_CLEAR_")) or mapping == "FULL_FRAME":
-                expected_counts[mapping] = width * height
-            else:
-                expected_counts[mapping] = sum(
-                    _selected_pixel(mapping, x, y, width, height)
-                    for y in range(height) for x in range(width))
-        if selected_pixels != expected_counts[mapping]:
+        if selected_pixels != pixel_count(mapping):
             raise CaptureError(f"capture backend selected-pixel mismatch for {key}")
         end = offset + width * height * 6
         if end > len(data):
@@ -209,7 +213,9 @@ def load_backend(
         offset = end
         records.add(key)
     metrics = {}
-    expected_oracles = {oracle["oracle_id"] for oracle in oracles}
+    expected_samples = dict.fromkeys((oracle["oracle_id"] for oracle in oracles), 0)
+    for spec in oracle_operation_specs(oracles):
+        expected_samples[spec["oracle"]] += 3 * pixel_count(spec["mapping"])
     for _ in range(oracle_count):
         name_length, offset = _read_u16(data, offset)
         if offset + name_length > len(data):
@@ -221,12 +227,12 @@ def load_backend(
         offset += name_length
         maximum, offset = _read_u16(data, offset)
         samples, offset = _read_u32(data, offset)
-        if oracle in metrics or oracle not in expected_oracles or samples == 0:
+        if oracle in metrics or oracle not in expected_samples or samples == 0 or samples != expected_samples[oracle]:
             raise CaptureError(f"invalid capture backend oracle metric {oracle}")
         metrics[oracle] = {"value": maximum}
     if (
         offset != len(data)
-        or metrics.keys() != expected_oracles
+        or metrics.keys() != expected_samples.keys()
     ):
         raise CaptureError("capture backend stream is incomplete or has trailing bytes")
     return (width, height), metrics

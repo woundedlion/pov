@@ -48,7 +48,13 @@ def _backend_stream(programs):
     metrics = []
     for oracle in ORACLES:
         name = oracle["oracle_id"].encode()
-        metrics.append(struct.pack("<H", len(name)) + name + struct.pack("<HI", 0, 3))
+        pixels = 0
+        for probe in oracle["corpus"]["framebuffer"]["probes"]:
+            for operation in probe["operations"]:
+                pixels += (256 if operation == "FULL_FRAME" else sum(
+                    capture._selected_pixel(operation, x, y, 16, 16)
+                    for y in range(16) for x in range(16)))
+        metrics.append(struct.pack("<H", len(name)) + name + struct.pack("<HI", 0, 3 * pixels))
     return header, records, metrics
 
 
@@ -430,6 +436,7 @@ class CaptureBackend(unittest.TestCase):
             "missing_record": header + b"".join(records[:-1]) + tail,
             "duplicate_oracle": header + body + metrics[0] + metrics[0] + b"".join(metrics[2:]),
             "unknown_oracle": header + body + struct.pack("<H", len(unknown_oracle)) + unknown_oracle + struct.pack("<HI", 0, 3) + b"".join(metrics[1:]),
+            "short_samples": header + body + metrics[0][:-4] + struct.pack("<I", 3) + b"".join(metrics[1:]),
             "zero_samples": header + body + metrics[0][:-4] + struct.pack("<I", 0) + b"".join(metrics[1:]),
             "truncated_oracle_name": header + body + metrics[0][:3],
             "invalid_oracle_name": header + body + metrics[0][:2] + b"\xff" + metrics[0][3:] + b"".join(metrics[1:]),
@@ -450,6 +457,7 @@ class CaptureBackend(unittest.TestCase):
             "missing_record": "capture backend operation name is truncated",
             "duplicate_oracle": "invalid capture backend oracle metric",
             "unknown_oracle": "invalid capture backend oracle metric",
+            "short_samples": "invalid capture backend oracle metric",
             "zero_samples": "invalid capture backend oracle metric",
             "truncated_oracle_name": "capture backend oracle name is truncated",
             "invalid_oracle_name": "capture backend oracle name is invalid",
