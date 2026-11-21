@@ -102,6 +102,15 @@ inline void test_lattice_reference_and_lipschitz() {
 
 /** @brief Framework distances, normals, features and plane events match its geometry. */
 inline void test_framework_geometry_and_plane_streams() {
+  const SDF::OctetFramework4 parity_geometry{};
+  uint32_t parity_feature = 0;
+  const float ordinary =
+      parity_geometry.edge_query<false, true>({{0, 1, 0, 0}}, parity_feature);
+  HS_EXPECT_GT(ordinary, 0.0f);
+  for (float shift : {-0x1p25f, -0x1p24f, 0x1p24f, 0x1p25f})
+    HS_EXPECT_EQ((parity_geometry.edge_query<false, true>({{shift, 1, 0, 0}},
+                                                          parity_feature)),
+                 ordinary);
   SDF::TriangularFramework framework;
   HS_EXPECT_TRUE(framework.valid());
   const float H = SDF::TriangularFramework::TRIANGLE_HEIGHT;

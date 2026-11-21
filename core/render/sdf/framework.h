@@ -362,17 +362,18 @@ struct OctetFramework4 {
     const float scale = Normalized ? 1.0f : HALF_CUBE * cell_size;
     const float inverse_scale = 1.0f / scale;
     math::Vec4 residual, absolute;
-    float parity = 0.0f;
+    int parity = 0;
     int halves = 0;
     for (int k = 0; k < 4; ++k) {
       const float q = Normalized ? p[k] : (p[k] - origin[k]) * inverse_scale;
       const float rounded = roundf(q);
-      parity += rounded;
+      if (fabsf(rounded) < 0x1p24f)
+        parity ^= static_cast<int>(rounded) & 1;
       residual[k] = q - rounded;
       absolute[k] = fabsf(residual[k]);
       halves += absolute[k] == 0.5f;
     }
-    const bool odd = fabsf(parity - 2.0f * roundf(parity * 0.5f)) > 0.5f;
+    const bool odd = parity != 0;
     // The nearest strut uses the two largest fractional coordinates.
     int i = 0;
     int j = 1;
