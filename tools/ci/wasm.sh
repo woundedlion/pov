@@ -102,9 +102,8 @@ diff -u \
   <(cd "$dd/docs/screenshots" && find . -type f -name '*.png' | sort)
 # Exercise installed glue after file(CONFIGURE) rewriting.
 node scripts/wasm_smoke.mjs "$dd/generated/holosphere_wasm.js"
-# A clean checkout must record a bare 40-hex SHA (no -dirty marker).
-if grep -q -- '-dirty' "$dd/generated/holosphere_wasm.sha"; then
-  echo "::error::engine .sha recorded as -dirty on a clean checkout"
+if ! git rev-parse HEAD | diff - "$dd/generated/holosphere_wasm.sha"; then
+  echo "::error::installed engine revision differs from the source checkout"
   cat "$dd/generated/holosphere_wasm.sha"
   exit 1
 fi
