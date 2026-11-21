@@ -50,6 +50,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [Galaxies](#galaxies)
   - [Dynamo](#dynamo)
   - [Thrusters](#thrusters)
+  - [FourStrokeStars](#fourstrokestars)
   - [GnomonicStars](#gnomonicstars)
   - [Raymarch](#raymarch)
   - [DisplacementField](#displacementfield)
@@ -600,6 +601,18 @@ A vertical strand of points — spaced across the complete sphere, including hid
 A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic random "fires" kick it onto a new axis and bloom a pair of opposed thrust rings (`Plot::Ring`) that expand from a sub-pixel seed and fade out. The central ring draws each column at the pose and warp interpolated from the frame it last drew; a fire resets the warp, so that frame draws its current endpoint. Thrust rings keep the pose captured at their spawn and read growth and fade from their age at each column's time; a new spawn draws at the current endpoint.
 
 **Parameters**: Radius, Alpha
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=FourStrokeStars" target="_blank"><img src="screenshots/FourStrokeStars.png" alt="FourStrokeStars" width="280"></a></td>
+<td valign="top">
+
+### FourStrokeStars
+
+Twelve five-pointed stars stay fixed on a Fibonacci spiral against neutral gray. A spherical random walk supplies one direction to all twelve stars. Their fills and inner edges cycle through four hue pairs every second. Reverse Direction flips the cue on every star. Reference Polarity gives each leading or trailing edge full contrast. The default scales edge contrast with its alignment to the local direction.
+
+**Parameters**: Strength, Edge Width, Reference Polarity, Reverse Direction
 
 </td></tr></table>
 

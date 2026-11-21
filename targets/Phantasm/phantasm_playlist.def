@@ -53,6 +53,7 @@ show(SphericalHarmonics)
 show(CosmicEyeball, 60)
 show(KaleidoscopeSmooth)
 
+exclude(FourStrokeStars)
 exclude(KaleidoscopeStainedGlass)
 exclude(Dynamo) // 96x20 only
 exclude(MobiusRings) // 96x20 only

@@ -100,6 +100,7 @@ namespace effect_identities {
   X(Dynamo, "dynamo", "Dynamo")                                                \
   X(Filigree, "filigree", "ember-tracery")                                     \
   X(Fishbowl, "fishbowl", "Fishbowl")                                          \
+  X(FourStrokeStars, "four-stroke-stars", "four-stroke-stars")                 \
   X(Galaxies, "galaxies", "Galaxies")                                          \
   X(GnomonicStars, "gnomonic-stars", "GnomonicStars")                          \
   X(GridSpace, "grid-space", "grid-space")                                     \

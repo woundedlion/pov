@@ -8,6 +8,7 @@
 #include "tests/effects/case_runners.h"
 
 #include "tests/effects/roster_cases.h"
+#include "tests/effects/four_stroke_stars.h"
 #include "tests/effects/column_time_fidelity.h"
 #include "tests/effects/lens_cases.h"
 
@@ -58,6 +59,8 @@ namespace hs_test::module_runners {
 int run_roster_tests() {
   using namespace effects_tests;
   ModuleFixture fixture("effects");
+  HS_RUN(run_case, test_four_stroke_stars_fixed_geometry);
+  HS_RUN(run_case, test_four_stroke_stars_skipped_window);
   run_effect_case_mesh_seam_dark_sample_guards();
   run_effect_case_parameter_lint_failure_guards();
   run_effect_case_parameter_probe_targets();

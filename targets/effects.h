@@ -25,6 +25,7 @@
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
 #include "effects/HyperLattice.h"
+#include "effects/FourStrokeStars.h"
 #include "effects/GnomonicStars.h"
 #include "effects/GSReactionDiffusion.h"
 #include "effects/HankinSolids.h"
@@ -108,7 +109,8 @@
   X(CosmicEyeball)                                                             \
   X(Thrusters)                                                                 \
   X(KaleidoscopeStainedGlass)                                                  \
-  X(Galaxies)
+  X(Galaxies)                                                                  \
+  X(FourStrokeStars)
 
 /// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
 constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
