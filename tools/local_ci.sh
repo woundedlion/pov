@@ -66,16 +66,39 @@ PYTHON_INPUTS='[.]py$|^tools/|^hardware/|^[.]githooks/|^[.]github/|^requirements
 job_lint() { just lint; }
 job_clang_format() { just clang-format; }
 job_license_headers() { python tools/license_check.py; }
+prepare_checkout() {
+  local repo=$1 target revision=$3 owner=$4 admin common root entry registered=0
+  target="$(realpath -m "$2")"
+  common="$(realpath "$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir)")"
+  root="$(realpath "$(git -C "$repo" rev-parse --show-toplevel)")"
+  if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+    git -C "$repo" worktree add --quiet --detach "$target" "$revision" || return 1
+    admin="$(git -C "$target" rev-parse --absolute-git-dir)" || return 1
+    printf '%s\n' "$target" > "$admin/$owner"
+    return
+  fi
+  while IFS= read -r -d '' entry; do
+    if [[ "$entry" == 'worktree '* ]] && [ "$(realpath -m "${entry#worktree }")" = "$target" ]; then
+      registered=1
+    fi
+  done < <(git -C "$repo" worktree list --porcelain -z)
+  if [ "$registered" != 1 ] || [[ "$root/" == "$target/"* ]] ||
+     [ "$target" = "$(dirname "$common")" ] ||
+     ! admin="$(git -C "$target" rev-parse --absolute-git-dir)" ||
+     [ "$(realpath "$(dirname "$admin")")" != "$common/worktrees" ] ||
+     [ ! -f "$admin/gitdir" ] || [ "$(realpath "$(cat "$admin/gitdir")")" != "$target/.git" ] ||
+     [ ! -f "$admin/$owner" ] || [ "$(cat "$admin/$owner")" != "$target" ]; then
+    echo "local_ci: refusing to reuse unowned checkout $target" >&2
+    return 1
+  fi
+  git -C "$target" checkout --quiet --detach --force "$revision"
+}
+
 # CI checks the docs against daydream at the revision build_pins.py pins.
 job_docs_markdown() {
   local daydream="${DAYDREAM_DIR:-../daydream}" target="$PWD/build/local-ci/daydream" pin
   pin="$(python tools/build_pins.py daydream)"
-  if [ -e "$target/.git" ]; then
-    git -C "$target" checkout --quiet --detach --force "$pin"
-  else
-    git -C "$daydream" worktree prune
-    git -C "$daydream" worktree add --quiet --detach "$target" "$pin"
-  fi
+  prepare_checkout "$daydream" "$target" "$pin" hs-local-ci-docs-owner
   bash tools/ci/docs_markdown.sh "$target"
 }
 job_docs_images() { python tools/docs_images.py; }
@@ -276,12 +299,8 @@ run_commits() {
       echo "local_ci: $sha already passed local CI."
       continue
     fi
-    if [ -e "$dir/.git" ]; then
-      git -C "$dir" checkout --quiet --detach --force "$sha"
-      git -C "$dir" clean -ffdq
-    else
-      git worktree add --quiet --detach "$dir" "$sha"
-    fi
+    prepare_checkout "$main" "$dir" "$sha" hs-local-ci-owner
+    git -C "$dir" clean -ffdq
     for env_dir in "$main/.pio/libdeps/"*/; do
       [ -d "$env_dir" ] || continue
       if [ ! -d "$dir/.pio/libdeps/$(basename "$env_dir")" ]; then

@@ -111,6 +111,11 @@ class CommitJobs(unittest.TestCase):
         self.sha = git_run(self.repo, "rev-parse", "HEAD", env=self.env).stdout.strip()
         git_run(self.repo, "worktree", "add", "--quiet", "--detach", str(self.tree),
                 self.sha, env=self.env)
+        admin = Path(git_run(self.tree, "rev-parse", "--absolute-git-dir", env=self.env).stdout.strip())
+        canonical = subprocess.check_output([self.bash, "-c", 'realpath "$1"', "fixture", self.tree.as_posix()],
+                                            text=True).strip()
+        self.owner = admin / "hs-local-ci-owner"
+        self.owner.write_text(canonical + "\n", encoding="utf-8")
         stamp = self.tree / "build/local-ci/package-lock.blob"
         stamp.parent.mkdir(parents=True)
         stamp.write_text(git_run(self.repo, "rev-parse", "HEAD:package-lock.json",
@@ -156,6 +161,21 @@ class CommitJobs(unittest.TestCase):
         self.assertEqual(done.stdout.count("PASS lint"), 2)
         self.assertEqual((self.tree / "build/ran-job").read_text().strip(), tip)
         self.assertFalse(self.passed.exists())
+
+    def test_unowned_checkouts_retain_tracked_and_untracked_files(self):
+        self.owner.unlink()
+        for checkout in (self.tree, self.repo):
+            with self.subTest(checkout=checkout):
+                tracked = checkout / "package-lock.json"
+                untracked = checkout / "untracked"
+                tracked.write_text("local edit")
+                untracked.write_text("local file")
+                self.env["HS_LOCAL_CI_DIR"] = checkout.as_posix()
+                result = self.run_ci(self.sha, "--", "lint")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("refusing to reuse", result.stderr)
+                self.assertEqual(tracked.read_text(), "local edit")
+                self.assertEqual(untracked.read_text(), "local file")
 
     def test_full_runs_still_skip_passed_commits(self):
         self.passed.write_text(self.sha + "\n", encoding="utf-8")
