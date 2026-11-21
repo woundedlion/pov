@@ -1,0 +1,128 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+#pragma once
+
+/** @file four_stroke_contour.h
+ * @brief Marching-squares contour and subpixel membership on a fixed-time output lattice.
+ */
+
+#include "core/render/four_stroke.h"
+
+namespace FourStroke {
+
+/// A three-cell halo shared by all subpoints of one output pixel.
+class ContourTile {
+public:
+  /** @brief Samples the signed field on the output-pixel lattice.
+   * @tparam Field Signed scalar or signed binary occupancy query.
+   * @param field Callable taking integer column and row offsets from the center.
+   *              Nonpositive values are inside. A nonfinite value marks a missing sample. */
+  template <typename Field> void prepare(Field &&field) {
+    for (int y = -3; y <= 3; ++y)
+      for (int x = -3; x <= 3; ++x)
+        values[y + 3][x + 3] = field(x, y);
+  }
+
+  /** @brief Classifies a subpixel against the reconstructed exposed segments.
+   * @tparam Align Normal-to-direction alignment query.
+   * @tparam ValidCell Chart continuity predicate.
+   * @param dx Pixel-relative column coordinate in [-0.5, 0.5].
+   * @param dy Pixel-relative row coordinate in [-0.5, 0.5].
+   * @param align Returns signed alignment for an outward unit normal.
+   * @param valid_cell Accepts the integer origin of cells with valid interpolation.
+   * @return Reconstructed membership and nearest exposed feature in the tile. */
+  template <typename Align, typename ValidCell>
+  Boundary query(float dx, float dy, Align &&align,
+                 ValidCell &&valid_cell) const {
+    Boundary nearest;
+    const int owner_x = static_cast<int>(std::floor(dx));
+    const int owner_y = static_cast<int>(std::floor(dy));
+    for (int y = 0; y < 6; ++y) {
+      for (int x = 0; x < 6; ++x) {
+        if (!valid_cell(x - 3, y - 3))
+          continue;
+        const float field[4] = {values[y][x], values[y][x + 1],
+                                values[y + 1][x + 1], values[y + 1][x]};
+        if (!(std::isfinite(field[0]) && std::isfinite(field[1]) &&
+              std::isfinite(field[2]) && std::isfinite(field[3])))
+          continue;
+        const bool owner = owner_x == x - 3 && owner_y == y - 3;
+        const float px = dx - (x - 3), py = dy - (y - 3);
+        const int mask = (field[0] <= 0) | ((field[1] <= 0) << 1) |
+                         ((field[2] <= 0) << 2) | ((field[3] <= 0) << 3);
+        if (mask == 0 || mask == 15) {
+          if (owner)
+            nearest.inside = mask == 15;
+          continue;
+        }
+
+        constexpr float CX[] = {0, 1, 1, 0}, CY[] = {0, 0, 1, 1};
+        Direction crossing[4];
+        int exits[2], entries[2];
+        int n_exits = 0, n_entries = 0;
+        for (int i = 0; i < 4; ++i) {
+          const int next = (i + 1) % 4;
+          const bool inside = field[i] <= 0;
+          if (inside == (field[next] <= 0))
+            continue;
+          const float t =
+              static_cast<float>(static_cast<double>(field[i]) /
+                                 (static_cast<double>(field[i]) - field[next]));
+          crossing[i] = {CX[i] + t * (CX[next] - CX[i]),
+                         CY[i] + t * (CY[next] - CY[i])};
+          if (inside)
+            exits[n_exits++] = i;
+          else
+            entries[n_entries++] = i;
+        }
+        const bool connected =
+            n_exits == 2 &&
+            static_cast<double>(field[0]) + field[1] + field[2] + field[3] < 0;
+        bool inside = connected;
+        for (int i = 0; i < n_exits; ++i) {
+          const int exit = exits[i];
+          const int entry =
+              n_exits == 1 ? entries[0] : (exit + (connected ? 1 : 3)) % 4;
+          const auto a = crossing[exit], b = crossing[entry];
+          const float vx = b.x - a.x, vy = b.y - a.y;
+          const float rx = px - a.x, ry = py - a.y;
+          const float length_sq = vx * vx + vy * vy;
+          const bool half_plane =
+              length_sq == 0 ? rx == 0 && ry == 0 : rx * vy - ry * vx <= 0;
+          inside = connected ? inside && half_plane : inside || half_plane;
+          if (length_sq == 0)
+            continue;
+          const float t =
+              std::clamp((rx * vx + ry * vy) / length_sq, 0.0f, 1.0f);
+          const float ex = rx - t * vx, ey = ry - t * vy;
+          const float distance = std::sqrt(ex * ex + ey * ey);
+          if (distance <= nearest.depth) {
+            const float length = std::sqrt(length_sq);
+            consider(nearest, distance, align({vy / length, -vx / length}));
+          }
+        }
+        if (owner)
+          nearest.inside = inside;
+      }
+    }
+    return nearest;
+  }
+
+  /** @brief Classifies a subpixel on a continuous chart.
+   * @tparam Align Normal-to-direction alignment query.
+   * @param dx Pixel-relative column coordinate in [-0.5, 0.5].
+   * @param dy Pixel-relative row coordinate in [-0.5, 0.5].
+   * @param align Returns signed alignment for an outward unit normal.
+   * @return Reconstructed membership and nearest exposed feature. */
+  template <typename Align>
+  Boundary query(float dx, float dy, Align &&align) const {
+    return query(dx, dy, align, [](int, int) { return true; });
+  }
+
+private:
+  float values[7][7]; ///< Signed samples centered on the output pixel.
+};
+
+} // namespace FourStroke

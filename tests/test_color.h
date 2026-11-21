@@ -32,6 +32,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include "tests/color/four_stroke.h"
 #include "tests/color/pixel_blend.h"
 #include "tests/color/oklab_gamut.h"
 #include "tests/color/srgb_transfer.h"
@@ -291,6 +292,11 @@ inline int run_color_tests() {
   HS_RUN(test_static_palette_composition);
   HS_RUN(test_palette_wrappers);
   HS_RUN(test_palette_shade_coord_policy);
+  HS_RUN(test_four_stroke_clock);
+  HS_RUN(test_four_stroke_roles);
+  HS_RUN(test_four_stroke_metric);
+  HS_RUN(test_four_stroke_contour);
+  HS_RUN(test_four_stroke_coverage);
   HS_RUN(test_color_modulation_mechanics);
   HS_RUN(test_color_modulation_lift_accuracy);
   HS_RUN(test_color_modulation_hue_rotation_accuracy);

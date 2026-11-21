@@ -1,0 +1,267 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the PolyForm Noncommercial License 1.0.0
+ */
+#pragma once
+
+/** @file four_stroke.h
+ * @brief Four-stroke contour classification, presentation clock and linear-light resolve.
+ */
+
+#include "core/color/pixel.h"
+#include "core/math/rotation_math.h"
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <limits>
+
+namespace FourStroke {
+
+/// Edge contrast as a function of normal alignment.
+enum class Mode { REFERENCE_POLARITY, DIRECTIONAL_CONTRAST };
+
+/// Authored material settings in output-pixel units.
+struct Controls {
+  float heading = 37; ///< Clockwise degrees from increasing column.
+  int width = 1;      ///< Inner band width in pixels, one or two.
+  float strength = 1; ///< Straight linear RGB mix.
+  Mode mode = Mode::DIRECTIONAL_CONTRAST; ///< Angular contrast law.
+};
+
+/// Unit direction in the output-pixel basis.
+struct Direction {
+  float x; ///< Column component.
+  float y; ///< Row component.
+};
+
+/** @brief Prepares a periodic clockwise output heading.
+ * @param degrees Finite heading in degrees.
+ * @return Unit column/row vector. */
+inline Direction heading(float degrees) {
+  const float radians = std::remainder(degrees, 360.0f) * (math::PI_F / 180.0f);
+  return {std::cos(radians), std::sin(radians)};
+}
+
+/** @brief Normalizes a material's output-direction override.
+ * @param x Column component.
+ * @param y Row component.
+ * @param result Receives the normalized direction on success.
+ * @return Whether the input is finite and nonzero. */
+inline bool normalize_direction(float x, float y, Direction &result) {
+  if (!std::isfinite(x) || !std::isfinite(y))
+    return false;
+  const float scale = std::max(std::abs(x), std::abs(y));
+  if (scale == 0)
+    return false;
+  x /= scale;
+  y /= scale;
+  const float length = std::sqrt(x * x + y * y);
+  result = {x / length, y / length};
+  return true;
+}
+
+/** @brief Interpolates clockwise headings along the shortest arc.
+ * @param a Initial degrees.
+ * @param b Final degrees.
+ * @param f Interpolation fraction.
+ * @return Interpolated degrees modulo 360, with a positive half-turn tie. */
+inline float interpolate_heading(float a, float b, float f) {
+  a = std::remainder(a, 360.0f);
+  float turn = std::remainder(std::remainder(b, 360.0f) - a, 360.0f);
+  if (turn == -180)
+    turn = 180;
+  return std::fmod(a + turn * f + 360.0f, 360.0f);
+}
+
+/** @brief Projects an output normal and view-space arrow into the physical tangent metric.
+ * @param p Unit view at the sample.
+ * @param dx View derivative per output column.
+ * @param dy View derivative per output row.
+ * @param arrow Finite authored direction rotated into view space.
+ * @param normal Outward pixel-space gradient.
+ * @return Signed unit alignment, or zero at a degenerate sample. */
+HS_HOT_FLASH_MEMBER inline float
+tangent_alignment(math::Vector p, math::Vector dx, math::Vector dy,
+                  math::Vector arrow, Direction normal) {
+  const float scale =
+      std::max({std::abs(arrow.x), std::abs(arrow.y), std::abs(arrow.z)});
+  if (!(scale > 0) || !std::isfinite(scale))
+    return 0;
+  arrow = {arrow.x / scale, arrow.y / scale, arrow.z / scale};
+  arrow = arrow / arrow.length();
+  const auto tangent = arrow - p * math::dot(p, arrow);
+  const float length = tangent.length();
+  if (!(length > 1e-6f))
+    return 0;
+
+  const auto area = math::cross(dx, dy);
+  const float a = math::dot(dx, dx), b = math::dot(dx, dy),
+              c = math::dot(dy, dy);
+  const float largest = 0.5f * (a + c + std::hypot(a - c, 2 * b));
+  // |dx cross dy| / sigma_max^2 is sigma_min / sigma_max.
+  if (!(area.length() > largest * 1e-6f))
+    return 0;
+  const auto physical =
+      math::cross(dy, area) * normal.x + math::cross(area, dx) * normal.y;
+  const float norm = physical.length();
+  return norm > 0 ? std::clamp(math::dot(physical, tangent) / (length * norm),
+                               -1.0f, 1.0f)
+                  : 0;
+}
+
+/// Nearest exposed feature at a material sample.
+struct Boundary {
+  bool inside = false; ///< Membership at the query.
+  float depth =
+      std::numeric_limits<float>::infinity(); ///< Distance in output pixels.
+  float alignment = 0;                        ///< Signed unit direction cosine.
+};
+
+/// Edge-neutral angular deadband.
+inline constexpr float DEADBAND = 0.05f;
+
+/** @brief Ranks edge polarity for equidistant features.
+ * @param alignment Signed direction cosine.
+ * @return Priority in ascending neutral, trailing, leading order. */
+constexpr int priority(float alignment) {
+  return alignment > DEADBAND ? 2 : alignment < -DEADBAND ? 1 : 0;
+}
+
+/** @brief Accumulates an exposed contour candidate, preserving membership.
+ * @param nearest Current winning feature.
+ * @param depth Candidate distance in output pixels.
+ * @param alignment Candidate signed direction cosine. */
+inline void consider(Boundary &nearest, float depth, float alignment) {
+  if (depth < nearest.depth ||
+      (depth == nearest.depth &&
+       (priority(alignment) > priority(nearest.alignment) ||
+        (priority(alignment) == priority(nearest.alignment) &&
+         std::abs(alignment) > std::abs(nearest.alignment))))) {
+    nearest.depth = depth;
+    nearest.alignment = alignment;
+  }
+}
+
+/** @brief Samples the shared two-arm presentation timeline.
+ * @param t0 Frame start, elapsed microseconds.
+ * @param t1 Frame end, elapsed microseconds, at or after the start.
+ * @param x Wrapped logical output column.
+ * @param width Positive even canvas width.
+ * @param flat Whether all columns sample the frame end.
+ * @return Elapsed microseconds at the column. */
+constexpr uint64_t column_time(uint64_t t0, uint64_t t1, int x, int width,
+                               bool flat) {
+  if (flat)
+    return t1;
+  const uint64_t n = static_cast<unsigned>(width / 2);
+  const uint64_t k = static_cast<unsigned>(x) % n;
+  const uint64_t duration = t1 - t0;
+  return t0 + duration / n * k + duration % n * k / n;
+}
+
+/// A beat's linear-light role colors.
+struct Colors {
+  Pixel fill;     ///< Interior and neutral edges.
+  Pixel leading;  ///< Positive alignment.
+  Pixel trailing; ///< Negative alignment.
+};
+
+/** @brief Decodes a packed sRGB color to linear RGB.
+ * @param hex Packed 0xRRGGBB color.
+ * @return Linear-light pixel. */
+constexpr Pixel linear_rgb(uint32_t hex) {
+  return {srgb_to_linear_lut[(hex >> 16) & 255],
+          srgb_to_linear_lut[(hex >> 8) & 255], srgb_to_linear_lut[hex & 255]};
+}
+
+/// Opaque neutral reference backdrop.
+inline constexpr Pixel GRAY = linear_rgb(0x808080);
+
+/** @brief Looks up the linear-light roles for an exact presentation timestamp.
+ * @param elapsed_us Microseconds since the shared effect epoch.
+ * @return The active beat's palette. */
+inline const Colors &colors(uint64_t elapsed_us) {
+  static constexpr auto BEATS = [] {
+    constexpr uint32_t HUES[] = {0x19c2cc, 0x3b66ff, 0xd938b8, 0xe63939,
+                                 0xf27d16, 0xd9c216, 0x5cd629, 0x14b88a};
+    std::array<Colors, 16> beats{};
+    for (int pair = 0; pair < 4; ++pair) {
+      const Pixel a = linear_rgb(HUES[pair * 2]),
+                  b = linear_rgb(HUES[pair * 2 + 1]);
+      beats[pair * 4] = {a, linear_rgb(0x222222), linear_rgb(0xe6e6e6)};
+      beats[pair * 4 + 1] = {linear_rgb(0x333b42), a, b};
+      beats[pair * 4 + 2] = {b, linear_rgb(0xe6e6e6), linear_rgb(0x222222)};
+      beats[pair * 4 + 3] = {linear_rgb(0xd6d9dc), b, a};
+    }
+    return beats;
+  }();
+  return BEATS[(elapsed_us / 62500) % 16];
+}
+
+/** @brief Applies a four-stroke beat to straight material RGB.
+ * @param input Incoming straight RGB.
+ * @param boundary Membership and nearest outward feature.
+ * @param beat Prepared role colors.
+ * @param controls Authored strength, width and contrast law.
+ * @return Shaded straight RGB. */
+inline Pixel shade(Pixel input, Boundary boundary, const Colors &beat,
+                   const Controls &controls) {
+  if (!boundary.inside || controls.strength == 0)
+    return input;
+  Pixel role = beat.fill;
+  if (boundary.depth < controls.width &&
+      std::abs(boundary.alignment) > DEADBAND) {
+    const Pixel edge = boundary.alignment > 0 ? beat.leading : beat.trailing;
+    const float weight =
+        (std::abs(boundary.alignment) - DEADBAND) / (1 - DEADBAND);
+    role = controls.mode == Mode::REFERENCE_POLARITY
+               ? edge
+               : beat.fill.lerp16(edge, frac_to_q16(weight));
+  }
+  return input.lerp16(role, frac_to_q16(controls.strength));
+}
+
+/// Equal-area subpixel offsets on either output axis.
+inline constexpr float OFFSETS[] = {-0.375f, -0.125f, 0.125f, 0.375f};
+
+/// Coverage-resolved linear color and alpha.
+struct Resolved {
+  Pixel premultiplied; ///< RGB after material alpha and coverage.
+  float alpha;         ///< Mean material alpha over the footprint.
+};
+
+/** @brief Integrates material and coverage at sixteen subpixel centers.
+ * @tparam Sample Straight-alpha material query.
+ * @param sample Callable accepting center-relative column and row offsets.
+ * @return Premultiplied RGB and alpha averaged over the footprint. */
+template <typename Sample> inline Resolved resolve_pixel(Sample &&sample) {
+  float r = 0, g = 0, b = 0, alpha = 0;
+  for (float dy : OFFSETS) {
+    for (float dx : OFFSETS) {
+      const Color4 tap = sample(dx, dy);
+      r += tap.color.r * tap.alpha;
+      g += tap.color.g * tap.alpha;
+      b += tap.color.b * tap.alpha;
+      alpha += tap.alpha;
+    }
+  }
+  return {{round_linear_channel(r / 16), round_linear_channel(g / 16),
+           round_linear_channel(b / 16)},
+          alpha / 16};
+}
+
+/** @brief Resolves premultiplied foreground over opaque linear RGB.
+ * @param foreground Coverage-resolved material.
+ * @param background Opaque backdrop.
+ * @return Composited pixel. */
+inline Pixel over(Resolved foreground, Pixel background) {
+  const float remaining = 1 - foreground.alpha;
+  return {round_linear_channel(foreground.premultiplied.r +
+                               remaining * background.r),
+          round_linear_channel(foreground.premultiplied.g +
+                               remaining * background.g),
+          round_linear_channel(foreground.premultiplied.b +
+                               remaining * background.b)};
+}
+
+} // namespace FourStroke

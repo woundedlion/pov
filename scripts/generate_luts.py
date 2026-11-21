@@ -93,7 +93,7 @@ def render(out, fwd, rev):
     out.write("\n")
     out.write("// sRGB (0-255) -> Linear (0-65535)\n")
     # per_row only shapes the pre-format text; clang-format repacks the rows.
-    emit_array(out, f"inline const uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] HS_PROGMEM_UNIQUE(srgb_to_linear_lut)",
+    emit_array(out, f"inline constexpr uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] HS_PROGMEM_UNIQUE(srgb_to_linear_lut)",
                fwd, 11)
     out.write("\n")
     out.write("#if HS_ENABLE_TEST_ORACLES\n")
