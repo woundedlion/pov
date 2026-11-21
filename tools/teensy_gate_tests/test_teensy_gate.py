@@ -268,6 +268,11 @@ class TestParsers(unittest.TestCase):
             tg.parse_teensy_size(UNPARSEABLE_TEENSY_SIZE)
         self.assertIn("FLASH", str(caught.exception))
 
+    def test_rejects_partial_and_duplicate_component_lists(self):
+        for components in ("code=158788, data:42", "code:158788, CODE:42"):
+            with self.subTest(components=components), self.assertRaisesRegex(tg.TeensySizeFormatError, "FLASH"):
+                tg.parse_teensy_size(f"teensy_size: FLASH: {components} free for files: 8000")
+
     def test_parse_teensy_size_rejects_an_empty_component_blob(self):
         text = ("teensy_size:   FLASH: code:158788   free for files: 1883136\n"
                 "teensy_size:   RAM2:    free for malloc/new: 26368\n")

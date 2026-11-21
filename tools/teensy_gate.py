@@ -109,8 +109,7 @@ def parse_teensy_size(text: str) -> dict[str, RegionSizes]:
     is the region's "free for ..." figure. RAM1's free is the DTCM stack
     headroom; RAM2's free is the OCRAM heap room.
 
-    A region whose component blob yields no `name:bytes` pair raises: summing
-    nothing gives `used` 0, which clears every ceiling and reports PASS.
+    Every comma-separated component must have a unique name and a byte count.
     """
     out: dict[str, RegionSizes] = {}
     for m in _TS_REGION_RE.finditer(text):
@@ -118,11 +117,12 @@ def parse_teensy_size(text: str) -> dict[str, RegionSizes]:
         if region in out:
             raise TeensySizeFormatError(
                 f"region {region.upper()} appears more than once")
-        components = {k.lower(): int(v) for k, v in _TS_PAIR_RE.findall(m.group(2))}
-        if not components:
-            raise TeensySizeFormatError(
-                f"region {region.upper()} reports no component:bytes pairs in "
-                f"{m.group(2)!r}")
+        components = {}
+        for component in m.group(2).split(","):
+            pair = _TS_PAIR_RE.fullmatch(component.strip())
+            if not pair or pair[1].lower() in components:
+                raise TeensySizeFormatError(f"region {region.upper()} reports invalid component {component!r}")
+            components[pair[1].lower()] = int(pair[2])
         out[region] = {"used": sum(components.values()), "free": int(m.group(3)),
                        "components": components}
     return out
