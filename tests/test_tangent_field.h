@@ -664,16 +664,20 @@ inline void test_potential_velocity_reads_prepared_term_edits() {
   std::array<TF::PotentialTerm, 4> terms{};
   terms[0] = {TF::TermType::MODE, TF::Kind::POLOIDAL, 3, 1, 0.8f, 0.4f};
   TF::PotentialField edited;
-  edited.terms[0] = TF::prepare_term(terms[0]);
+  edited.set_term(0, TF::prepare_term(terms[0]));
   const TF::PotentialField expected_poloidal(terms);
+  HS_EXPECT_EQ(edited.speed_bound(), expected_poloidal.speed_bound());
+  HS_EXPECT_EQ(edited.lipschitz_bound(), expected_poloidal.lipschitz_bound());
   for (int index = 0; index < 64; ++index) {
     const auto point = direction(index, 64);
     HS_EXPECT_TRUE(vec_identical(edited.velocity(point),
                                  expected_poloidal.velocity(point)));
   }
-  edited.terms[0].term.kind = TF::Kind::TOROIDAL;
   terms[0].kind = TF::Kind::TOROIDAL;
+  edited.set_term(0, TF::prepare_term(terms[0]));
   const TF::PotentialField expected_toroidal(terms);
+  HS_EXPECT_EQ(edited.speed_bound(), expected_toroidal.speed_bound());
+  HS_EXPECT_EQ(edited.lipschitz_bound(), expected_toroidal.lipschitz_bound());
   for (int index = 0; index < 64; ++index) {
     const auto point = direction(index, 64);
     HS_EXPECT_TRUE(vec_identical(edited.velocity(point),

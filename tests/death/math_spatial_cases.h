@@ -7,6 +7,7 @@
 /** @file
  * @brief Death cases for math and spatial guards. */
 
+#include "core/math/tangent_field.h"
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
@@ -19,6 +20,18 @@ inline void case_harmonic_derivative_invalid_degree() {
 /** @brief Harmonic gradients reject unsupported degrees. */
 inline void case_harmonic_gradient_invalid_degree() {
   (void)SHMath::spherical_harmonic_gradient(opaque(9), 0, math::Y_AXIS, 1.0f);
+}
+
+/** @brief Reading a prepared term rejects an out-of-range index. */
+inline void case_tangent_field_term_read_index() {
+  const math::tangent_field::PotentialField field{};
+  (void)field.term(opaque<size_t>(4));
+}
+
+/** @brief Replacing a prepared term rejects an out-of-range index. */
+inline void case_tangent_field_term_replace_index() {
+  math::tangent_field::PotentialField field{};
+  field.set_term(opaque<size_t>(4), {});
 }
 
 /** @brief Tangent-field preparation rejects unsupported modes. */

@@ -90,8 +90,8 @@ inline void test_tangent_integer_controls() {
   const auto &params = *reinterpret_cast<const In::Op::RossbyHaurwitzParams *>(
       program.param_block(1));
   const auto field = In::Op::DisplaceRossbyHaurwitz::field(params, 0.0f);
-  HS_EXPECT_EQ(field.terms[1].term.l, 8);
-  HS_EXPECT_EQ(field.terms[1].term.m, 7);
+  HS_EXPECT_EQ(field.term(1).term.l, 8);
+  HS_EXPECT_EQ(field.term(1).term.m, 7);
 }
 
 struct RotationTestField {

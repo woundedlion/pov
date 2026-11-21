@@ -259,8 +259,6 @@ inline PreparedTerm prepare_term(const PotentialTerm &term,
 /** @brief Sum of at most four normalized polynomial tangent terms. */
 class PotentialField {
 public:
-  std::array<PreparedTerm, 4> terms{}; ///< Cached scalar terms.
-
   /** @brief Prepares terms, a shared drift phase and a local-to-world rotation.
    * @param authored Authored scalar terms.
    * @param drift_phase Accumulated azimuthal phase in radians.
@@ -272,13 +270,28 @@ public:
       : orientation(orientation),
         oriented(orientation.r != 1.0f ||
                  dot(orientation.v, orientation.v) != 0.0f) {
-    for (size_t i = 0; i < terms.size(); ++i) {
+    for (size_t i = 0; i < terms.size(); ++i)
       terms[i] = prepare_term(authored[i], drift_phase);
-      if (terms[i].scale == 0.0f)
-        continue;
-      bound += fabsf(authored[i].amplitude);
-      derivative_bound += terms[i].lipschitz;
-    }
+    update_bounds();
+  }
+
+  /** @brief Reads a prepared scalar term.
+   * @param index Term index.
+   * @return Prepared term at index. */
+  const PreparedTerm &term(size_t index) const {
+    HS_CHECK(index < terms.size(),
+             "tangent field term read index out of range");
+    return terms[index];
+  }
+
+  /** @brief Replaces one term and updates the cached field bounds.
+   * @param index Term index.
+   * @param replacement Prepared scalar term. */
+  void set_term(size_t index, const PreparedTerm &replacement) {
+    HS_CHECK(index < terms.size(),
+             "tangent field term replacement index out of range");
+    terms[index] = replacement;
+    update_bounds();
   }
 
   /** @brief Evaluates the assembled tangent velocity.
@@ -312,7 +325,19 @@ public:
   float lipschitz_bound() const { return derivative_bound; }
 
 private:
-  Quaternion orientation;        ///< Local-to-world rotation.
+  void update_bounds() {
+    bound = 0.0f;
+    derivative_bound = 0.0f;
+    for (const auto &prepared : terms) {
+      if (prepared.scale == 0.0f)
+        continue;
+      bound += fabsf(prepared.term.amplitude);
+      derivative_bound += prepared.lipschitz;
+    }
+  }
+
+  std::array<PreparedTerm, 4> terms{}; ///< Cached scalar terms.
+  Quaternion orientation;              ///< Local-to-world rotation.
   bool oriented;                 ///< Whether the orientation is nonidentity.
   float bound = 0.0f;            ///< Uniform speed bound.
   float derivative_bound = 0.0f; ///< Uniform derivative bound.
