@@ -116,12 +116,12 @@ run_hashes() {
 tools_dir="$(dirname "$(realpath "${BASH_SOURCE[0]//\\//}")")"
 scratch="$(mktemp -d)"
 lock="$dir.lock"
-token="${scratch##*/}"
 locked=0
 
 release_base() {
   if [ "$locked" = 1 ]; then
-    "$python" "$tools_dir/device_lock_guard.py" break "$lock" "$token" || return
+    printf 'x' >&"$guard_input"
+    wait "$guard_pid"
     locked=0
   fi
 }
@@ -136,15 +136,15 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 claim_base() {
-  local status=0
-  printf 'token=%s\n' "$token" |
-    "$python" "$tools_dir/device_lock_guard.py" claim "$lock" || status=$?
-  if [ "$status" = 0 ]; then
-    locked=1
-  elif [ "$status" = 1 ]; then
-    echo "render_diff: base checkout is in use ($lock)" >&2
+  local ready
+  coproc RENDER_GUARD { exec "$python" "$tools_dir/device_lock_guard.py" try-hold "$lock"; }
+  local guard_output=${RENDER_GUARD[0]-}
+  if [ -z "$guard_output" ] || ! read -r ready <&"$guard_output" || [ "$ready" != locked ]; then
+    echo "render_diff: could not acquire base checkout lock ($lock)" >&2
+    return 1
   fi
-  return "$status"
+  guard_input=${RENDER_GUARD[1]} guard_pid=$RENDER_GUARD_PID
+  locked=1
 }
 
 # shellcheck source=tools/find_python.sh

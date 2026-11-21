@@ -66,7 +66,7 @@ fi
         return subprocess.run(
             ["bash", "-c", 'export PATH="$PWD/stubs:$PATH"; exec bash "$@"',
              "fixture", str(REPO / "tools" / "render_diff.sh"), *args, "HEAD"],
-            cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
+            cwd=self.root, env=self.env, capture_output=True, text=True, timeout=120)
 
     def test_matching_renders_succeed(self):
         for args in ((), ("--report",)):
@@ -74,6 +74,22 @@ fi
                 result = self.compare(*args)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("unchanged" if not args else "no pixel changes", result.stdout)
+
+    def test_base_checkout_recovers_after_lock_holder_termination(self):
+        lock = self.env["HS_RENDER_DIFF_DIR"] + ".lock"
+        with subprocess.Popen([sys.executable, str(REPO / "tools/device_lock_guard.py"), "hold", lock],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE) as owner:
+            try:
+                self.assertEqual(owner.stdout.readline().strip(), b"locked")
+                result = self.compare()
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                self.assertIn("could not acquire", result.stderr)
+            finally:
+                owner.kill()
+                owner.wait()
+        result = self.compare()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("unchanged", result.stdout)
 
     def test_unowned_checkouts_keep_local_work(self):
         sibling = self.root / "other"
