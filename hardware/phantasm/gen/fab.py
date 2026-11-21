@@ -387,8 +387,6 @@ class FabContentError(ValueError):
     """An exported fab artifact does not carry what the board holds."""
 
 
-#: The bottom stencil is empty because JLC reflows only top-side SMD.
-EMPTY_GERBER_MEMBERS = {"phantasm-B_Paste.gbp"}
 #: The two Excellon exports, keyed to the hole kind each one drills.
 DRILL_MEMBERS = {"phantasm-PTH.drl": "plated", "phantasm-NPTH.drl": "unplated"}
 
@@ -489,7 +487,7 @@ def validate_fab_content(directory, board):
                     f"{name}: drills {drilled} holes, the board carries "
                     f"{holes[kind]} {kind}")
             continue
-        if name in EMPTY_GERBER_MEMBERS:
+        if extension == ".gbp":  # Top-side assembly leaves the bottom stencil empty.
             continue
         text = read_export(path)
         if not GERBER_APERTURE.search(text):

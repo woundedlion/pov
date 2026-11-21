@@ -545,7 +545,7 @@ class FabContentTests(unittest.TestCase):
                 payloads[name] = self.JOB
             elif extension == ".drl":
                 payloads[name] = self.drill(holes[fab.DRILL_MEMBERS[name]])
-            elif name in fab.EMPTY_GERBER_MEMBERS:
+            elif name.endswith(".gbp"):
                 payloads[name] = self.APERTURELESS
             else:
                 payloads[name] = self.GERBER
@@ -619,8 +619,10 @@ class FabContentTests(unittest.TestCase):
             self.validate({"phantasm-In1_Cu.g1": self.UNDRAWN})
 
     def test_allows_only_the_bottom_stencil_to_be_empty(self):
-        self.assertEqual(fab.EMPTY_GERBER_MEMBERS, {"phantasm-B_Paste.gbp"})
-        self.assertLess(fab.EMPTY_GERBER_MEMBERS, fab.ZIP_MEMBERS)
+        self.assertEqual(self.validate({"phantasm-BottomStencil.gbp": self.APERTURELESS}),
+                         {"plated": 2, "unplated": 1})
+        with self.assertRaisesRegex(fab.FabContentError, "defines no apertures"):
+            self.validate({"phantasm-TopStencil.gtp": self.APERTURELESS})
 
     def test_rejects_a_drill_file_short_a_hole(self):
         with self.assertRaisesRegex(
