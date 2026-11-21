@@ -41,6 +41,19 @@ class MainTests(unittest.TestCase):
             for field, expected in DEFAULT_CLASS_MINIMUMS.items():
                 self.assertEqual(default[field], expected)
 
+    def test_overflowed_project_limits_are_repaired(self):
+        text = self.ZEROED.replace('"min_clearance": 0', '"min_clearance": 1e999').replace(
+            '"name": "Default"', '"name": "Default", "via_diameter": 1e999')
+        with tempfile.TemporaryDirectory() as directory:
+            project = self.write_project(Path(directory) / "1.2", text)
+            with mock.patch.object(heal_clearance, "OUT", directory):
+                self.assertEqual(heal_clearance.main([]), 0)
+            data = json.loads(project.read_text(encoding="utf-8"))
+            self.assertEqual(data["board"]["design_settings"]["rules"]["min_clearance"],
+                             RULE_MINIMUMS["min_clearance"])
+            self.assertEqual(data["net_settings"]["classes"][0]["via_diameter"],
+                             DEFAULT_CLASS_MINIMUMS["via_diameter"])
+
     def test_missing_projects_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             with mock.patch.object(heal_clearance, "OUT", temp_dir):

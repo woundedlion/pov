@@ -1,5 +1,6 @@
 """Shared PHANTASM fabrication constraints (millimeters) and assembly policy."""
 from dataclasses import dataclass, replace
+import math
 import os
 
 from revision_policy import DEFAULT_REVISION, GENERATION_REVISIONS
@@ -95,6 +96,10 @@ EXCLUDE_FP_SUBSTR = ("TerminalBlock", "PinHeader", "SolderJumper", "CP_Radial")
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
 
 
+def meets_floor(value, minimum):
+    return (type(value) is int or isinstance(value, float) and math.isfinite(value)) and value >= minimum
+
+
 def rule_checks(d, rule_minimums, class_minimums):
     """Every fabrication floor and severity checked on project document d.
 
@@ -106,7 +111,7 @@ def rule_checks(d, rule_minimums, class_minimums):
     checks = {}
     for field, minimum in {**rule_minimums, **NEW_LAYOUT_RULES}.items():
         current = rules.get(field, 0) or 0
-        met = isinstance(current, (int, float)) and not isinstance(current, bool) and current >= minimum
+        met = meets_floor(current, minimum)
         checks[field] = (current, minimum, met)
 
     severity = d.get("board", {}).get("design_settings", {}).get(
@@ -120,7 +125,7 @@ def rule_checks(d, rule_minimums, class_minimums):
         raise ValueError("missing Default net class")
     for field, minimum in class_minimums.items():
         current = default.get(field, 0) or 0
-        met = isinstance(current, (int, float)) and not isinstance(current, bool) and current >= minimum
+        met = meets_floor(current, minimum)
         checks[f"Default.{field}"] = (current, minimum, met)
     return checks
 
