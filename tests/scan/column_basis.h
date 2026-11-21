@@ -1001,6 +1001,10 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
     previous[s] = math::rotate(
         current[s], math::make_rotation(
                         math::Vector(0.6f, -0.2f, 0.77f).normalized(), turn));
+    if (turn == math::PI_F) {
+      previous[s] = math::Y_AXIS;
+      current[s] = -math::Y_AXIS;
+    }
     ++s;
   }
   const auto draw = [&](const math::Vector *axes, const math::Vector *before) {
@@ -1026,6 +1030,13 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
                                       math::RADIANS_PER_COLUMN<W>) ==
                        Spacetime::Interpolant::ARC;
       arcs += arc && u == 0.0f;
+      if (math::dot(normal, normal) == 0.0f && arc) {
+        const auto half_turn = math::make_rotation(previous[s], current[s]);
+        axes[s] = math::rotate(
+            previous[s],
+            math::make_rotation(half_turn.v.normalized(), u * angle));
+        continue;
+      }
       axes[s] =
           arc ? math::rotate(previous[s], math::make_rotation(
                                               normal.normalized(), u * angle))
@@ -1067,6 +1078,7 @@ inline void test_normalized_chord_error_bounds_the_turn() {
  */
 inline void test_ring_group_previous_axes_match_column_rings() {
   check_ring_group_previous_axes<96, 48>({0.25f, 0.35f, 0.45f});
+  check_ring_group_previous_axes<96, 48>({0.02f, 0.35f, math::PI_F});
   check_ring_group_previous_axes<288, 144>({0.02f, 0.2f, 1.2f});
 }
 

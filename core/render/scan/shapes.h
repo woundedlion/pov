@@ -609,11 +609,14 @@ struct RingGroup {
       const math::Vector normal = math::cross(start, end);
       const float sine = sqrtf(math::dot(normal, normal));
       const float angle = atan2f(sine, math::dot(start, end));
-      if (!(sine > 0.0f) ||
-          Spacetime::choose_turn_interpolant(angle, TOLERANCE) !=
-              Spacetime::Interpolant::ARC)
+      if (Spacetime::choose_turn_interpolant(angle, TOLERANCE) !=
+          Spacetime::Interpolant::ARC)
         continue;
-      const math::Vector tangent = math::cross(normal, start) * (1.0f / sine);
+      const math::Vector axis =
+          sine > 0.0f ? normal * (1.0f / sine)
+                      : math::cross(math::least_parallel_axis(start), start)
+                            .normalized();
+      const math::Vector tangent = math::cross(axis, start);
       // Double precision keeps the recurrence's drift over the half-turn of
       // columns far below the stroke's coverage slope.
       const double step = static_cast<double>(angle) / (W / 2);
