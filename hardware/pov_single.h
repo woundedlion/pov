@@ -129,6 +129,10 @@ private:
                  FASTLED_SHOW_US * (effect->strobe_columns() ? 2UL : 1UL),
              "FastLED transfer outlasts the column period");
 #endif
+    display_window.store(0, std::memory_order_relaxed);
+    previous_open = 0;
+    extended_open = 0;
+    effect->set_buffer_ready_hook(update_presentation);
     HS_CHECK(timer.begin(show_col, interval_us),
              "column IntervalTimer failed to start (no PIT channel)");
 #if defined(USE_DMA_LEDS)
@@ -152,6 +156,7 @@ private:
       }
     }
     timer.end();
+    effect->set_buffer_ready_hook(nullptr);
 #if defined(USE_DMA_LEDS)
     auto &frame = led_controller.back_frame();
     for (int led = 0; led < S; ++led)
@@ -199,13 +204,29 @@ private:
             FastLED.showColor(CRGB(0, 0, 0));
 #endif
         },
-        [&] { effect->advance_display(); });
+        [&] {
+          display_window.fetch_add(1, std::memory_order_relaxed);
+          effect->advance_display();
+        });
   }
 
 #ifndef USE_DMA_LEDS
   static CRGB
       leds[S]; /**< Array holding the CRGB data for the physical LED strip. */
 #endif
+  inline static std::atomic<uint32_t> display_window{0};
+  inline static uint32_t previous_open = 0;
+  inline static uint64_t extended_open = 0;
+
+  static void update_presentation(Effect &ready) {
+    const uint32_t open = display_window.load(std::memory_order_relaxed);
+    extended_open += static_cast<uint32_t>(open - previous_open);
+    previous_open = open;
+    const uint64_t target = extended_open + 1;
+    ready.set_presentation_interval(
+        {target * 30000000ULL / RPM, (target + 1) * 30000000ULL / RPM});
+  }
+
   static Effect *effect; /**< Currently running effect; the ISR only reads it.
                               Written only while the column timer is detached. */
   static int x; /**< Current column index being displayed (virtual position).

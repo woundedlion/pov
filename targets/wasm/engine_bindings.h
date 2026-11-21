@@ -380,6 +380,20 @@ public:
     return ClipSetResult::APPLIED;
   }
 
+  /** @brief Sets the effect-relative presentation interval for subsequent draws.
+   * @param t0 Start time in integer microseconds.
+   * @param t1 End time in integer microseconds.
+   * @return Whether a live effect accepted the interval. */
+  bool setPresentationInterval(double t0, double t1) {
+    constexpr double MAX_EXACT_INTEGER = 9007199254740991.0;
+    if (!current_effect || !(t0 >= 0 && t0 <= t1 && t1 <= MAX_EXACT_INTEGER) ||
+        std::floor(t0) != t0 || std::floor(t1) != t1)
+      return false;
+    current_effect->set_presentation_interval(
+        {static_cast<uint64_t>(t0), static_cast<uint64_t>(t1)});
+    return true;
+  }
+
   /**
    * @brief Renders one frame of the current effect into the JS-facing buffer.
    * @details Copies the effect's canvas into pixel_buffer as 16-bit linear RGB
@@ -1198,6 +1212,8 @@ static void bind_engine() {
       .function("getDisplayNorthPhi", &HolosphereEngine::getDisplayNorthPhi)
       .function("getDisplaySouthPhi", &HolosphereEngine::getDisplaySouthPhi)
       .function("setEffect", &HolosphereEngine::setEffect)
+      .function("setPresentationInterval",
+                &HolosphereEngine::setPresentationInterval)
       .function("drawFrame", &HolosphereEngine::drawFrame)
       .function("getPixels", &HolosphereEngine::getPixels)
       .function("getBufferLength", &HolosphereEngine::getBufferLength)

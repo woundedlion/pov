@@ -25,6 +25,12 @@
  * @brief EffectConfig, the Effect base class, and the Canvas pixel buffer.
  */
 
+/** @brief Presentation timestamps relative to the effect epoch, in microseconds. */
+struct PresentationInterval {
+  uint64_t t0 = 0; ///< Start of the sweep.
+  uint64_t t1 = 0; ///< End of the sweep or flat-preview timestamp.
+};
+
 class Canvas;
 namespace Scan {
 struct ColumnBasis;
@@ -101,6 +107,7 @@ public:
         "Effect: a second Effect was constructed while one is still alive; "
         "buffer_a/buffer_b are shared static storage (one live Effect only)");
     s_alive = true;
+    presentation = {};
     clear_buffers();
     clip_region.w = W;
     clip_region.h = H;
@@ -131,6 +138,12 @@ public:
    * frame of graphics data.
    */
   virtual void draw_frame() = 0;
+
+  /** @brief Sets this draw's effect-relative presentation timestamps.
+   * @param interval Start and end of the target display sweep. */
+  void set_presentation_interval(PresentationInterval interval) {
+    presentation = interval;
+  }
 
   /**
    * @brief POV-display strobe control: whether each LED column is blanked to
@@ -455,6 +468,7 @@ private:
   Pixel *bufs[2]; /**< Pointers to the two buffer storage locations. */
   // True while an Effect is live; enforces the single-live-Effect precondition.
   static bool s_alive;
+  inline static PresentationInterval presentation{};
   BufferReadyHook buffer_ready_hook = nullptr;
   BufferCompleteHook buffer_complete_hook = nullptr;
   uint32_t frame_number = 0; /**< Number of canvases opened for this effect. */
@@ -507,6 +521,12 @@ public:
   /** @brief Identifier of this effect's current frame.
    * @return Number of canvases opened, wrapping at the uint32_t limit. */
   uint32_t frame_number() const { return effect.frame_number; }
+
+  /** @brief Presentation interval supplied by the display or playback driver.
+   * @return Effect-relative integer microseconds. */
+  PresentationInterval presentation_interval() const {
+    return effect.presentation;
+  }
 
   /** @brief Display frame targeted by this draw.
    * @return One-based display frame, or zero for an unscheduled draw. */
