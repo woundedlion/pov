@@ -260,9 +260,26 @@ private:
     a.x = b.x + math::centered_remainder(a.x - b.x, float(W));
     if (a.x == b.x && a.y == b.y && math::dot(offset, offset) == 0.0f) {
       Color4 c;
-      if constexpr (TIMED_SHADE)
+      if constexpr (TIMED_SHADE) {
+        const int left = static_cast<int>(floorf(b.x));
+        if (b.x != float(left) && (left + 1) % (W / 2) == 0) {
+          using Splat = Filter::Screen::AntiAlias<W, H>;
+          auto pass = [&](float x, float y, const Pixel &color, float age,
+                          float alpha) HS_HOT_INLINE {
+            sink.plot(canvas, static_cast<int>(x), static_cast<int>(y), color,
+                      age, alpha);
+          };
+          for (int tap = left; tap <= left + 1; ++tap) {
+            const int column = math::fast_wrap(tap, W);
+            const Color4 own =
+                shade(Spacetime::SamplingSurface<W>::time(column));
+            Splat::column_taps(b.x, b.y, own.color, 0.0f, own.alpha, column,
+                               pass);
+          }
+          return;
+        }
         c = shade(Spacetime::SamplingSurface<W>::time(b.x));
-      else
+      } else
         c = shade();
       sink.plot(canvas, b.x, b.y, c.color, 0.0f, c.alpha);
       return;

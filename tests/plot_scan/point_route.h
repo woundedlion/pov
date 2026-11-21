@@ -513,6 +513,14 @@ inline void test_point_route_shades_at_pass_time() {
   Filter::Screen::DirectAntiAliasSink<W, H> sink;
   sink.prepare(canvas);
   Plot::PointRoute<W, H> route;
+  const auto stationary =
+      math::pixel_to_vector<W, H>(W / 2 - 0.5f, static_cast<float>(H / 2));
+  route.prepare(canvas, 0.0f);
+  route.plot(
+      sink, canvas, stationary, [&] { return stationary; },
+      [](float t) { return Color4(Pixel(t > 0.5f ? 65535 : 0, 0, 0), 1.0f); });
+  HS_EXPECT_GT(canvas(W / 2 - 1, H / 2).r, 0);
+  HS_EXPECT_EQ(canvas(W / 2, H / 2).r, 0);
   hs::Pcg32 state(11u);
   int passes = 0;
   for (int i = 0; i < 500; ++i) {
