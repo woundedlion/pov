@@ -341,6 +341,37 @@ class BackfillSafety(unittest.TestCase):
                     self.assertEqual(tst.head_position(root), restore)
                     self.assertFalse(any(call.args[0][0] == "pio" for call in run.call_args_list))
 
+    def test_historical_build_output_survives_branch_restoration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with git_fixture(root):
+                tst._git(["init", "--quiet"])
+                (root / "platformio.ini").write_text("[env:holosphere]\n")
+                (root / ".gitignore").write_text("generated.txt\n")
+                tst._git(["add", "--", ".gitignore", "platformio.ini"])
+                tst._git(["commit", "-m", "ignore generated output"])
+                artifact = root / "generated.txt"
+                artifact.write_text("tracked")
+                tst._git(["add", "-f", "--", "generated.txt"])
+                tst._git(["commit", "-m", "track generated output"])
+                args = types.SimpleNamespace(worktree=root, trail=root / "trail.tsv",
+                                             env=["holosphere"], build_dir=root / "build",
+                                             rev_range="HEAD~1")
+                run = subprocess.run
+
+                def build(cmd, **kwargs):
+                    if cmd[0] == "pio":
+                        artifact.write_text("historical output")
+                        return subprocess.CompletedProcess(cmd, 1)
+                    return run(cmd, **kwargs)
+
+                with mock.patch.object(tst.subprocess, "run", side_effect=build):
+                    with contextlib.redirect_stderr(io.StringIO()) as errors:
+                        self.assertEqual(tst.cmd_backfill(args), 1)
+                self.assertIn("restore failed", errors.getvalue())
+                self.assertEqual(artifact.read_text(), "historical output")
+                self.assertEqual(tst.head_position(root)[0], "--detach")
+
     def test_tracked_changes_left_by_a_build_stop_the_backfill(self):
         for rev_range in ("HEAD", "HEAD~1..HEAD"):
             with self.subTest(rev_range=rev_range), tempfile.TemporaryDirectory() as directory:

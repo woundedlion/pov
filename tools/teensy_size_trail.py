@@ -665,7 +665,7 @@ def cmd_backfill(args) -> int:
                 break
     finally:
         try:
-            _git(["checkout", *restore], worktree)
+            _git(["checkout", "--no-overwrite-ignore", *restore], worktree)
         except GitError as exc:
             print(f"[size-trail] {worktree} left detached - "
                   f"restore failed ({exc})", file=sys.stderr)
