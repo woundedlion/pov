@@ -158,4 +158,101 @@ inline void test_four_stroke_star_contour_error() {
   HS_EXPECT_GE(projected, 2);
   HS_EXPECT_TRUE(worst < 0.025f);
 }
+/** @brief Retained contours shade only covered star taps and invalidate on a pole-crossing outline. */
+inline void test_four_stroke_prepared_star() {
+  constexpr int W = 96, H = 20;
+  Scan::ProjectedStar<W, H> outline;
+  const auto equator_basis = math::make_basis(math::Quaternion{}, math::X_AXIS);
+  const auto pole_basis = math::make_basis(math::Quaternion{}, math::Y_AXIS);
+  const SDF::Star star(equator_basis, 0.31f, 5, 0.37f);
+  const SDF::Star pole(pole_basis, 0.31f, 5, 0.37f);
+  int calls = 0;
+  const auto base = [&](const auto &, Fragment &f) {
+    ++calls;
+    f.color = Color4(243, 173, 95, 0.7f);
+  };
+  const Scan::FourStrokeMaterial material{{}, base};
+  const auto draw = [&](const SDF::Star &shape, bool cached) {
+    return render_stub_frame<W, H>(
+        [](auto &) {},
+        [&](auto &sink, Canvas &canvas) {
+          if (cached)
+            Scan::Star::draw<W, H>(sink, canvas, shape, outline, material);
+          else
+            Scan::rasterize<W, H>(sink, canvas, shape, material);
+        });
+  };
+  for (const auto *shape : {&star, &pole}) {
+    const bool expected = shape == &star;
+    HS_EXPECT_EQ(outline.prepare(*shape), expected);
+    HS_EXPECT_EQ(outline.ready(), expected);
+    calls = 0;
+    const auto cached = draw(*shape, true);
+    const int cached_calls = calls;
+    HS_EXPECT_TRUE(cached_calls > 0 && cached_calls < W * H * 16 / 4);
+    if (expected)
+      HS_EXPECT_TRUE(cached_calls <
+                     16 * (outline.end_column() - outline.begin_column()) *
+                         (outline.end_row() - outline.begin_row()));
+    calls = 0;
+    const auto fresh = draw(*shape, false);
+    HS_EXPECT_EQ(cached_calls, calls);
+    for (size_t i = 0; i < fresh.size(); ++i) {
+      HS_EXPECT_EQ(fresh[i].r, cached[i].r);
+      HS_EXPECT_EQ(fresh[i].g, cached[i].g);
+      HS_EXPECT_EQ(fresh[i].b, cached[i].b);
+    }
+  }
+}
+/** @brief Counts SDF probes in the sampled fallback. */
+struct CountedStrokeStar : SDF::Star {
+  using SDF::Star::Star;
+  mutable int probes = 0;
+  template <bool UV>
+  void distance(const math::Vector &at, SDF::DistanceResult &hit) const {
+    if constexpr (!UV)
+      ++probes;
+    SDF::Star::distance<UV>(at, hit);
+  }
+};
+/** @brief Same field with conservative bounds covering the entire frame. */
+struct UnboundedStrokeStar : CountedStrokeStar {
+  using CountedStrokeStar::CountedStrokeStar;
+  void swept(float) const = delete;
+  template <int H> auto get_vertical_bounds() const {
+    auto bounds = SDF::Star::get_vertical_bounds<H>();
+    bounds.y_min = 0;
+    bounds.y_max = H - 1;
+    return bounds;
+  }
+};
+/** @brief The sampled scan preserves pole and seam coverage with fewer field probes. */
+inline void test_four_stroke_sampled_bounds() {
+  constexpr int W = 96, H = 20;
+  auto base = [](const auto &, Fragment &f) {
+    f.color = Color4(241, 173, 95, 0.8f);
+  };
+  const Scan::FourStrokeMaterial material{{}, base};
+  const auto draw = [&](const auto &shape) {
+    return render_stub_frame<W, H>([](auto &) {},
+                                   [&](auto &sink, Canvas &canvas) {
+                                     Scan::rasterize<W, H>(sink, canvas, shape,
+                                                           material);
+                                   });
+  };
+  for (const auto axis : {math::X_AXIS, math::Y_AXIS}) {
+    const auto basis = math::make_basis(math::Quaternion{}, axis);
+    CountedStrokeStar bounded(basis, 0.31f, 5, 0.37f);
+    UnboundedStrokeStar brute(basis, 0.31f, 5, 0.37f);
+    const auto expected = draw(brute), actual = draw(bounded);
+    std::printf("  sampled star probes %d bounded / %d full\n", bounded.probes,
+                brute.probes);
+    HS_EXPECT_TRUE(bounded.probes > 0 && bounded.probes < brute.probes);
+    for (size_t i = 0; i < actual.size(); ++i) {
+      HS_EXPECT_EQ(expected[i].r, actual[i].r);
+      HS_EXPECT_EQ(expected[i].g, actual[i].g);
+      HS_EXPECT_EQ(expected[i].b, actual[i].b);
+    }
+  }
+}
 } // namespace hs_test::scan_tests

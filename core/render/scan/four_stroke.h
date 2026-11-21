@@ -209,53 +209,72 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
       }
     }
   }
-  math::Vector axis{};
-  float cap_radius = 0;
-  bool bounded = false;
-  if constexpr (requires { shape.bounding_cap(axis, cap_radius); })
-    bounded = shape.bounding_cap(axis, cap_radius);
+  const auto &clip = source_clip<W, H>(pipeline, canvas);
+  const auto pieces = window_pieces<W>(clip.x_clip(), canvas.time_window());
   const float halo =
       2 * math::PI_F / W + math::DisplayGeometry<H>::RADIANS_PER_ROW;
-  const float min_dot =
-      std::cos(std::min(math::PI_F, cap_radius + halo + 0.001f));
-  const auto &clip = source_clip<W, H>(pipeline, canvas);
-  walk_window_columns<W>(clip.x_clip(), canvas.time_window(), [&](int x) {
+  const auto *basis = canvas.column_basis();
+  const bool moving = basis && basis->azimuth && !Spacetime::flat_surface();
+  const float padding =
+      halo + (moving ? basis->sweep_arc + basis->drift.length() : 0.f);
+  const int birth_column =
+      basis && basis->birth > 0.f
+          ? Spacetime::SamplingSurface<W>::first_column_at(basis->birth)
+          : 0;
+  const auto sample_pixel = [&](int x, int y, const math::Vector &, int) {
+    if (x % (W / 2) < birth_column)
+      return 1;
     select_column(x);
-    const uint64_t time =
+    const auto time =
         FourStroke::column_time(t0, t1, x, W, Spacetime::flat_surface());
     const auto &beat = FourStroke::colors(time);
-    for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
-      if (bounded && math::dot(view(x, y, time), axis) < min_dot)
-        continue;
-      float center[3][3];
-      bool covered = false;
-      for (int dy = -1; dy <= 1; ++dy)
-        for (int dx = -1; dx <= 1; ++dx) {
-          const float f = field(math::wrap(x + dx, W), y + dy, time);
-          center[dy + 1][dx + 1] = f;
-          covered |= f <= 0;
-        }
-      if (!covered)
-        continue;
-      FourStroke::ContourTile tile;
-      bool solid = true;
-      tile.prepare([&](int dx, int dy) {
-        const float f = std::abs(dx) <= 1 && std::abs(dy) <= 1
-                            ? center[dy + 1][dx + 1]
-                            : field(math::wrap(x + dx, W), y + dy, time);
-        solid &= f <= 0;
-        return f;
-      });
-      const auto query = [&](float dx, float dy, auto align) {
-        if (solid)
-          return FourStroke::Boundary{true, INFINITY, 0};
-        return tile.query(dx, dy, align);
-      };
-      emit(x, y,
-           four_stroke_pixel(x, y, time, beat, controls, query, alignment,
-                             shade, boundary_shader));
+    float center[3][3];
+    bool covered = false;
+    for (int dy = -1; dy <= 1; ++dy)
+      for (int dx = -1; dx <= 1; ++dx) {
+        const float f = field(math::wrap(x + dx, W), y + dy, time);
+        center[dy + 1][dx + 1] = f;
+        covered |= f <= 0;
+      }
+    if (!covered)
+      return 1;
+    FourStroke::ContourTile tile;
+    bool solid = true;
+    tile.prepare([&](int dx, int dy) {
+      const float f = std::abs(dx) <= 1 && std::abs(dy) <= 1
+                          ? center[dy + 1][dx + 1]
+                          : field(math::wrap(x + dx, W), y + dy, time);
+      solid &= f <= 0;
+      return f;
+    });
+    const auto query = [&](float dx, float dy, auto align) {
+      if (solid)
+        return FourStroke::Boundary{true, INFINITY, 0};
+      return tile.query(dx, dy, align);
+    };
+    emit(x, y,
+         four_stroke_pixel(x, y, time, beat, controls, query, alignment, shade,
+                           boundary_shader));
+    return 1;
+  };
+  const auto walk = [&](const auto &rows, const auto &intervals) {
+    int lo, hi;
+    if (!clamp_rows_to_clip(rows, clip, lo, hi))
+      return;
+    for (int i = 0; i < pieces.count; ++i) {
+      const ClipRegion::XClip xc{pieces.lo[i], pieces.hi[i], true, false};
+      scan_region<W, H>(lo, hi, intervals, sample_pixel, xc);
     }
-  });
+  };
+  if constexpr (SDF::SweptBounded<Shape>) {
+    const auto padded = shape.swept(padding);
+    walk(padded.template get_vertical_bounds<H>(), [&](int y, auto &&out) {
+      return padded.template get_horizontal_intervals<W, H>(y, out);
+    });
+  } else {
+    walk(swept_rows<H>(shape.template get_vertical_bounds<H>(), padding),
+         [](int, auto &&) { return false; });
+  }
 }
 
 /** @brief Four-stroke binding shared by area and path draws. */
@@ -289,10 +308,18 @@ void rasterize(auto &pipeline, Canvas &canvas, const Shape &shape,
                              FourStroke::Direction n) {
     return material.arrow ? tangent(x, y, time, n) : output(x, y, time, n);
   };
+  const auto *basis = canvas.column_basis();
+  std::optional<ScratchScope> drift_scratch;
+  std::optional<DriftColumns<W>> drifted;
+  if (basis && basis->azimuth && !Spacetime::flat_surface() &&
+      math::dot(basis->drift, basis->drift) > 0.f) {
+    drift_scratch.emplace(scratch_arena_b);
+    drifted.emplace(scratch_arena_b, *basis);
+    basis = &drifted->view;
+  }
   int center = 0;
   const auto view = [&](float x, float y, uint64_t) {
     const float phi = math::DisplayGeometry<H>::row_to_phi(y);
-    const auto *basis = canvas.column_basis();
     if (!basis || !basis->azimuth || Spacetime::flat_surface())
       return math::Vector(math::Spherical(x * (2 * math::PI_F / W), phi));
     const int k = center % (W / 2);
@@ -303,7 +330,11 @@ void rasterize(auto &pipeline, Canvas &canvas, const Shape &shape,
     return (radial * std::cos(d) + tangent * std::sin(d)) * std::sin(phi) +
            up * std::cos(phi);
   };
-  const auto save_column = [&](int x) { center = x; };
+  const auto save_column = [&](int x) {
+    center = x;
+    if (drifted)
+      drifted->reach(x);
+  };
   rasterize_four_stroke_sdf<W, H>(pipeline, canvas, shape, material.base, view,
                                   alignment, material.controls, interval.t0,
                                   interval.t1, material.boundary, save_column,
