@@ -246,8 +246,8 @@ SHARED_LITERALS = {
 SHARED_LITERAL_USES = (
     (r"core\.whitespace=([^\s]+)", "whitespace-rules"),
     (r"grep -E '(\\\.sh[^']*)'", "shell-selection"),
-    (r"grep -vE '([^']*)'", "format-exclude"),
-    (r"git ls-files -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs"),
+    (r"grep -z?vE '([^']*)'", "format-exclude"),
+    (r"git ls-files -z -- ('\*\.h'(?: '\*\.\w+')*)", "format-globs"),
     # Anchored on the extension alternation's own opening, so an unrelated
     # quoted `grep -E` elsewhere in a scanned file is not counted as a copy.
     (r"grep -E '(\\\.\([^']*)'", "format-extensions"),

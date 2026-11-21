@@ -146,11 +146,11 @@ class ShellGateTests(unittest.TestCase):
         generated = self.root / "core" / "color" / "gamut_lut.h"
         generated.parent.mkdir(parents=True)
         generated.touch()
-        (self.root / "selected file.cpp").touch()
+        (self.root / "selected café.cpp").touch()
         self.git("add", "--", ".")
         selected = self.gate("clang_format_gate.sh")
         self.assertEqual(selected.returncode, 0, selected.stderr)
-        self.assertIn("selected file.cpp", selected.stdout)
+        self.assertIn("selected café.cpp", selected.stdout)
         self.assertNotIn("gamut_lut.h", selected.stdout)
         self.assertIn("--dry-run\n--Werror\n--style=file", selected.stdout)
         self.stub("clang-format", f"if [ \"$1\" = --version ]; then echo 'clang-format version {major}.0.0'; else exit 9; fi")

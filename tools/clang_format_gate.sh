@@ -27,11 +27,11 @@ fi
 tmp=$(mktemp)
 trap 'rm -f -- "$tmp"' EXIT
 
-git ls-files -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' '*.ino' | grep -vE '(^|/)core/vendor/FastNoiseLite\.h$|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)effects/generated/|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$' > "$tmp" || true
+git ls-files -z -- '*.h' '*.hpp' '*.cpp' '*.cc' '*.inl' '*.ino' | grep -zvE '(^|/)core/vendor/FastNoiseLite\.h$|(^|/)core/color/color_luts\.h$|(^|/)core/color/gamut_lut\.h$|(^|/)core/color/srgb_decode_lut\.h$|(^|/)effects/generated/|(^|/)core/mesh/relax_bakes_generated\.h$|(^|/)core/spatial/reaction_graph\.cpp$' > "$tmp" || true
 
 if [ ! -s "$tmp" ]; then
   echo "no files selected -- the pathspec or exclusion regex is broken"
   exit 1
 fi
 
-tr '\n' '\0' < "$tmp" | xargs -0 "$CF" --dry-run --Werror --style=file
+xargs -0 "$CF" --dry-run --Werror --style=file < "$tmp"
