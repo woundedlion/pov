@@ -232,6 +232,17 @@ class ShortFrameRows(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("[FAIL] per-frame rows cover every frame", out.getvalue())
 
+    def test_empty_middle_window_fails_frame_coverage(self):
+        windows, effect = self._parse()
+        middle = self._parse()[0][0]
+        last = self._parse()[0][0]
+        middle.f_start, middle.f_end, middle.frame_rows = 5, 8, []
+        last.f_start, last.f_end = 9, 12
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            pp.cmd_validate([windows[0], middle, last], effect, "frame")
+        self.assertIn("[FAIL] per-frame rows cover every frame", out.getvalue())
+        self.assertIn("first 5-8", out.getvalue())
+
     def test_a_capture_without_per_frame_rows_is_not_faulted(self):
         windows, effect = self._parse()
         for window in windows:

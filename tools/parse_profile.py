@@ -917,7 +917,7 @@ def cmd_validate(windows, effect, scope):
              else ")"))
 
     # A window short of its header range has lost rows to the serial link.
-    rowed = [w for w in windows if w.frame_rows]
+    rowed = windows if any(w.frame_rows for w in windows) else []
     short = [w for w in rowed if not frame_rows_complete(w)]
     check(not short,
           "per-frame rows cover every frame of their window "
