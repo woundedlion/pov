@@ -1381,6 +1381,13 @@ inline void test_feedback_x_clips_match_full_frame() {
 /** @brief Clipped column-time reconstruction preserves each arm's own lanes. */
 inline void test_feedback_clipped_half_res_keeps_own_lanes() {
   constexpr int W = 64, H = 32, HALF = W / 2;
+  std::array<Pixel, W> wrapping{};
+  for (int x = 0; x < W; ++x)
+    wrapping[x] = Pixel(x * 700, x * 100, x * 300);
+  const auto before = wrapping;
+  FeedbackWhiteBox::expand_clipped_row<W, H>(wrapping.data(), W - 1, 9);
+  for (int x = 9; x < W - 1; ++x)
+    HS_EXPECT_EQ(wrapping[x], before[x]);
   for (int begin : {26, 27}) {
     std::array<Pixel, W> row{};
     for (int x = 0; x < W; ++x)

@@ -174,8 +174,15 @@ struct FeedbackWhiteBox {
     typename Feedback::FlushContext ctx{
         {{1, typename Feedback::SphereField{1}, 0, 0, {}}}};
     ctx.color.column_time = true;
-    ctx.geometry.runs.items[0] = {begin, end};
-    ctx.geometry.runs.count = 1;
+    if (begin > end) {
+      ctx.geometry.runs.items[0] = {0, end};
+      ctx.geometry.runs.items[1] = {begin, W};
+      ctx.geometry.runs.count = 2;
+    } else {
+      ctx.geometry.runs.items[0] = {begin, end};
+      ctx.geometry.runs.count = 1;
+    }
+    ctx.frames.previous = output;
     Feedback::expand_half_res_row(ctx, output, 0);
   }
   /** @brief The coverage slot of a held pixel, or -1 for an unheld one. */

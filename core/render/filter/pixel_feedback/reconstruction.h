@@ -172,6 +172,7 @@ Feedback<W, H>::expand_half_res_row(const FlushContext &ctx, ::Pixel *output,
                                     int y) {
   const ColumnRuns &runs = ctx.geometry.runs;
   if (!ctx.color.column_time || runs.count != 2 || runs.items[0].begin != 0 ||
+      runs.items[0].end != HALF || runs.items[1].begin != HALF ||
       runs.items[1].end != W) {
     for (int r = 0; r < runs.count; ++r) {
       const ColumnRun run = runs.items[r];
