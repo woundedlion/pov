@@ -497,6 +497,17 @@ inline void test_shader_chain_noise_operator_domain() {
         const auto sample = In::Op::SampleProjectedNoise::run(
             input, ctx, sample_params, sample_prepared);
         HS_EXPECT_EQ(sample.value, 0.5f);
+        using Composed = PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
+                                                    math::NoiseBasis::SIMPLEX>;
+        SampleMirrorFrame frame;
+        frame.noise = &state.noise;
+        frame.projected = sample_params;
+        const float raw =
+            Composed::sample(input, frame, Composed::prepare(frame));
+        HS_EXPECT_EQ(raw, 0.0f);
+        HS_EXPECT_EQ(
+            In::Op::finish_sample(input, raw, sample_params, ctx).value,
+            sample.value);
         const auto vector = In::Op::WarpVectorNoise::run(
             input, ctx, vector_params, vector_prepared);
         HS_EXPECT_TRUE(float_identical(vector.coords.re, input.coords.re));

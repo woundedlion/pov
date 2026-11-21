@@ -734,6 +734,8 @@ struct ProjectedNoise : ApproximationDefaults {
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
+    if (!math::noise_plane_in_domain(input.coords))
+      return 0.0f;
     return Pattern::noise_contour(
         State::noise(frame), BasisV,
         math::noise_projected_coordinate(input.coords,
