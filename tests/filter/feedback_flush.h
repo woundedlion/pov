@@ -1286,7 +1286,7 @@ inline void test_feedback_x_clips_match_full_frame() {
     std::vector<bool> inside;
   };
   const auto render = [&](bool temporal, int first, int last, int y_begin,
-                          int y_end) {
+                          int y_end, bool sparse = false) {
     reset_globals();
     const ScopedTemporalSampling sampling(temporal);
     ScopedArenaSplit split(16384, 131072, 131072);
@@ -1295,6 +1295,8 @@ inline void test_feedback_x_clips_match_full_frame() {
     style.fade = 0.83f;
     style.downsample = 4;
     style.pole_half_res = 0;
+    if (sparse)
+      style.space_fn = &FeedbackFadeProbe::warp;
     Animation::NoiseParams noise;
     style.noise = &noise;
     style.sync_noise();
@@ -1306,8 +1308,9 @@ inline void test_feedback_x_clips_match_full_frame() {
       Canvas canvas(effect);
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x)
-          canvas(x, y) = Pixel(2000 + 600 * x, 3000 + 1000 * y,
-                               4000 + 300 * ((x + 3 * y) % 61));
+          if (!sparse || (x >= 10 && x <= 14))
+            canvas(x, y) = Pixel(2000 + 600 * x, 3000 + 1000 * y,
+                                 4000 + 300 * ((x + 3 * y) % 61));
     }
     effect.advance_display();
     const bool full = first == 0 && last == W;
@@ -1336,12 +1339,21 @@ inline void test_feedback_x_clips_match_full_frame() {
         std::memset(scratch_arena_a.allocate_n<uint8_t>(bytes), 0xA5, bytes);
       }
       (void)pipeline.begin_frame(canvas, 1.0f);
-      HS_EXPECT_EQ(FeedbackWhiteBox::fills(feedback), size_t(full ? 1 : 0));
+      HS_EXPECT_EQ(FeedbackWhiteBox::fills(feedback), size_t(full && !sparse));
     }
     effect.advance_display();
     capture_frame<W, H>(effect, frame.pixels);
     return frame;
   };
+  const auto sparse_full = render(false, 0, W, 0, H, true);
+  const auto sparse_clip = render(false, 0, 8, 8, 24, true);
+  bool lit = false;
+  for (size_t i = 0; i < sparse_full.pixels.size(); ++i)
+    if (sparse_clip.inside[i]) {
+      lit |= sparse_full.pixels[i].r != 0;
+      HS_EXPECT_EQ(sparse_clip.pixels[i], sparse_full.pixels[i]);
+    }
+  HS_EXPECT_TRUE(lit);
   for (bool temporal : {false, true}) {
     const auto full = render(temporal, 0, W, 0, H);
     for (const auto [y_begin, y_end] :

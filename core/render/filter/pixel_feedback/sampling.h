@@ -14,18 +14,11 @@ namespace Filter::Pixel {
 
 template <int W, int H>
 inline bool Feedback<W, H>::any_pixel_lit(const Canvas &cv) {
-  const auto &clip = cv.clip();
-  const ColumnRuns runs = make_column_runs(clip.x_clip());
   const ::Pixel *previous = cv.prev_data();
-  for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
-    const ::Pixel *row = previous + y * W;
-    for (int i = 0; i < runs.count; ++i) {
-      for (int x = runs.items[i].begin; x < runs.items[i].end; ++x) {
-        const ::Pixel pixel = row[x];
-        if (pixel.r | pixel.g | pixel.b)
-          return true;
-      }
-    }
+  for (int i = 0; i < W * H; ++i) {
+    const ::Pixel pixel = previous[i];
+    if (pixel.r | pixel.g | pixel.b)
+      return true;
   }
   return false;
 }
