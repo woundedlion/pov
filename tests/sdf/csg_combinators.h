@@ -358,6 +358,17 @@ inline void test_intersection_unsorted_child_yields_every_overlap() {
   const std::pair<float, float> EXPECTED[] = {{20.0f, 40.0f}, {60.0f, 80.0f}};
   sdf_interval_detail::expect_spans<256, 128>("unsorted overlap", s, 0,
                                               EXPECTED, 1e-4f);
+  const P point[] = {{8, 8}};
+  a_ivs = {{8, 8}};
+  b_ivs = {{7, 10}};
+  sdf_interval_detail::expect_spans<256, 128>("point in range", s, 0, point,
+                                              0.0f);
+  a_ivs.swap(b_ivs);
+  sdf_interval_detail::expect_spans<256, 128>("range around point", s, 0, point,
+                                              0.0f);
+  a_ivs = b_ivs;
+  sdf_interval_detail::expect_spans<256, 128>("equal points", s, 0, point,
+                                              0.0f);
 }
 
 /**

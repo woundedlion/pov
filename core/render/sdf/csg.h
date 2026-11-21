@@ -640,7 +640,8 @@ template <typename A, typename B> struct Intersection {
       float start = std::max(iv_a.start, iv_b.start);
       float end = std::min(iv_a.end, iv_b.end);
 
-      if (start < end) {
+      const bool point = iv_a.start == iv_a.end || iv_b.start == iv_b.end;
+      if (start < end || (point && start == end)) {
         out(start, end);
       }
 
