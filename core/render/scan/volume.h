@@ -121,14 +121,12 @@ template <int W> struct VolumeColumns {
   /** @brief Angular radius of the cap covering every column placement.
    * @param center Endpoint bounds center.
    * @param radius Per-placement bounding radius.
-   * @return Swept cap angle, saturated at a hemisphere. */
+   * @return Swept cap angle in radians. */
   float cap_angle(const math::Vector &center, float radius) const {
     float min_cos = 1.0f;
     for (const auto &column : columns)
       min_cos = fminf(min_cos, math::dot(column.center, center));
-    const float angle =
-        asinf(fminf(radius, 1.0f)) + acosf(hs::clamp(min_cos, -1.0f, 1.0f));
-    return fminf(angle, math::PI_F / 2.0f);
+    return asinf(fminf(radius, 1.0f)) + acosf(hs::clamp(min_cos, -1.0f, 1.0f));
   }
 
   /** @brief Sine radius of the swept cap.
@@ -654,6 +652,11 @@ struct Volume {
     if constexpr (COLUMNS)
       cap_radius = columns->cap_radius(bounds_center, bounds_radius);
     BoundingSphere<W, H> bounds(bounds_center, cap_radius);
+    const bool full_sweep = COLUMNS && cap_radius == 1.0f;
+    if (full_sweep) {
+      bounds.y_min = 0;
+      bounds.y_max = H - 1;
+    }
 
     // Clamp volume bounds to clip region
     const auto &cr = source_clip<W, H>(pipeline, canvas);
@@ -696,7 +699,13 @@ struct Volume {
     if constexpr (COLUMNS)
       scan_region<W, H>(
           vol_y_lo, vol_y_hi,
-          [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
+          [&](int y, auto &&out) {
+            if (full_sweep) {
+              out(0.0f, float(W));
+              return true;
+            }
+            return bounds.get_intervals(y, out);
+          },
           [&](int px, int py, const math::Vector &p, int) {
             return march_pixel(px, py, p);
           },

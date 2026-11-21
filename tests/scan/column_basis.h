@@ -940,43 +940,45 @@ inline void test_volume_columns_match_rotated_placements() {
   constexpr int W = 96, H = 48;
   const SDF::Torus TORUS{0.25f, 0.08f};
   const math::Vector anchor = math::Vector(0.3f, 0.4f, 0.85f).normalized();
-  const BasisMotion camera{math::Quaternion(),
-                           math::make_rotation(math::Y_AXIS, 0.6f)};
-  const auto spin = [](float u) {
-    return math::make_rotation(math::Vector(1.0f, 0.2f, 0.1f).normalized(),
-                               1.2f * u);
-  };
-  constexpr float BOUNDS = 0.36f;
-  const auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(41000, 23000, 7000), 1.0f);
-  };
-  const auto place = [&](float u) {
-    const math::Quaternion q =
-        math::slerp(camera.previous, camera.current, u).normalized();
-    return std::pair{math::rotate(anchor, q), q * spin(u)};
-  };
+  for (float swing : {0.6f, 2.8f}) {
+    const BasisMotion camera{math::Quaternion(),
+                             math::make_rotation(math::Y_AXIS, swing)};
+    const auto spin = [](float u) {
+      return math::make_rotation(math::Vector(1.0f, 0.2f, 0.1f).normalized(),
+                                 1.2f * u);
+    };
+    constexpr float BOUNDS = 0.36f;
+    const auto shade = [](const math::Vector &, Fragment &f) {
+      f.color = Color4(Pixel(41000, 23000, 7000), 1.0f);
+    };
+    const auto place = [&](float u) {
+      const math::Quaternion q =
+          math::slerp(camera.previous, camera.current, u).normalized();
+      return std::pair{math::rotate(anchor, q), q * spin(u)};
+    };
 
-  auto columns = std::make_unique<Scan::VolumeColumns<W>>();
-  for (int c = 0; c < W / 2; ++c) {
-    const auto [centre, q] = place(Spacetime::SamplingSurface<W>::time(c));
-    columns->set(c, centre, q);
+    auto columns = std::make_unique<Scan::VolumeColumns<W>>();
+    for (int c = 0; c < W / 2; ++c) {
+      const auto [centre, q] = place(Spacetime::SamplingSurface<W>::time(c));
+      columns->set(c, centre, q);
+    }
+    const auto [centre, q] = place(1.0f);
+    const std::vector<Pixel> swept =
+        render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
+          Scan::TransformedVolume volume(TORUS, centre, q);
+          Scan::Volume::draw<W, H>(pipeline, canvas, centre, BOUNDS, volume,
+                                   shade, 24, 0.02f, *columns);
+        });
+
+    const auto expected =
+        render_state_oracle<W, H>([&](auto &pipeline, Canvas &canvas, float u) {
+          const auto [at, rotation] = place(u);
+          Scan::TransformedVolume volume(TORUS, at, rotation);
+          Scan::Volume::draw<W, H>(pipeline, canvas, at, BOUNDS, volume, shade,
+                                   24, 0.02f);
+        });
+    HS_EXPECT_GT(expect_factored_tolerance("volume", swept, expected), 30);
   }
-  const auto [centre, q] = place(1.0f);
-  const std::vector<Pixel> swept =
-      render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
-        Scan::TransformedVolume volume(TORUS, centre, q);
-        Scan::Volume::draw<W, H>(pipeline, canvas, centre, BOUNDS, volume,
-                                 shade, 24, 0.02f, *columns);
-      });
-
-  const auto expected =
-      render_state_oracle<W, H>([&](auto &pipeline, Canvas &canvas, float u) {
-        const auto [at, rotation] = place(u);
-        Scan::TransformedVolume volume(TORUS, at, rotation);
-        Scan::Volume::draw<W, H>(pipeline, canvas, at, BOUNDS, volume, shade,
-                                 24, 0.02f);
-      });
-  HS_EXPECT_GT(expect_factored_tolerance("volume", swept, expected), 30);
 }
 
 /**
