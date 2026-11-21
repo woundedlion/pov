@@ -167,27 +167,28 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
       ScratchScope storage(scratch_arena_b);
       auto &contour = *scratch_arena_b.make<ProjectedStar<W, H>>();
       if (contour.prepare(shape)) {
-        const auto &clip = canvas.clip();
+        const auto &clip = source_clip<W, H>(pipeline, canvas);
         const int y0 = std::max(clip.render_y_start(), contour.begin_row());
         const int y1 = std::min(clip.render_y_end(), contour.end_row());
-        walk_window_columns<W>(
-            canvas.render_x_clip(), canvas.time_window(), [&](int x) {
-              const float ux = contour.unwrap(float(x));
-              if (!contour.admits_x(ux))
-                return;
-              select_column(x);
-              const uint64_t time = FourStroke::column_time(
-                  t0, t1, x, W, Spacetime::flat_surface());
-              const auto &beat = FourStroke::colors(time);
-              for (int y = y0; y < y1; ++y) {
-                const auto query = [&](float dx, float dy, const auto &align) {
-                  return contour.query(ux + dx, y + dy, align);
-                };
-                emit(x, y,
-                     four_stroke_pixel(x, y, time, beat, controls, query,
-                                       alignment, shade, boundary_shader));
-              }
-            });
+        walk_window_columns<W>(clip.x_clip(), canvas.time_window(), [&](int x) {
+          const float ux = contour.unwrap(float(x));
+          if (!contour.admits_x(ux))
+            return;
+          select_column(x);
+          const uint64_t time =
+              FourStroke::column_time(t0, t1, x, W, Spacetime::flat_surface());
+          const auto &beat = FourStroke::colors(time);
+          for (int y = y0; y < y1; ++y) {
+            const auto query = [&](float dx, float dy, const auto &align) {
+              return contour.query(ux + dx, y + dy, align,
+                                   boundary_shader ? INFINITY
+                                                   : float(controls.width));
+            };
+            emit(x, y,
+                 four_stroke_pixel(x, y, time, beat, controls, query, alignment,
+                                   shade, boundary_shader));
+          }
+        });
         return;
       }
     }
@@ -201,45 +202,44 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
       2 * math::PI_F / W + math::DisplayGeometry<H>::RADIANS_PER_ROW;
   const float min_dot =
       std::cos(std::min(math::PI_F, cap_radius + halo + 0.001f));
-  const auto &clip = canvas.clip();
-  walk_window_columns<W>(
-      canvas.render_x_clip(), canvas.time_window(), [&](int x) {
-        select_column(x);
-        const uint64_t time =
-            FourStroke::column_time(t0, t1, x, W, Spacetime::flat_surface());
-        const auto &beat = FourStroke::colors(time);
-        for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
-          if (bounded && math::dot(view(x, y, time), axis) < min_dot)
-            continue;
-          float center[3][3];
-          bool covered = false;
-          for (int dy = -1; dy <= 1; ++dy)
-            for (int dx = -1; dx <= 1; ++dx) {
-              const float f = field(math::wrap(x + dx, W), y + dy, time);
-              center[dy + 1][dx + 1] = f;
-              covered |= f <= 0;
-            }
-          if (!covered)
-            continue;
-          FourStroke::ContourTile tile;
-          bool solid = true;
-          tile.prepare([&](int dx, int dy) {
-            const float f = std::abs(dx) <= 1 && std::abs(dy) <= 1
-                                ? center[dy + 1][dx + 1]
-                                : field(math::wrap(x + dx, W), y + dy, time);
-            solid &= f <= 0;
-            return f;
-          });
-          const auto query = [&](float dx, float dy, auto align) {
-            if (solid)
-              return FourStroke::Boundary{true, INFINITY, 0};
-            return tile.query(dx, dy, align);
-          };
-          emit(x, y,
-               four_stroke_pixel(x, y, time, beat, controls, query, alignment,
-                                 shade, boundary_shader));
+  const auto &clip = source_clip<W, H>(pipeline, canvas);
+  walk_window_columns<W>(clip.x_clip(), canvas.time_window(), [&](int x) {
+    select_column(x);
+    const uint64_t time =
+        FourStroke::column_time(t0, t1, x, W, Spacetime::flat_surface());
+    const auto &beat = FourStroke::colors(time);
+    for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
+      if (bounded && math::dot(view(x, y, time), axis) < min_dot)
+        continue;
+      float center[3][3];
+      bool covered = false;
+      for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+          const float f = field(math::wrap(x + dx, W), y + dy, time);
+          center[dy + 1][dx + 1] = f;
+          covered |= f <= 0;
         }
+      if (!covered)
+        continue;
+      FourStroke::ContourTile tile;
+      bool solid = true;
+      tile.prepare([&](int dx, int dy) {
+        const float f = std::abs(dx) <= 1 && std::abs(dy) <= 1
+                            ? center[dy + 1][dx + 1]
+                            : field(math::wrap(x + dx, W), y + dy, time);
+        solid &= f <= 0;
+        return f;
       });
+      const auto query = [&](float dx, float dy, auto align) {
+        if (solid)
+          return FourStroke::Boundary{true, INFINITY, 0};
+        return tile.query(dx, dy, align);
+      };
+      emit(x, y,
+           four_stroke_pixel(x, y, time, beat, controls, query, alignment,
+                             shade, boundary_shader));
+    }
+  });
 }
 
 /** @brief Four-stroke binding shared by area and path draws. */

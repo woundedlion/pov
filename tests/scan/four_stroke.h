@@ -116,14 +116,17 @@ inline void test_four_stroke_disabled_star() {
 inline void test_four_stroke_star_contour_error() {
   constexpr int W = 96, H = 20;
   float worst = 0;
-  for (float latitude : {0.f, 0.5f, 1.f}) {
+  int projected = 0;
+  for (float latitude : {0.f, 0.5f, 1.f, math::PI_F / 2}) {
     const math::Vector axis{std::cos(latitude), std::sin(latitude), 0};
     const auto basis = math::make_basis(math::Quaternion{}, axis);
     constexpr float RADIUS = 0.31f, PHASE = 0.37f;
     const SDF::Star star(basis, RADIUS, 5, PHASE);
     Scan::ProjectedStar<W, H> contour;
     const bool ok = contour.prepare(star);
-    HS_EXPECT_TRUE(ok);
+    if (latitude == math::PI_F / 2)
+      HS_EXPECT_FALSE(ok);
+    projected += ok;
     if (!ok)
       continue;
     for (int edge = 0; edge < 10; ++edge) {
@@ -152,6 +155,7 @@ inline void test_four_stroke_star_contour_error() {
   }
   std::printf("  projected star contour max error %.6f pixels\n",
               double(worst));
+  HS_EXPECT_GE(projected, 2);
   HS_EXPECT_TRUE(worst < 0.025f);
 }
 } // namespace hs_test::scan_tests

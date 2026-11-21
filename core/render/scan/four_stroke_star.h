@@ -69,6 +69,10 @@ public:
    * @param star Solid SDF star.
    * @return False for a pole-crossing, inverted or oversized contour. */
   bool prepare(const SDF::Star &star) {
+    count = 0;
+    orientation = 0;
+    x_min = y_min = INFINITY;
+    x_max = y_max = -INFINITY;
     const float phi = std::acos(std::clamp(star.basis.v.y, -1.0f, 1.0f));
     if (star.sign < 0 || star.sides > CAPACITY / 2 ||
         star.circumradius >= std::min(phi, math::PI_F - phi))
@@ -121,10 +125,13 @@ public:
   /** @brief Classifies one sample against the exposed segments.
    * @param x,y Unwrapped sample coordinates.
    * @param align Alignment of the physical or output heading with a unit normal.
+   * @param alignment_width Maximum depth that needs directional alignment.
    * @return Membership and closest exposed contour in output pixels. */
-  FourStroke::Boundary query(float x, float y, const auto &align) const {
+  FourStroke::Boundary query(float x, float y, const auto &align,
+                             float alignment_width = INFINITY) const {
     FourStroke::Boundary result;
     float nearest = INFINITY;
+    const float limit = alignment_width * alignment_width;
     int winner = 0;
     bool tied = false;
     for (int i = 0; i < count; ++i) {
@@ -142,7 +149,7 @@ public:
         nearest = sq;
         winner = i;
         tied = false;
-      } else if (sq == nearest) {
+      } else if (sq == nearest && sq < limit) {
         if (!tied) {
           result.depth = nearest;
           result.alignment = align(edges[winner].normal);
@@ -151,9 +158,9 @@ public:
         FourStroke::consider(result, sq, align(e.normal));
       }
     }
-    if (!tied)
-      result.alignment = align(edges[winner].normal);
     result.inside |= nearest == 0;
+    if (result.inside && nearest < limit && !tied)
+      result.alignment = align(edges[winner].normal);
     result.depth = std::sqrt(nearest);
     return result;
   }
