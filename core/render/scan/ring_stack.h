@@ -467,7 +467,7 @@ public:
     slot_count = slots;
     value_capacity = capacity;
     values = values_arena.allocate_n<float>(capacity);
-    masks = table_arena.make_n<uint32_t>(slots * WORDS);
+    masks = table_arena.allocate_n<uint32_t>(slots * WORDS);
     starts = table_arena.make_n<uint16_t>(slots * WORDS);
     storage(table_arena);
     boundary = table_arena.allocate_n<uint8_t>(KNOTS + 1);
@@ -508,6 +508,7 @@ public:
    * @param i Authored ring index. */
   HS_HOT_INLINE void begin_ring(int i) {
     ring = i;
+    std::fill_n(masks + i * WORDS, WORDS, uint32_t{0});
     starts[i * WORDS] = static_cast<uint16_t>(count);
   }
   /** @return Whether another row fits.
