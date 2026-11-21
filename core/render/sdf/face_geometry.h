@@ -300,6 +300,8 @@ inline HS_FLASH_MEMBER bool PreparedFace::bind_class_lut(const ClassLut *lut,
                                                          bool reflected) {
   HS_CHECK(vert_offset >= 0 && vert_offset < count,
            "bind_class_lut: vertex offset outside the face");
+  lut_data = nullptr;
+  report_reach_sq = max_dist_sq;
   float mx = 0.0f, my = 0.0f;
   for (int i = 0; i < count; ++i) {
     mx += poly_2d[i].x;

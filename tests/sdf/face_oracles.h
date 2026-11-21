@@ -795,8 +795,14 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
                                   std::span<const uint16_t>(canon_idx, N_VERTS),
                                   reject_scratch, GEOMETRY, H, nullptr, nullptr,
                                   SDF::BOUNDS_MARGIN);
+    const float reach = PreparedFaceTestAccess::report_reach_sq(reject_face);
+    const uint32_t flags = reject_face.probe_flags();
+    HS_EXPECT_TRUE(PreparedFaceTestAccess::bind_class_lut(
+        reject_face, &lut, canon, off, reflected));
     HS_EXPECT_TRUE(!PreparedFaceTestAccess::bind_class_lut(reject_face, &lut,
                                                            zeros, 0, false));
+    HS_EXPECT_EQ(PreparedFaceTestAccess::report_reach_sq(reject_face), reach);
+    HS_EXPECT_EQ(reject_face.probe_flags(), flags);
   }
 
   int lut_samples = 0, sign_mismatches = 0;
