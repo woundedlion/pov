@@ -1023,6 +1023,20 @@ struct Star {
     Scan::rasterize<W, H>(pipeline, canvas, shape, material);
   }
 
+  /** @brief Shades a stationary star using its retained projected contour.
+   * @tparam W,H Output dimensions.
+   * @param pipeline Prepared destination pipeline.
+   * @param canvas Destination canvas.
+   * @param shape SDF star supplying the base material registers.
+   * @param contour Outline prepared from the same shape and display profile.
+   * @param material Wrapped fragment shader and contour stage. */
+  template <int W, int H>
+  static void draw(ScanRef pipeline, Canvas &canvas, const SDF::Star &shape,
+                   const ProjectedStar<W, H> &contour,
+                   FourStrokeMaterial material) {
+    Scan::rasterize<W, H>(pipeline, canvas, shape, material, &contour);
+  }
+
   /**
    * @brief Rasterizes a constant-color solid star.
    * @tparam W Canvas width in pixels.

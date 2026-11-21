@@ -24,6 +24,7 @@ template <int W, int H> class ProjectedStar {
   };
   std::array<Edge, CAPACITY> edges;
   int count = 0;
+  bool valid = false;
   float anchor = 0, orientation = 0;
   float x_min = INFINITY, x_max = -INFINITY, y_min = INFINITY,
         y_max = -INFINITY;
@@ -69,6 +70,7 @@ public:
    * @param star Solid SDF star.
    * @return False for a pole-crossing, inverted or oversized contour. */
   bool prepare(const SDF::Star &star) {
+    valid = false;
     count = 0;
     orientation = 0;
     x_min = y_min = INFINITY;
@@ -100,7 +102,20 @@ public:
         edges[i].normal.x *= -1;
         edges[i].normal.y *= -1;
       }
-    return count >= 3;
+    valid = count >= 3;
+    return valid;
+  }
+
+  /** @brief Whether the latest preparation produced a usable projected contour.
+   * @return True for a complete exposed outline. */
+  bool ready() const { return valid; }
+  /** @brief First potentially covered column in the unwrapped chart.
+   * @return Inclusive column limit. */
+  int begin_column() const { return static_cast<int>(std::ceil(x_min - 0.5f)); }
+  /** @brief End of the contour's unwrapped column range.
+   * @return Exclusive column limit. */
+  int end_column() const {
+    return static_cast<int>(std::floor(x_max + 0.5f)) + 1;
   }
 
   /** @brief Maps a pixel column to the contour's unwrapped chart.

@@ -117,6 +117,7 @@ template <int W, int H> auto four_stroke_tangent_direction(const auto &arrow) {
  * @param pipeline Prepared destination pipeline.
  * @param canvas Destination canvas.
  * @param select_column Fixes the center column for all footprint samples.
+ * @param prepared Optional retained contour of this star and display profile.
  * @tparam Shape Final signed-distance producer type.
  * @tparam Shader Wrapped material shader type.
  * @tparam ColumnFn Fixed-time geometry context selector.
@@ -134,7 +135,8 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
                                const FourStroke::Controls &controls,
                                uint64_t t0, uint64_t t1,
                                FragmentShaderRef boundary_shader,
-                               const ColumnFn &select_column) {
+                               const ColumnFn &select_column,
+                               const ProjectedStar<W, H> *prepared) {
   if (controls.strength == 0) {
     rasterize<W, H>(pipeline, canvas, shape, shader);
     return;
@@ -165,15 +167,20 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
   if constexpr (std::is_same_v<Shape, SDF::Star>) {
     if (!canvas.column_basis()) {
       ScratchScope storage(scratch_arena_b);
-      auto &contour = *scratch_arena_b.make<ProjectedStar<W, H>>();
-      if (contour.prepare(shape)) {
+      if (!prepared) {
+        auto *local = scratch_arena_b.make<ProjectedStar<W, H>>();
+        local->prepare(shape);
+        prepared = local;
+      }
+      if (prepared->ready()) {
+        const auto &contour = *prepared;
         const auto &clip = source_clip<W, H>(pipeline, canvas);
         const int y0 = std::max(clip.render_y_start(), contour.begin_row());
         const int y1 = std::min(clip.render_y_end(), contour.end_row());
-        walk_window_columns<W>(clip.x_clip(), canvas.time_window(), [&](int x) {
+        const auto pieces =
+            window_pieces<W>(clip.x_clip(), canvas.time_window());
+        const auto draw_column = [&](int x) {
           const float ux = contour.unwrap(float(x));
-          if (!contour.admits_x(ux))
-            return;
           select_column(x);
           const uint64_t time =
               FourStroke::column_time(t0, t1, x, W, Spacetime::flat_surface());
@@ -188,7 +195,16 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
                  four_stroke_pixel(x, y, time, beat, controls, query, alignment,
                                    shade, boundary_shader));
           }
-        });
+        };
+        const int begin = math::wrap(contour.begin_column(), W);
+        const int end = begin + contour.end_column() - contour.begin_column();
+        for (int i = 0; i < pieces.count; ++i) {
+          for (int x = std::max(begin, pieces.lo[i]);
+               x < std::min(end, pieces.hi[i]); ++x)
+            draw_column(x);
+          for (int x = pieces.lo[i]; x < std::min(end - W, pieces.hi[i]); ++x)
+            draw_column(x);
+        }
         return;
       }
     }
@@ -258,10 +274,12 @@ struct FourStrokeMaterial {
  * @param pipeline Prepared plotting sink.
  * @param canvas Destination canvas.
  * @param shape Signed-distance producer.
- * @param material Base material and the Four-Stroke register stage. */
+ * @param material Base material and the Four-Stroke register stage.
+ * @param prepared Optional retained star outline for the current display profile. */
 template <int W, int H, typename Shape>
 void rasterize(auto &pipeline, Canvas &canvas, const Shape &shape,
-               FourStrokeMaterial material) {
+               FourStrokeMaterial material,
+               const ProjectedStar<W, H> *prepared = nullptr) {
   const auto interval = canvas.presentation_interval();
   const auto output = four_stroke_output_direction(
       FourStroke::heading(material.controls.heading));
@@ -288,7 +306,8 @@ void rasterize(auto &pipeline, Canvas &canvas, const Shape &shape,
   const auto save_column = [&](int x) { center = x; };
   rasterize_four_stroke_sdf<W, H>(pipeline, canvas, shape, material.base, view,
                                   alignment, material.controls, interval.t0,
-                                  interval.t1, material.boundary, save_column);
+                                  interval.t1, material.boundary, save_column,
+                                  prepared);
 }
 
 } // namespace Scan
