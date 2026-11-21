@@ -279,6 +279,11 @@ public:
         HS_CHECK(layout.size > 0 && layout.size % layout.align == 0,
                  "ChainProgram::bind_storage: invalid block size");
       }
+      if (supports_source_morph(entry))
+        HS_CHECK(
+            entry.runtime.param.size <= SOURCE_PARAM_BYTES &&
+                entry.runtime.prepared.size <= SOURCE_PREPARED_BYTES,
+            "ChainProgram::bind_storage: source morph blocks exceed storage");
       for (uint16_t field = 0; field < entry.schema_count; ++field)
         HS_CHECK(std::string_view(entry.schema[field].id).size() <=
                      MAX_FIELD_ID,

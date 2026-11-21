@@ -54,6 +54,35 @@ inline void chain_invalid_layout(unsigned variant) {
   program.bind_storage(block_a, block_b, capacity, {&descriptor, 1});
 }
 
+/** @brief Checks both fixed-size source morph blocks at bind time.
+ * @tparam PREPARED Whether to enlarge the prepared block. */
+template <bool PREPARED> inline void case_oversized_source_morph() {
+  using namespace Pullback::Interp;
+  for (auto descriptor : OPERATOR_TABLE) {
+    if (!supports_source_morph(descriptor))
+      continue;
+    alignas(std::max_align_t) uint8_t a[64], b[64];
+    ChainProgram valid;
+    valid.bind_storage(a, b, sizeof(a), {&descriptor, 1});
+    death_admitted();
+    (PREPARED ? descriptor.runtime.prepared : descriptor.runtime.param).size =
+        8192;
+    ChainProgram invalid;
+    invalid.bind_storage(a, b, sizeof(a), {&descriptor, 1});
+    return;
+  }
+}
+
+/** @brief Rejects an oversized source morph parameter block. */
+inline void case_chain_morph_param_size() {
+  case_oversized_source_morph<false>();
+}
+
+/** @brief Rejects an oversized prepared source morph block. */
+inline void case_chain_morph_prepared_size() {
+  case_oversized_source_morph<true>();
+}
+
 /** @brief Registered field curves retain their catalog spellings. */
 inline void check_catalog_field_curve_companion() {
   using Curve = Control::FieldCurve;
