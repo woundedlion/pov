@@ -62,13 +62,15 @@ class ProfileSweepTests(unittest.TestCase):
         removed = first.group(1)
         extra = source + "show(UnscheduledFixture, 10)\n"
         missing = source[:first.start()] + source[first.end():]
-        for header, effect in ((source, None), (extra, "UnscheduledFixture"), (missing, removed)):
+        commented = source + "/*\nshow(RetiredFixture, 10)\n*/\nexclude(RetiredFixture)\n"
+        for header, effect in ((source, None), (commented, None), (extra, "UnscheduledFixture"), (missing, removed)):
             with self.subTest(effect=effect), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 (root / "tools").mkdir()
                 (root / "targets/Phantasm").mkdir(parents=True)
                 sweep = root / "tools/profile_sweep.sh"
                 shutil.copyfile(REPO / "tools/profile_sweep.sh", sweep)
+                shutil.copyfile(REPO / "tools/cpp_roster.py", root / "tools/cpp_roster.py")
                 (root / "targets/Phantasm/phantasm_playlist.def").write_text(header, encoding="utf-8")
                 result = subprocess.run(["bash", sweep.as_posix(), "check"],
                                         capture_output=True, text=True, env=isolated_env())
@@ -80,7 +82,7 @@ class ProfileSweepTests(unittest.TestCase):
 
     def test_roster_tool_failures_cannot_report_success(self):
         sweep = (REPO / "tools" / "profile_sweep.sh").as_posix()
-        for tool in ("comm", "sort", "sed", "tr"):
+        for tool in ("comm", "sort", "python"):
             with self.subTest(tool=tool):
                 result = subprocess.run(
                     ["bash", "-c", f'{tool}() {{ return 3; }}; export -f {tool}; '

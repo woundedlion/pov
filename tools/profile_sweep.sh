@@ -21,11 +21,8 @@ check|g[1-6]_ship) ;;
   ;;
 esac
 
-# The firmware playlist's show rows, in show order. Row spelling mirrored by
-# tools/cpp_roster.py.
 playlist_roster() {
-  tr -d '\r' < "$PLAYLIST_DEF" \
-    | sed -nE 's/^[[:space:]]*show\([[:space:]]*([A-Za-z0-9_]+).*/\1/p'
+  python "$(dirname "$0")/cpp_roster.py" "$PLAYLIST_DEF"
 }
 
 # Enumerate the reachable groups without flashing a board.

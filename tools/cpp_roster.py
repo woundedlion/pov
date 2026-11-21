@@ -2,11 +2,12 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0
 """Extract roster rows from continued X-macro bodies and the playlist .def."""
 
+from pathlib import Path
 import re
+import sys
 
 
 _COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
-# A playlist row starts its line, so `//` lines never match.
 _PLAYLIST_ROW_RE = re.compile(r"^[ \t]*(show|exclude)\([ \t]*(\w+)", re.MULTILINE)
 
 #: The Phantasm playlist, relative to the repository root.
@@ -15,7 +16,7 @@ PHANTASM_PLAYLIST_SOURCE = "targets/Phantasm/phantasm_playlist.def"
 
 def playlist_shows(source: str) -> list[str]:
     """Return the effect names of the playlist's show rows, in show order."""
-    return [name for kind, name in _PLAYLIST_ROW_RE.findall(source)
+    return [name for kind, name in _PLAYLIST_ROW_RE.findall(_COMMENT_RE.sub(" ", source))
             if kind == "show"]
 
 
@@ -36,3 +37,9 @@ def macro_body(source: str, macro: str) -> str | None:
         if not line.rstrip().endswith("\\"):
             break
     return _COMMENT_RE.sub("", re.sub(r"\\[ \t]*\n", " ", "\n".join(body)))
+
+
+if __name__ == "__main__":
+    sys.stdout.reconfigure(newline="\n")
+    for effect in playlist_shows(Path(sys.argv[1]).read_text(encoding="utf-8")):
+        print(effect)
