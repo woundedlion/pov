@@ -31,7 +31,7 @@ struct RingDrawOptions {
   float phase = 0.0f;
   /** Render the bounding box for debugging. */
   bool debug_bb = false;
-  /** Drop the degenerate exact-pole row instead of full-row filling it. */
+  /** Drop the degenerate pole row outside the axis-aligned full-scan path. */
   bool suppress_pole_fill = false;
 };
 

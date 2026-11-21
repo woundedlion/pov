@@ -326,8 +326,8 @@ private:
 };
 
 /**
- * @brief Invokes `apply(current)` only when `current` differs from `last`,
- * then latches `last = current`.
+ * @brief When `current` differs from `last`, latches `last = current`
+ * before invoking `apply(current)`.
  * @note Floating-point callers must reject non-finite values upstream. A NaN
  *   never compares equal to the latched NaN, so it invokes `apply` on every call.
  * @param current The latest parameter value to test against the cached one.

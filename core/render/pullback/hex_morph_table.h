@@ -66,7 +66,7 @@ struct HexMorphTable {
   /** @brief Interpolates the wrapped field in the triangular sample grid.
    * @param coord Projected coordinate.
    * @param scale Cell frequency in the projected plane.
-   * @return Interpolated signed field value. */
+   * @return Interpolated unsigned 16-bit field code in [0, 65535]. */
   HS_HOT_INLINE float sample(math::Complex coord, float scale) const {
     const float y = Pattern::SQRT_3 * coord.im;
     const int a = fixed_coordinate((coord.re + y) * scale);

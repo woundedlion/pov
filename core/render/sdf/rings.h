@@ -317,8 +317,8 @@ struct DistortedRing {
   float cos_max_limit; ///< Cosine of the inner widened band edge.
   float cos_min_limit; ///< Cosine of the outer widened band edge.
   bool suppress_pole_fill =
-      false; /**< Drop the degenerate exact-pole row rather than full-row
-                filling it (see get_horizontal_intervals). */
+      false; /**< Drop the degenerate pole row outside the axis-aligned
+                full-scan path. */
   static constexpr bool is_solid =
       false; /**< Distorted ring renders as a stroke. */
 
