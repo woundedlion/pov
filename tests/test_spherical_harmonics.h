@@ -165,6 +165,17 @@ inline void test_harmonic_scale_folds_in_the_seed() {
   const float reference =
       static_cast<float>(sqrtl(82.0L * ratio / (4.0L * acosl(-1.0L))));
   HS_EXPECT_NEAR(SHMath::normalization(20, 14) / reference, 1.0f, 1e-6f);
+  for (int l : {30, 31, 50})
+    for (int m : {l, l - 1, l - 3}) {
+      const long double seed =
+          std::exp(std::lgamma(2.0L * m + 1) - m * std::log(2.0L) -
+                   std::lgamma(m + 1.0L));
+      const long double norm = std::sqrt(
+          (2.0L * l + 1) / (2 * std::acos(-1.0L)) *
+          std::exp(std::lgamma(l - m + 1.0L) - std::lgamma(l + m + 1.0L)));
+      const long double expected = ((m & 1) ? -seed : seed) * norm;
+      HS_EXPECT_NEAR(SHMath::harmonic_scale(l, m) / expected, 1.0L, 2e-6L);
+    }
   HS_EXPECT_NEAR(SHMath::harmonic_scale(0, 0), 0.2820947918f, 1e-7f);
   HS_EXPECT_NEAR(SHMath::harmonic_scale(1, 0), 0.4886025119f, 1e-7f);
   HS_EXPECT_NEAR(SHMath::harmonic_scale(1, 1), -0.4886025119f, 1e-7f);

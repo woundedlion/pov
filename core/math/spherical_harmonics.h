@@ -196,7 +196,18 @@ inline float normalization(int l, int m) {
  * @return normalization(l, m) times the Legendre seed P_|m|^|m|.
  */
 inline float harmonic_scale(int l, int m) {
-  return normalization(l, m) * legendre_seed(std::abs(m));
+  if (l <= MAX_POLYNOMIAL_DEGREE || m < -l || m > l) {
+    const float norm = normalization(l, m);
+    return norm * legendre_seed(std::abs(m));
+  }
+  const int order = std::abs(m);
+  double scale = sqrt((2.0 * l + 1.0) / ((order ? 2.0 : 4.0) * math::PI_F));
+  for (int64_t i = 1; i <= order; ++i) {
+    const double numerator = 2.0 * i - 1.0;
+    const double lower = l - order + numerator;
+    scale *= -numerator / sqrt(lower * (lower + 1.0));
+  }
+  return static_cast<float>(scale);
 }
 
 /**
