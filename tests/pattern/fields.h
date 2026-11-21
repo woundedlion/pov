@@ -447,6 +447,8 @@ inline void test_pattern_plane_source_noise_samples() {
       PlaneNoise::prepare(noise, clock, generator, math::NoiseBasis::FBM3);
   const auto q = math::noise_projected_coordinate(
       POINT.value, noise.noise_scale, clock.phase_turns);
+  const PlanePosition FAR{{1e30f, 0}};
+  HS_EXPECT_EQ(PlaneNoise::sample(FAR, noise_value), 0.0f);
   HS_EXPECT_EQ(PlaneNoise::sample(POINT, noise_value),
                noise_contour(generator, math::NoiseBasis::FBM3, q, 0.0f));
 }

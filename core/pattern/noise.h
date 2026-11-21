@@ -201,6 +201,8 @@ struct PlaneNoise {
    * @param prepared Immutable generator and controls.
    * @return Signed contour sample. */
   static float sample(const Coordinate &coordinate, const Prepared &prepared) {
+    if (!math::noise_plane_in_domain(coordinate.value))
+      return 0.0f;
     return noise_contour(prepared.noise, prepared.basis,
                          math::noise_projected_coordinate(
                              coordinate.value, prepared.params.noise_scale,
