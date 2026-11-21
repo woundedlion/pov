@@ -174,6 +174,8 @@ inline void test_config_validation() {
   Config zero_period = test_config();
   zero_period.cycles_per_half_rev = 0;
   expect_rejects(zero_period, "cycles_per_half_rev > 0");
+  zero_period.cycles_per_half_rev = zero_period.W / 2;
+  expect_rejects(zero_period, "cycles_per_half_rev > W/2");
   Config zero_pitch = test_config();
   zero_pitch.beacon_pitch_cols = 0;
   expect_rejects(zero_pitch, "beacon_pitch_cols > 0");

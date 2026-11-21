@@ -291,6 +291,8 @@ struct Config {
       return "W even";
     if (!(cycles_per_half_rev > 0))
       return "cycles_per_half_rev > 0";
+    if (cycles_per_half_rev <= static_cast<uint32_t>(W / 2))
+      return "cycles_per_half_rev > W/2";
     if (!(cycles_per_half_rev <=
           static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS))
       return "cycles_per_half_rev * MIN_SAFE_HALF_REVS <= INT32_MAX";
