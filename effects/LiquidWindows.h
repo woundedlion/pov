@@ -61,6 +61,17 @@ class LiquidWindows : public Pullback::ComposedEffect<W, H, LiquidWindows<W, H>,
                                                       LiquidWindowsSpec> {
 
 public:
+  using Base = Pullback::ComposedEffect<W, H, LiquidWindows<W, H>,
+                                        LiquidWindowsSpec>; ///< Effect runtime.
+
+  /** @brief Shades a direction with the prepared LiquidWindows pipeline.
+   * @param view Unit view direction.
+   * @param frame Prepared column state.
+   * @return Shaded pixel. */
+  HS_HOT_ITCM_MEMBER static Color4 shade(const math::Vector &view,
+                                         const typename Base::Frame &frame) {
+    return Base::RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
+  }
   using Params = LiquidWindowsParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
