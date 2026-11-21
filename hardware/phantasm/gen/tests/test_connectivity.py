@@ -313,6 +313,12 @@ class SyntheticBoardTests(unittest.TestCase):
         self.assertFalse(land.touches(short_track))
         self.assertTrue(land.touches(touching_track))
 
+    def test_rotated_square_pad_reaches_the_outline(self):
+        pad = sexp.parse_one('(pad "1" smd rect (at 0 0 45) (size 2 2) (layers "F.Cu"))')
+        bounds = {"R1": pcb.fp_bbox(["footprint", pad], pads_only=True)}
+        self.assertEqual(pcb.outline_overflows({"R1": (2, 2, 0)}, bounds, 10, ["R1"]), [])
+        self.assertEqual(len(pcb.outline_overflows({"R1": (1.1, 2, 0)}, bounds, 10, ["R1"])), 1)
+
     def test_custom_pad_primitive_bounds_reach_the_outline_gate(self):
         footprint = connectivity.F(parse(CUSTOM_PAD_BOARD), "footprint")[0]
         bounds = pcb.fp_bbox(footprint, pads_only=True)

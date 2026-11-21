@@ -389,14 +389,14 @@ def _on_layers(node, layers):
 def fp_bbox(node, pads_only=False, graphic_layers=None):
     """Footprint bounding box (minx,miny,maxx,maxy) in its local (origin) frame,
     over pads plus (unless `pads_only`) graphic outlines, restricted to
-    `graphic_layers` when given. Custom pads use primitive copper bounds;
-    other pads use a max-dimension radius."""
+    `graphic_layers` when given. Pads-only and custom-pad bounds follow the copper geometry;
+    the placement envelope uses a max-dimension radius for other pads."""
     xs = []; ys = []
     for c in node:
         if not (isinstance(c, list) and c):
             continue
         if c[0] == "pad":
-            if str(c[3]) == "custom":
+            if pads_only or str(c[3]) == "custom":
                 copper = connectivity.pad_copper(c, (0, 0), 0, ["F.Cu"])
                 x0, y0, x1, y1 = connectivity.copper_bounds(copper)
                 xs += [x0, x1]; ys += [y0, y1]
