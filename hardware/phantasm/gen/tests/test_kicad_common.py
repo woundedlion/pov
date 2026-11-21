@@ -147,6 +147,11 @@ class ExportNetlistTests(unittest.TestCase):
             kicad_common.export_netlist("kicad-cli", "phantasm.kicad_sch")
         return str(caught.exception)
 
+    def test_release_candidate_retains_its_version_suffix(self):
+        with mock.patch.object(kicad_common.subprocess, "run") as run:
+            run.return_value.stdout = kicad_common.KICAD_VERSION + "-rc1\n"
+            self.assertEqual(kicad_common.kicad_cli_version("cli"), kicad_common.KICAD_VERSION + "-rc1")
+
     def test_reports_a_missing_kicad_cli(self):
         message = self.export(FileNotFoundError())
         self.assertIn("kicad-cli not found: kicad-cli", message)

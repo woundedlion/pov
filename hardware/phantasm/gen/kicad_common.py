@@ -3,7 +3,6 @@ import glob
 import math
 import os
 from pathlib import Path
-import re
 import shutil
 import stat
 import subprocess
@@ -39,8 +38,7 @@ def kicad_cli_version(path):
                                   text=True, check=True).stdout
     except (OSError, subprocess.SubprocessError):
         return None
-    found = re.search(r"(\d+\.\d+\.\d+)", reported)
-    return found.group(1) if found else None
+    return reported.strip() or None
 
 
 def find_kicad_cli():
