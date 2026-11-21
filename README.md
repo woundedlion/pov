@@ -117,7 +117,7 @@ Firmware, WebAssembly and native test targets share one engine:
 
 ```text
 C++ codebase
-  effects/ (48 visual algorithms) + workbench/
+  effects/ (49 visual algorithms) + workbench/
               |
   core/                       Rendering engine
     scan / plot -> filter pipeline -> Canvas pixel buffer
@@ -727,7 +727,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 The effect gallery, parameter guides, shader authoring workbench and legacy roster are documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
-The compile-time roster and tests carry 48 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`targets/Phantasm/phantasm_playlist.def`) contains 43 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile, and KaleidoscopeStainedGlass and RingShower by product curation, as recorded by its `exclude` rows. Each entry carries its own on-air duration alongside its name in the 43-entry roster. Current shipping-segment Teensy measurements for all 43 effects are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 49 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`targets/Phantasm/phantasm_playlist.def`) contains 43 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile, and KaleidoscopeStainedGlass and RingShower by product curation, as recorded by its `exclude` rows. Each entry carries its own on-air duration alongside its name in the 43-entry roster. Current shipping-segment Teensy measurements for all 43 effects are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ### 6.7 Fenced Effect Transitions (`control/transition.h`)
 
@@ -1505,9 +1505,13 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │   ├── color_controls.h  Palette control types and authored gamut contracts
 │   │   │   ├── color_state.h  Authored palette parameters and bounded control preparation
 │   │   │   └── palette_cache.h  Palette lookup tables and temporal cache qualification
+│   │   ├── four_stroke.h           Four-stroke contour classes, presentation clock and linear-light resolve
+│   │   ├── four_stroke_contour.h   Marching-squares contours and subpixel membership
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
 │   │   │                            shader, volume, column_basis)
+│   │   │   ├── four_stroke.h      Boundary-aware shading of fixed-time scan footprints
+│   │   │   ├── four_stroke_star.h Projected exposed edges of stationary spherical stars
 │   │   │   ├── face_raster.h      Face-specialized scan loops and swept face bounds
 │   │   │   ├── ring_stack.h       Fused ring-stack scan, pool and sweep
 │   │   │   ├── mesh_capture.h      Face visibility and deforming-vertex column-time capture
@@ -1617,7 +1621,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    48 headers covering 48 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    49 headers covering 49 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                common/ for code two or more effects share (the
 │                                reaction-diffusion base reaction_diffusion.h and the
