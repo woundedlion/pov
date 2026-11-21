@@ -16,7 +16,7 @@ else:
 
 
 @contextlib.contextmanager
-def guard(directory):
+def guard(directory, *, wait=True):
     # The guard inode must persist across all claim generations.
     with Path(f"{directory}.guard").open("a+b") as stream:
         stream.seek(0)
@@ -28,9 +28,11 @@ def guard(directory):
                 except OSError as error:
                     if error.errno not in (errno.EACCES, errno.EAGAIN):
                         raise
+                    if not wait:
+                        raise BlockingIOError("lock is in use") from error
                     time.sleep(0.05)
         else:
-            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
         try:
             yield
         finally:
@@ -85,6 +87,15 @@ def update_claim(directory, operation, value):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] in ("hold", "try-hold"):
+        try:
+            with guard(sys.argv[2], wait=sys.argv[1] == "hold"):
+                sys.stdout.buffer.write(b"locked\n")
+                sys.stdout.buffer.flush()
+                sys.stdin.buffer.read(1)
+        except BlockingIOError:
+            sys.exit(1)
+        sys.exit(0)
     if (len(sys.argv) < 3 or sys.argv[1] not in ("claim", "break", "break-empty")
             or len(sys.argv) != (3 if sys.argv[1] == "claim" else 4)):
         print("usage: device_lock_guard.py claim <directory> | break <directory> <token> | break-empty <directory> <cutoff>",

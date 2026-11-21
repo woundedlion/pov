@@ -98,6 +98,7 @@ class CommitJobs(unittest.TestCase):
         git_run(self.repo, "init", "--quiet", env=self.env)
         (self.repo / "tools").mkdir()
         shutil.copyfile(LOCAL_CI, self.repo / "tools/local_ci.sh")
+        shutil.copyfile(REPO / "tools/device_lock_guard.py", self.repo / "tools/device_lock_guard.py")
         (self.repo / "tools/ci").mkdir()
         shutil.copyfile(REPO / "tools/ci/common.sh", self.repo / "tools/ci/common.sh")
         workflow = self.repo / ".github/workflows"
@@ -105,7 +106,7 @@ class CommitJobs(unittest.TestCase):
         shutil.copyfile(REPO / ".github/workflows/ci.yml", workflow / "ci.yml")
         (self.repo / ".gitignore").write_text(".pio/\nbuild/\n", encoding="utf-8")
         (self.repo / "package-lock.json").write_text("{}\n", encoding="utf-8")
-        git_run(self.repo, "add", "tools/local_ci.sh", "tools/ci/common.sh", ".github/workflows/ci.yml",
+        git_run(self.repo, "add", "tools/device_lock_guard.py", "tools/local_ci.sh", "tools/ci/common.sh", ".github/workflows/ci.yml",
                 ".gitignore", "package-lock.json", env=self.env)
         git_run(self.repo, "commit", "--quiet", "-m", "fixture", env=self.env)
         self.sha = git_run(self.repo, "rev-parse", "HEAD", env=self.env).stdout.strip()
@@ -150,6 +151,22 @@ class CommitJobs(unittest.TestCase):
         self.assertEqual((self.tree / ".pio/libdeps/missing/library").read_text(), "copied")
         self.assertEqual((self.tree / ".pio/libdeps/existing/library").read_text(), "retained")
         self.assertEqual(self.passed.read_text(), self.sha + "\n")
+
+    def test_interrupted_lock_holder_releases_the_next_waiter(self):
+        lock = self.root / "fixture-lock"
+        helper = [sys.executable, str(REPO / "tools/device_lock_guard.py")]
+        with subprocess.Popen([*helper, "hold", str(lock)], stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE) as owner:
+            try:
+                self.assertEqual(owner.stdout.readline().strip(), b"locked")
+                busy = subprocess.run([*helper, "try-hold", str(lock)], input=b"", capture_output=True)
+                self.assertEqual(busy.returncode, 1)
+            finally:
+                owner.kill()
+                owner.wait()
+        recovered = subprocess.run([*helper, "try-hold", str(lock)], input=b"", capture_output=True)
+        self.assertEqual(recovered.returncode, 0, recovered.stderr)
+        self.assertEqual(recovered.stdout.strip(), b"locked")
 
     def test_named_jobs_run_each_commit_without_creating_passed_record(self):
         (self.repo / "marker").write_text("next", encoding="utf-8")

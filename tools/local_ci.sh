@@ -266,16 +266,12 @@ run_commits() {
   dir="${HS_LOCAL_CI_DIR:-$(dirname "$main")/temp/$(basename "$main")-local-ci}"
   lock="$common/hs-local-ci.lock"
   passed="$common/hs-local-ci-passed"
-  until mkdir "$lock" 2>/dev/null; do
-    if [ -f "$lock/pid" ] && ! kill -0 "$(cat "$lock/pid")" 2>/dev/null; then
-      rm -rf "$lock"
-      continue
-    fi
-    echo "local_ci: waiting for another local CI run ($lock)"
-    sleep 30
-  done
-  echo $$ > "$lock/pid"
-  trap 'rm -rf "$lock" "$scratch"' EXIT
+  local ready
+  coproc CI_GUARD { exec python "$(dirname "$self")/device_lock_guard.py" hold "$lock"; }
+  if ! read -r ready <&"${CI_GUARD[0]}" || [ "$ready" != locked ]; then
+    echo "local_ci: failed to lock $lock" >&2
+    return 1
+  fi
 
   while IFS= read -r entry; do
     entry="$(cygpath -u "$entry" 2>/dev/null || printf '%s' "$entry")"
