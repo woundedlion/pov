@@ -669,9 +669,11 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
                                  layers, result, composite);
   };
   // a layer within rounding of last holds nothing nearer than far.
+  const float additional = tau <= last ? (last - tau) * fabsf(d[k]) : -1.0f;
+  const bool truncated = additional >= static_cast<float>(limits.max_steps);
   const int layer_limit =
-      tau <= last ? static_cast<int>((last - tau) * fabsf(d[k])) + 1 : 0;
-  for (int step = 0; step < std::min(layer_limit, limits.max_steps); ++step) {
+      truncated ? limits.max_steps : static_cast<int>(additional) + 1;
+  for (int step = 0; step < layer_limit; ++step) {
     const float ey = y - rintf(y);
     const float ez = z - rintf(z);
     const float offset2 = ey * ey + ez * ez;
@@ -689,7 +691,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
     tau += step_value;
     reach += reach_step;
   }
-  if (layer_limit > limits.max_steps)
+  if (truncated)
     result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
   result.color = composite.premultiplied();
   return result;
@@ -802,9 +804,12 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   int held = 0;
   float cutoff = INFINITY;
   // a layer within rounding of last holds nothing nearer than far.
+  const float additional =
+      tau <= last ? (last - tau) * fabsf(d_value[k]) : -1.0f;
+  const bool truncated = additional >= static_cast<float>(limits.max_steps);
   const int layer_limit =
-      tau <= last ? static_cast<int>((last - tau) * fabsf(d_value[k])) + 1 : 0;
-  for (int step = 0; step < std::min(layer_limit, limits.max_steps); ++step) {
+      truncated ? limits.max_steps : static_cast<int>(additional) + 1;
+  for (int step = 0; step < layer_limit; ++step) {
     std::array<float, OTHERS> offset;
     float farthest = 0;
     for (int n = 0; n < OTHERS; ++n) {
@@ -824,10 +829,9 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
                                   candidate);
     sort_shell_layers(storage, count);
     // Later layers contribute no nearer than HORIZON.
-    const float horizon =
-        WIDE && step + 1 < std::min(layer_limit, limits.max_steps)
-            ? (tau + (1 - widest) * step_value) * cell
-            : INFINITY;
+    const float horizon = WIDE && step + 1 < layer_limit
+                              ? (tau + (1 - widest) * step_value) * cell
+                              : INFINITY;
     int ready = count;
     if constexpr (WIDE)
       for (ready = 0; ready < count && pending[ready].t < horizon;)
@@ -852,7 +856,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
     tau += step_value;
     reach += reach_step;
   }
-  if (layer_limit > limits.max_steps || (WIDE && cutoff < INFINITY))
+  if (truncated || (WIDE && cutoff < INFINITY))
     result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
   result.color = composite.premultiplied();
   return result;

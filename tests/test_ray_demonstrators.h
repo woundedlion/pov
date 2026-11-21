@@ -487,6 +487,22 @@ inline void test_periodic_shell_traversal_budgets() {
   HS_EXPECT_EQ(partial.trace.counters.layers, 1);
   HS_EXPECT_GT(partial.color.alpha, 0);
   HS_EXPECT_NEAR(partial.trace.contribution.t, .2f, 1e-6f);
+  {
+    auto long_camera = camera;
+    long_camera.interval.far = 1e12f;
+    long_camera.center = {{0, .5f, .5f, 0}};
+    const auto prepared =
+        SDF::prepare_periodic_shells(long_camera, 1.0f, .1f, {});
+    Raycast::TraceLimits short_budget;
+    short_budget.max_steps = 2;
+    SDF::ShellLayerStorage storage;
+    const auto single = SDF::trace_periodic_shells_3d(
+        prepared, long_camera, math::X_AXIS, short_budget, appearance);
+    const auto general = SDF::trace_periodic_shells_march<3>(
+        prepared, long_camera, math::X_AXIS, short_budget, appearance, storage);
+    HS_EXPECT_EQ(single.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+    HS_EXPECT_EQ(general.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
+  }
   limits.max_steps = 0;
   const auto empty = SDF::detail::reference::shade_periodic_shells(
       camera, {1, 0, 0}, 1, .3f, {}, limits, appearance);
