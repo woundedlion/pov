@@ -307,6 +307,13 @@ class MainTests(unittest.TestCase):
         output = self.emitted(emit)
         return result, output
 
+    def test_mixed_revisions_cannot_be_ranked(self):
+        older = SYNTHETIC_BOARD.replace('(rev "1.2")', '(rev "1.1")')
+        result, output = self.rank_sources([older, SYNTHETIC_BOARD], [{}, {}])
+        self.assertEqual(result, 1)
+        self.assertIn("cannot rank mixed board revisions: 1.1, 1.2", output)
+        self.assertNotIn("best by signal integrity", output)
+
     def test_clean_candidates_recommend_shorter_copper(self):
         clean = {"status": analyze_candidates.DRC_OK,
                  "errors": 0, "real": 0, "unconnected": 0}

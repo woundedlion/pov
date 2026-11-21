@@ -271,7 +271,7 @@ def analyze(path):
     )
 
     return dict(
-        nseg=len(segs) + len(arcs), nvia=len(vias), total_len=total_len,
+        revision=revision, nseg=len(segs) + len(arcs), nvia=len(vias), total_len=total_len,
         netlen=netlen, netseg=netseg, netlayers=netlayers, netvias=netvias,
         spi_vias=sum(netvias.get(n, 0) for n in SPI),
         sync_vias=sum(netvias.get(n, 0) for n in SYNC),
@@ -501,6 +501,10 @@ def main(argv=None):
             return 1
         R[name]["drc"] = run_drc(f)
 
+    revisions = sorted({board["revision"] for board in R.values()})
+    if len(revisions) != 1:
+        print("cannot rank mixed board revisions: " + ", ".join(revisions), file=sys.stderr)
+        return 1
     _print_overall_routing(R)
     _print_critical_nets(R)
     _print_fast_net_summary(R)
