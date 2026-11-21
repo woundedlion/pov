@@ -1592,6 +1592,12 @@ inline void test_mobius_params_accessors() {
  *        and the inverting c != 0 branch including its pole.
  */
 inline void test_mobius_transform() {
+  for (float scale : {1e-8f, 1e-30f}) {
+    const math::MobiusParams identity(scale, 0, 0, 0, 0, 0, scale, 0);
+    for (const auto &point :
+         {math::X_AXIS, math::Y_AXIS, -math::Y_AXIS, math::Z_AXIS})
+      HS_EXPECT_VEC(math::mobius_transform(point, identity), point, 1e-6f);
+  }
   math::Complex z(0.3f, 0.7f);
 
   math::MobiusParams id;

@@ -214,18 +214,27 @@ inline math::Vector mobius_transform(const math::Vector &v,
     s = 0.0f;
   }
 
-  const float n_re = params.a.re * px - params.a.im * pz + params.b.re * s;
-  const float n_im = params.a.re * pz + params.a.im * px + params.b.im * s;
-  const float m_re = params.c.re * px - params.c.im * pz + params.d.re * s;
-  const float m_im = params.c.re * pz + params.c.im * px + params.d.im * s;
+  float n_re = params.a.re * px - params.a.im * pz + params.b.re * s;
+  float n_im = params.a.re * pz + params.a.im * px + params.b.im * s;
+  float m_re = params.c.re * px - params.c.im * pz + params.d.re * s;
+  float m_im = params.c.re * pz + params.c.im * px + params.d.im * s;
 
-  const float n2 = n_re * n_re + n_im * n_im;
-  const float m2 = m_re * m_re + m_im * m_im;
-  const float den = n2 + m2;
-  // The absolute floor also catches nonsingular maps with small coefficients
-  // near the pole; exact simultaneous zeros require a singular map.
-  if (den < MOBIUS_POLE_EPS)
-    return math::Vector(0.0f, 1.0f, 0.0f);
+  float n2 = n_re * n_re + n_im * n_im;
+  float m2 = m_re * m_re + m_im * m_im;
+  float den = n2 + m2;
+  if (den < MOBIUS_POLE_EPS) {
+    const float peak =
+        fmaxf(fmaxf(fabsf(n_re), fabsf(n_im)), fmaxf(fabsf(m_re), fabsf(m_im)));
+    if (peak == 0.0f)
+      return math::Vector(0.0f, 1.0f, 0.0f);
+    n_re /= peak;
+    n_im /= peak;
+    m_re /= peak;
+    m_im /= peak;
+    n2 = n_re * n_re + n_im * n_im;
+    m2 = m_re * m_re + m_im * m_im;
+    den = n2 + m2;
+  }
 
   const float inv = 1.0f / den;
   return math::Vector(2.0f * (n_re * m_re + n_im * m_im) * inv, (n2 - m2) * inv,
