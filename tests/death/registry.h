@@ -937,7 +937,7 @@ inline const Case *all_cases(int &n) {
               {"spherical_harmonic_order_over_degree",
                case_spherical_harmonic_order_over_degree,
                "core/math/spherical_harmonics.h",
-               "(l >= 0 && abs_m <= l) spherical harmonic normalization: order 3 is "
+               "(l >= 0 && m >= -l && m <= l) spherical harmonic normalization: order -2147483648 is "
                "outside [-2, 2]"},
               {"spherical_harmonic_decode_negative_index",
                case_spherical_harmonic_decode_negative_index,

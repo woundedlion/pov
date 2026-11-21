@@ -394,7 +394,8 @@ inline void case_spherical_field_populate_ring_end_oob() {
  *          0, so every sample of the mode comes back black.
  */
 inline void case_spherical_harmonic_order_over_degree() {
-  const float n = SHMath::normalization(opaque(2), 3);
+  const float n =
+      SHMath::normalization(opaque(2), std::numeric_limits<int>::min());
   (void)n;
 }
 

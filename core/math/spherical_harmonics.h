@@ -178,10 +178,10 @@ HS_FLASH_INLINE inline float reduced_legendre_derivative(int l, int m,
  * underflow to zero.
  */
 inline float normalization(int l, int m) {
-  int abs_m = std::abs(m);
-  HS_CHECK(l >= 0 && abs_m <= l,
+  HS_CHECK(l >= 0 && m >= -l && m <= l,
            "spherical harmonic normalization: order %d is outside [-%d, %d]", m,
            l, l);
+  const int abs_m = std::abs(m);
   float ratio = 1.0f;
   for (int64_t i = static_cast<int64_t>(l) + abs_m; i > l - abs_m; --i)
     ratio /= static_cast<float>(i);
