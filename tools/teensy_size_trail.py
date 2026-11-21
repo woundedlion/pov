@@ -588,7 +588,8 @@ def cmd_backfill(args) -> int:
         return 2
     trail = Path(args.trail) if args.trail else default_trail()
     envs = tuple(args.env) if args.env else default_environments()
-    build_dir = Path(args.build_dir) if args.build_dir else worktree / ".pio" / "build"
+    build_dir = Path(args.build_dir).resolve() if args.build_dir else worktree / ".pio" / "build"
+    build_env = dict(os.environ, PLATFORMIO_BUILD_DIR=str(build_dir)) if args.build_dir else None
 
     try:
         if tracked_changes(worktree):
@@ -638,7 +639,7 @@ def cmd_backfill(args) -> int:
                 pio += ["-e", env]
             before = {env: _elf_stamp(build_dir, env) for env in todo}
             try:
-                rc = subprocess.run(pio, check=False).returncode
+                rc = subprocess.run(pio, check=False, env=build_env).returncode
             except OSError as exc:
                 print(f"[size-trail] pio not runnable ({exc})", file=sys.stderr)
                 return 2

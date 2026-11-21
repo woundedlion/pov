@@ -401,7 +401,9 @@ class Backfill(unittest.TestCase):
                 if relink:
                     # A link rewrites the ELF byte-identically when every object
                     # came from the cache; only its mtime moves.
-                    elf.write_bytes(make_elf(FIRMWARE))
+                    output = Path(kwargs["env"]["PLATFORMIO_BUILD_DIR"]) / "holosphere" / tst.ELF_NAME
+                    self.assertEqual(output, elf)
+                    output.write_bytes(make_elf(FIRMWARE))
                 return subprocess.CompletedProcess(cmd, status)
 
             args = types.SimpleNamespace(
