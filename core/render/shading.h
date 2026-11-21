@@ -27,6 +27,10 @@
  * unrefreshed input registers hold their struct defaults when the rasterizer
  * builds a fresh Fragment, or are NaN in debug builds and stale in release
  * when it reuses one.
+ * A boundary-aware Scan or Plot draw runs the base material on its ordinary
+ * registers first. Its edge shader retains v0 progress, reads signed contour
+ * distance in logical pixels from v1 (negative inside), tap coverage from v2,
+ * and signed outward alignment from v3. Material alpha and age flow through.
  * A shader must write color unconditionally and may read only registers
  * refreshed by its rasterizer or written by the shader itself, plus age.
  */

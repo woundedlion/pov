@@ -10,6 +10,7 @@
  */
 
 #include "core/render/scan/raster.h"
+#include "core/render/scan/four_stroke.h"
 #include "core/render/scan/shapes.h"
 #include "core/render/scan/ring_stack.h"
 #include "core/render/scan/mesh.h"

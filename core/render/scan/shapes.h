@@ -16,6 +16,7 @@
 #include "core/render/spacetime/worldlines.h"
 #include "core/platform/platform.h"
 #include "core/render/scan/raster.h"
+#include "core/render/scan/four_stroke.h"
 
 /**
  * @file shapes.h
@@ -1002,6 +1003,24 @@ struct Star {
     SDF::Star shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
+  }
+
+  /** @brief Rasterizes the filled star with a boundary-aware material.
+   * @tparam W,H Output dimensions.
+   * @param pipeline Prepared destination pipeline.
+   * @param canvas Destination canvas.
+   * @param basis Star frame.
+   * @param radius Star circumradius as a fraction of a hemisphere.
+   * @param sides Number of points.
+   * @param material Wrapped fragment shader and contour stage.
+   * @param phase Angular phase offset in radians. */
+  template <int W, int H>
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, int sides, FourStrokeMaterial material,
+                   float phase = 0) {
+    auto res = math::get_antipode(basis, radius);
+    SDF::Star shape(res.first, res.second, sides, phase, radius > 1.0f);
+    Scan::rasterize<W, H>(pipeline, canvas, shape, material);
   }
 
   /**
