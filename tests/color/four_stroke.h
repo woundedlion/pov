@@ -16,12 +16,13 @@ namespace hs_test::color_tests {
 /** @brief Each beat selects its three sRGB roles at the exact timestamp. */
 inline void test_four_stroke_clock() {
   using namespace FourStroke;
-  constexpr uint32_t HUES[] = {0x19c2cc, 0x3b66ff, 0xd938b8, 0xe63939,
-                               0xf27d16, 0xd9c216, 0x5cd629, 0x14b88a};
+  constexpr uint32_t PAIRS[][2] = {{0x24b5b8, 0x5a78e6},
+                                   {0x5a78e6, 0xe06858},
+                                   {0xe06858, 0xd4a838},
+                                   {0xd4a838, 0x24b5b8}};
   for (int i = 0; i < 16; ++i) {
     const auto &beat = colors(i * 62500);
-    const int pair = (i / 4) * 2;
-    const uint32_t a = HUES[pair], b = HUES[pair + 1];
+    const auto &[a, b] = PAIRS[i / 4];
     const uint32_t expected[][3] = {{a, 0x222222, 0xe6e6e6},
                                     {0x333b42, a, b},
                                     {b, 0xe6e6e6, 0x222222},
