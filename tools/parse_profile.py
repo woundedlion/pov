@@ -866,7 +866,7 @@ def cmd_validate(windows, effect, scope):
 
     # Single instance: frame numbers strictly increase (no mid-capture teardown).
     resets = sum(1 for a, b in zip(windows, windows[1:])
-                 if b.f_start <= a.f_start)
+                 if b.f_start <= a.f_end)
     check(resets == 0,
           f"frame numbers monotonic (no epoch reset) ({resets} resets)")
 

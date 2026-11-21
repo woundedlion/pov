@@ -216,6 +216,15 @@ class ShortFrameRows(unittest.TestCase):
         # The wall sum still shows six windows consumed by four frames.
         self.assertEqual(pp.spilled_frames(window), 2)
 
+    def test_overlapping_window_ranges_fail_even_with_increasing_starts(self):
+        windows, effect = self._parse()
+        following = self._parse()[0][0]
+        for first, verdict in ((3, "FAIL"), (6, "PASS")):
+            following.f_start, following.f_end = first, first + 3
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                pp.cmd_validate([*windows, following], effect, "frame")
+            self.assertIn(f"[{verdict}] frame numbers monotonic", out.getvalue())
+
     def test_validate_fails_a_short_window(self):
         windows, effect = self._parse(drop="f 3 w=200000 r=190000")
         with contextlib.redirect_stdout(io.StringIO()) as out:
