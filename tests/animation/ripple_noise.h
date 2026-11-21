@@ -290,11 +290,9 @@ void test_noise_loop_seed_recovery() {
     seeded.time = seed;
     seeded.speed = 0.0f;
     NoiseAnimation seeded_animation(seeded);
+    HS_EXPECT_EQ(seeded.time, 0.0f);
     seeded_animation.step(fake_canvas());
-    if (std::isnan(seed))
-      HS_EXPECT_TRUE(std::isnan(seeded.time));
-    else
-      HS_EXPECT_EQ(seeded.time, seed);
+    HS_EXPECT_EQ(seeded.time, 0.0f);
     seeded.speed = 0.125f;
     seeded_animation.step(fake_canvas());
     HS_EXPECT_EQ(seeded.time, 0.125f);

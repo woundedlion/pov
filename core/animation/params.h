@@ -1182,7 +1182,10 @@ public:
    * @param duration Duration in frames (-1 for indefinite).
    */
   Noise(NoiseParams &params, int duration = -1)
-      : AnimationBase(duration, false), params(params), clock(params.time) {}
+      : AnimationBase(duration, false), params(params), clock(params.time) {
+    if (!std::isfinite(params.time))
+      params.time = 0.0f;
+  }
 
   /**
    * @brief Steps the animation, advancing the noise time field.
@@ -1402,7 +1405,10 @@ public:
    * @param params Reference to the NoiseProductParams to animate.
    */
   NoiseProduct(NoiseProductParams &params)
-      : AnimationBase(-1, false), params(params), clock(params.time) {}
+      : AnimationBase(-1, false), params(params), clock(params.time) {
+    if (!std::isfinite(params.time))
+      params.time = 0.0f;
+  }
 
   /**
    * @brief Steps the animation and advances the noise clock.
