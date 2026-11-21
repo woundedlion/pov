@@ -299,13 +299,16 @@ concept HasPhaseHooks = requires(const S &s) {
 /** @brief Whether a policy defines the per-face ordering hook, with or without
  * the face_phase that makes the set usable. */
 template <typename S>
-concept HasFaceOffset =
-    requires(const S &s, const math::Vector &c) { s.face_offset(c, 0, 0); };
+concept HasFaceOffset = requires(const S &s, const math::Vector &c) {
+  { s.face_offset(c, 0, 0) } -> std::same_as<float>;
+};
 
 /** @brief Whether a policy defines the face-local phase hook at the arity the
  * per-face draw path calls. */
 template <typename S>
-concept HasFacePhase = requires(const S &s) { s.face_phase(0.5f, 0.5f, 0.1f); };
+concept HasFacePhase = requires(const S &s) {
+  { s.face_phase(0.5f, 0.5f, 0.1f) } -> std::same_as<float>;
+};
 
 /** @brief Whether a policy defines the per-face hook set. */
 template <typename S>

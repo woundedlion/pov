@@ -14,6 +14,17 @@
 
 namespace hs_test::animation_tests {
 
+struct IntegerFacePhase : Segue::TerminatorSweep {
+  int face_phase(float, float, float) const;
+};
+struct IntegerFaceOffset : Segue::TerminatorSweep {
+  int face_offset(const math::Vector &, int, int) const;
+};
+static_assert(!Segue::HasFacePhase<IntegerFacePhase>);
+static_assert(!Segue::PerFace<IntegerFacePhase>);
+static_assert(!Segue::HasFaceOffset<IntegerFaceOffset>);
+static_assert(!Segue::PerFace<IntegerFaceOffset>);
+
 // ============================================================================
 // MeshCarousel segues
 // ============================================================================
