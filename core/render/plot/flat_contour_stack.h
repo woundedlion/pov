@@ -23,6 +23,7 @@
 #include "core/render/clip.h"
 #include "core/render/filter/screen_direct_aa_sink.h"
 #include "core/render/plot/band_split.h"
+#include "core/render/plot/chords.h"
 #include "core/render/plot/contour_layout.h"
 #include "core/render/plot/raster.h"
 #include "core/render/plot/shapes.h"
