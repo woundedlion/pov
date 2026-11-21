@@ -55,6 +55,13 @@ inline void test_lerp16_midpoint() {
  * @brief Verifies lerp16 rounds to nearest, not floor.
  */
 inline void test_lerp16_rounds_to_nearest() {
+  for (uint16_t a : {0, 1, 32797, 65534})
+    for (uint16_t b : {1, 2, 32798, 65535})
+      for (uint16_t weight : {32766, 32767, 32768, 32769}) {
+        const uint64_t sum =
+            uint64_t(a) * (65535 - weight) + uint64_t(b) * weight;
+        HS_EXPECT_EQ(lerp_q16(a, b, weight), (sum + 32767) / 65535);
+      }
   Pixel a(0, 0, 0);
   Pixel b(1, 2, 4);
   Pixel m = a.lerp16(b, 49152); // 0.75

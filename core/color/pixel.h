@@ -25,7 +25,8 @@ __attribute__((always_inline)) inline uint16_t lerp_q16(uint16_t a, uint16_t b,
   const uint32_t inverse = 65535u - weight;
   const uint32_t x =
       static_cast<uint32_t>(a) * inverse + static_cast<uint32_t>(b) * weight;
-  return static_cast<uint16_t>((x + (x >> 16) + 32768u) >> 16);
+  const uint32_t rounded = x + 32768u;
+  return static_cast<uint16_t>((rounded + (rounded >> 16)) >> 16);
 }
 
 /**
