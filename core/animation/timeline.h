@@ -385,6 +385,7 @@ public:
    * @param canvas The current canvas buffer.
    */
   HS_FLASH_MEMBER void step(Canvas &canvas) {
+    HS_CHECK(!stepping, "recursive Timeline::step()");
     struct StepScope {
       bool &flag;
       explicit StepScope(bool &f) : flag(f) { flag = true; }

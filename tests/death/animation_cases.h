@@ -659,6 +659,21 @@ inline void case_timeline_clear_during_step() {
   tl.step(canvas); // t=1: completes -> callback -> clear() while stepping
 }
 
+/** @brief Rejects recursive stepping from a completion callback. */
+inline void case_timeline_recursive_step() {
+  hs_test::StubEffect effect(8, 8);
+  Canvas canvas(effect);
+  Timeline timeline;
+  float value = 0.0f;
+  timeline.step(canvas);
+  timeline.add(
+      0, Animation::Transition(value, 1.0f, 1, math::ease_linear).then([&] {
+        death_admitted();
+        timeline.step(canvas);
+      }));
+  timeline.step(canvas);
+}
+
 /** @brief Rejects owner cancellation from a completion callback. */
 inline void case_timeline_cancel_owner_during_step() {
   static hs_test::StubEffect fx(8, 8);

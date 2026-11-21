@@ -147,6 +147,8 @@ inline const Case *all_cases(int &n) {
                "core/animation/timeline.h",
                "(!global_timeline_events[i].pinned) clear() would destroy a pinned "
                "animation"},
+              {"timeline_recursive_step", case_timeline_recursive_step,
+               "core/animation/timeline.h", "(!stepping) recursive Timeline::step()"},
               {"timeline_clear_during_step", case_timeline_clear_during_step,
                "core/animation/timeline.h",
                "(!stepping) clear() from inside step() would destroy the animation "
