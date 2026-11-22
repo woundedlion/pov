@@ -126,7 +126,7 @@ inline int wrap(int x, int m) {
  * @return The wrapped value in the range [0, W).
  */
 inline int fast_wrap(int x, int W) {
-  HS_AUDIT_CHECK(x >= -W && x < 2 * W);
+  HS_AUDIT_CHECK(x >= -W && x < 2LL * W);
   if (x >= W)
     return x - W;
   if (x < 0)

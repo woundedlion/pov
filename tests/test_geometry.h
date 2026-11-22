@@ -771,6 +771,9 @@ inline void test_fast_wrap() {
   HS_EXPECT_EQ(math::fast_wrap(2 * W - 1, W), W - 1);
   HS_EXPECT_EQ(math::fast_wrap(-1, W), W - 1);
   HS_EXPECT_EQ(math::fast_wrap(-W, W), 0);
+  constexpr int LARGE = std::numeric_limits<int>::max();
+  HS_EXPECT_EQ(math::fast_wrap(0, LARGE), 0);
+  HS_EXPECT_EQ(math::fast_wrap(LARGE, LARGE), 0);
   for (int x = -W; x < 2 * W; ++x) {
     int w = math::fast_wrap(x, W);
     HS_EXPECT_TRUE(w >= 0 && w < W);
