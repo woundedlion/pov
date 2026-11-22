@@ -167,9 +167,22 @@ public:
       HS_CHECK(!global_timeline_events[i].pinned,
                "clear() would destroy a pinned animation");
     }
+    if (clearing)
+      return;
     const int event_count = global_timeline_num_events;
+    const int hook_count = clear_hook_count;
+    clearing = true;
+    for (int i = 0; i < hook_count; ++i) {
+      const auto [ctx, fn] = clear_hooks[i];
+      if (fn)
+        fn(ctx);
+    }
+    clearing = false;
+    int write = 0;
     for (int i = 0; i < clear_hook_count; ++i)
-      clear_hooks[i].fn(clear_hooks[i].ctx);
+      if (clear_hooks[i].fn)
+        clear_hooks[write++] = clear_hooks[i];
+    clear_hook_count = write;
     HS_CHECK(global_timeline_num_events == event_count,
              "clear hook added or removed timeline events");
     destroy_events();
@@ -191,12 +204,15 @@ public:
   /**
    * @brief Unregisters the hook added under @p ctx; a no-op if absent.
    * @param ctx The registration key passed to add_clear_hook().
-   * @details Hook order is not preserved.
+   * @details Removing a hook during clear() cancels any pending call to it.
    */
   HS_FLASH_MEMBER void remove_clear_hook(void *ctx) {
     for (int i = 0; i < clear_hook_count; ++i) {
-      if (clear_hooks[i].ctx == ctx) {
-        clear_hooks[i] = clear_hooks[--clear_hook_count];
+      if (clear_hooks[i].fn && clear_hooks[i].ctx == ctx) {
+        if (clearing)
+          clear_hooks[i].fn = nullptr;
+        else
+          clear_hooks[i] = clear_hooks[--clear_hook_count];
         return;
       }
     }
@@ -581,6 +597,7 @@ private:
 
   ClearHook clear_hooks[MAX_CLEAR_HOOKS] = {};
   int clear_hook_count = 0;
+  bool clearing = false; ///< Clear hooks are being dispatched.
   bool stepping = false; /**< True for the duration of step(); gates clear(). */
 
   /**

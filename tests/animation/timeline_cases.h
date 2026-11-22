@@ -1004,6 +1004,23 @@ inline void test_timeline_remove_clear_hook_unregisters_by_ctx() {
   tl.clear();
   HS_EXPECT_EQ(first, 1);
   HS_EXPECT_EQ(second, 3);
+
+  struct Observer {
+    Timeline &timeline;
+    int calls = 0;
+  } observer{tl};
+  tl.add_clear_hook(&observer, [](void *ctx) {
+    auto &self = *static_cast<Observer *>(ctx);
+    ++self.calls;
+    self.timeline.remove_clear_hook(ctx);
+  });
+  tl.add_clear_hook(&second, count_clear_hook);
+  tl.clear();
+  HS_EXPECT_EQ(observer.calls, 1);
+  HS_EXPECT_EQ(second, 4);
+  tl.clear();
+  HS_EXPECT_EQ(observer.calls, 1);
+  HS_EXPECT_EQ(second, 5);
 }
 
 /**
