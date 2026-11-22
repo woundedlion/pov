@@ -152,7 +152,17 @@ inline float angle_between(const Vector &v1, const Vector &v2) {
   float m2 = dot(v2, v2);
   HS_CHECK(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ,
            "angle_between: degenerate vector");
-  float d = dot(v1, v2) / sqrtf(m1 * m2);
+  const float product = m1 * m2;
+  float d;
+  if (product > std::numeric_limits<float>::max()) [[unlikely]] {
+    const auto scaled = [](const Vector &v) {
+      return v / fmaxf(fmaxf(fabsf(v.x), fabsf(v.y)), fabsf(v.z));
+    };
+    const auto a = scaled(v1), b = scaled(v2);
+    d = dot(a, b) / sqrtf(dot(a, a) * dot(b, b));
+  } else {
+    d = dot(v1, v2) / sqrtf(product);
+  }
   return fast_acos(hs::clamp(d, -1.0f, 1.0f));
 }
 

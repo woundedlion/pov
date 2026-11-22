@@ -763,6 +763,9 @@ inline void test_angle_between_vectors() {
                  math::PI_F * 0.25f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(x * 5.0f, y * 0.3f), math::PI_F * 0.5f,
                  1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(x * 1e10f, x * 1e10f), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(x * 1e30f, DIAGONAL * 1e25f),
+                 math::PI_F * 0.25f, 1e-3f);
 }
 
 // ============================================================================
