@@ -133,6 +133,12 @@ inline void test_blend_outputs_denormal_alpha() {
   HS_EXPECT_NEAR(static_cast<float>(quarter.color.g), 2500.0f, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(quarter.color.b), 3500.0f, 1.0f);
   HS_EXPECT_EQ(quarter.alpha, alpha);
+
+  const Color4 same_rgb(from.color, 2.0f * alpha);
+  const Color4 unchanged = blend_outputs(from, same_rgb, 0.5f);
+  HS_EXPECT_EQ(unchanged.color.r, from.color.r);
+  HS_EXPECT_EQ(unchanged.color.g, from.color.g);
+  HS_EXPECT_EQ(unchanged.color.b, from.color.b);
 #endif
 }
 

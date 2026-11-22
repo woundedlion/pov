@@ -1181,7 +1181,7 @@ HS_FLASH_INLINE inline Color4 blend_outputs(const Color4 &from,
     const float scale = MIN_NORMAL_ALPHA / alpha;
     from_weight = (from.alpha * scale) * (1.0f - mix);
     to_weight = (to.alpha * scale) * mix;
-    denominator *= scale;
+    denominator = from_weight + to_weight;
   } else {
     from_weight = from.alpha * (1.0f - mix);
     to_weight = to.alpha * mix;
