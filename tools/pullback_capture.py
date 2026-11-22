@@ -156,6 +156,10 @@ def write_operations(programs: dict, oracles: list[dict], path: Path) -> None:
     path.write_bytes(data)
 
 
+def _capture_resolutions(programs: dict) -> set[tuple[int, int]]:
+    return {tuple(resolution) for resolution in programs["corpus"]["resolutions"]}
+
+
 def load_backend(
     path: Path, programs: dict, oracles: list[dict]
 ) -> tuple[tuple[int, int], dict]:
@@ -166,6 +170,8 @@ def load_backend(
     version, offset = _read_u16(data, offset)
     width, offset = _read_u16(data, offset)
     height, offset = _read_u16(data, offset)
+    if (width, height) not in _capture_resolutions(programs):
+        raise CaptureError(f"capture backend resolution {width}x{height} is not in the manifest")
     record_count, offset = _read_u32(data, offset)
     oracle_count, offset = _read_u16(data, offset)
     specs = {(spec["preset"], spec["name"]): spec for spec in operation_specs(programs)}
@@ -297,10 +303,7 @@ def main() -> int:
                     metrics[oracle]["value"] = max(
                         metrics[oracle]["value"], metric["value"]
                     )
-            expected_resolutions = {
-                tuple(resolution) for resolution in programs["corpus"]["resolutions"]
-            }
-            if resolutions != expected_resolutions:
+            if resolutions != _capture_resolutions(programs):
                 raise CaptureError("backend audit does not cover the resolution roster")
             validate_backend_oracles(metrics, oracles, args.configuration)
             return 0
