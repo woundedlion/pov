@@ -31,11 +31,13 @@ template <int CELLS> struct HueRotationRow {
    * @brief Binds the table to one color and clears knot validity.
    * @param color_base Precomputed OKLab base; must outlive
    * the row's samples.
-   * @param hue_domain Hue-turn interval the knots span.
+   * @param hue_domain Hue-turn interval the knots span; finite and nonzero when wrapping.
    * @param wraps Whether amounts past the domain wrap.
    */
   HS_HOT_INLINE void bind(const HueRotateBase &color_base, float hue_domain,
                           bool wraps) {
+    HS_CHECK(!wraps || (hue_domain != 0.0f && std::isfinite(hue_domain)),
+             "HueRotationRow: cyclic domain must be finite and nonzero");
     base = &color_base;
     domain = hue_domain;
     cyclic = wraps;
@@ -106,6 +108,10 @@ private:
   template <typename Ensure>
   Pixel sample_with(float amount, Ensure ensure) const {
     HS_AUDIT_CHECK(base, "HueRotationRow sampled before bind()");
+    if (domain == 0.0f) {
+      ensure(0);
+      return knots[0];
+    }
     float t = amount / domain;
     t = cyclic ? math::wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
     float x = t * CELLS;

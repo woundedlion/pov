@@ -7,9 +7,17 @@
 /** @file
  * @brief Death cases for color and palette guards. */
 
+#include "core/color/hue_rotation_row.h"
 #include "tests/death/context.h"
 
 namespace hs_test::death_tests {
+
+/** @brief A wrapping hue row rejects a zero period. */
+inline void case_hue_rotation_row_cyclic_zero_period() {
+  HueRotationRow<4> row;
+  const HueRotateBase base{};
+  row.bind(base, opaque(0.0f), true);
+}
 
 /** @brief Authored named palettes reject either out-of-range roster index. */
 inline void case_shader_palette_invalid_named_index() {
