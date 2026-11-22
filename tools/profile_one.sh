@@ -473,7 +473,8 @@ verify() {
     grep -q "$MARKER" "$OUT" || { echo "NO '$MARKER' MARKER — stale build?"; return 1; }
   fi
   if [ -n "${HS_PROFILE_EXPECT_SHAPE:-}" ]; then
-    grep -Fq "Spawning Shape: $HS_PROFILE_EXPECT_SHAPE" "$OUT" || {
+    sed -n 's/^Spawning Shape: \([^[:space:]]\{1,\}\).*/\1/p' "$OUT" |
+      grep -Fx -- "$HS_PROFILE_EXPECT_SHAPE" >/dev/null || {
       echo "PROFILE SHAPE MISMATCH (expected $HS_PROFILE_EXPECT_SHAPE)"; return 1;
     }
   fi

@@ -624,9 +624,11 @@ class ProfileConfigVerification(unittest.TestCase):
                 self.assertIn("PROFILE PRESET MISMATCH (expected 3)", result.stdout)
 
     def test_expected_shape_requires_the_matching_spawn_marker(self):
-        result = verify_log("Spawning Shape: Cube\n" + capture_log("o3"), expected_shape="Cube")
+        result = verify_log("Spawning Shape: Cube (V=8, E=12, F=6, I=24)\n" +
+                            capture_log("o3"), expected_shape="Cube")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        for line in ("", "Spawning Shape: Sphere\n"):
+        for line in ("", "Spawning Shape: Sphere\n", "Spawning Shape: CubeLonger\n",
+                     "prefix Spawning Shape: Cube\n"):
             with self.subTest(line=line):
                 result = verify_log(line + capture_log("o3"), expected_shape="Cube")
                 self.assertNotEqual(result.returncode, 0)
