@@ -95,6 +95,17 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[2].line, 5)
         self.assertIn("scripts/run-tests.mjs", issues[2].message)
 
+    def test_allowances_do_not_cover_neighboring_files(self):
+        text = ("`.github/workflows/deploy.yml` `.github/workflows/deploy.yml.old.yml` "
+                "`generated/linked.md` `generated-old/linked.md`")
+        entries = {PurePosixPath(name) for name in (".github", "generated", "generated-old")}
+        with mock.patch.object(dc, "UNTRACKED_ALLOWED",
+                               (".github/workflows/deploy.yml", "generated/")):
+            issues = dc.check_text(PurePosixPath("README.md"), text, entries)
+        self.assertEqual(len(issues), 2)
+        self.assertIn(".github/workflows/deploy.yml.old.yml", issues[0].message)
+        self.assertIn("generated-old/linked.md", issues[1].message)
+
     def test_directed_repository_tree_rows_are_linted(self):
         text = (FIXTURES / "tree_fence.txt").read_text(encoding="utf-8")
         entries = {

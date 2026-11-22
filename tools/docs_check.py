@@ -183,7 +183,8 @@ def _cited(allowlist: str, entry: str) -> str:
 def _prefix_allowance(candidate: str, prefixes: tuple[str, ...], namespace: str,
                       used: set[str] | None) -> bool:
     for prefix in prefixes:
-        if candidate == prefix.rstrip("/") or candidate.startswith(prefix):
+        if candidate == prefix.rstrip("/") or (
+                prefix.endswith("/") and candidate.startswith(prefix)):
             if used is not None:
                 used.add(_cited(namespace, prefix))
             return True

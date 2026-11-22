@@ -58,6 +58,18 @@ class TreeSync(unittest.TestCase):
             self.assertEqual(after, text)
             self.assertEqual(dc.check_text(PurePosixPath("README.md"), after, set()), [])
 
+    def test_allowlisted_file_does_not_hide_neighboring_tree_entry(self):
+        text = ("<!-- docs-check: tree exhaustive -->\n```\n"
+                "├── README.md   Documentation\n"
+                "└── optional/   Generated content\n```\n")
+        paths = entries("README.md", "README.md.template", "optional/linked.md")
+        with mock.patch.object(dc, "UNTRACKED_ALLOWED", ("README.md", "optional/")):
+            with self.assertRaisesRegex(ValueError, "role description for README.md.template"):
+                self.sync(text, paths)
+            issues = dc.check_text(PurePosixPath("overview.md"), text, paths)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("README.md.template", issues[0].message)
+
     def test_underindented_continuation_fails_without_truncating_text(self):
         text = ("<!-- docs-check: tree exhaustive -->\n```\n"
                 "└── core/\n    └── file.h   Keep this description\n"
