@@ -166,8 +166,16 @@ inline float fast_wrap(float x, int W) {
 inline float shortest_distance(float a, float b, float m) {
   HS_AUDIT_CHECK(m > 0.0f);
   m = std::fmax(m, std::numeric_limits<float>::min());
-  const float d = std::fabs(std::fmod(a - b, m));
-  return std::min(d, m - d);
+  if (a >= 0.0f && a < m && b >= 0.0f && b < m) {
+    const float d = std::fabs(a - b);
+    return std::min(d, (m - std::max(a, b)) + std::min(a, b));
+  }
+  const float ar = std::remainder(a, m);
+  const float br = std::remainder(b, m);
+  const float d = std::fabs(ar - br);
+  const float seam =
+      (m * 0.5f - std::max(ar, br)) + (m * 0.5f + std::min(ar, br));
+  return std::min(d, seam);
 }
 
 } // namespace math

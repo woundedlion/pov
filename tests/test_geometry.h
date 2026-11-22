@@ -812,6 +812,12 @@ inline void test_shortest_distance() {
   constexpr float CLOSE = 0x1p-26f;
   HS_EXPECT_EQ(math::shortest_distance(CLOSE, 0.0f, 1.0f), CLOSE);
   HS_EXPECT_EQ(math::shortest_distance(0.0f, CLOSE, 1.0f), CLOSE);
+  for (float translation : {-0x1p24f, 0x1p24f}) {
+    HS_EXPECT_EQ(math::shortest_distance(translation, 0.5f, 1.0f), 0.5f);
+    HS_EXPECT_EQ(math::shortest_distance(-CLOSE, translation, 1.0f), CLOSE);
+  }
+  constexpr float MAX = std::numeric_limits<float>::max();
+  HS_EXPECT_EQ(math::shortest_distance(MAX, -MAX, 1.0f), 0.0f);
   HS_EXPECT_NEAR(math::shortest_distance(0.0f, 1.0f, 10.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(math::shortest_distance(1.0f, 0.0f, 10.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(math::shortest_distance(1.0f, 9.0f, 10.0f), 2.0f, 1e-5f);
