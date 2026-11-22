@@ -17,6 +17,7 @@
 #include "core/animation/transformer.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/vec_test_util.h"
 
 namespace hs_test {
 namespace noise_tests {
