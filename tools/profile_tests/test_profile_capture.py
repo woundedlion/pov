@@ -357,27 +357,42 @@ class TestMain(unittest.TestCase):
         self.assertIn("streamed nothing", str(caught.exception))
         self.assertFalse(os.path.exists(self.out))
 
-    def test_a_silent_board_leaves_no_remnant_of_a_prior_capture(self):
-        # Opening for write already truncated the previous run's log, so the
-        # removal has to happen or a zero-byte file survives as a "capture".
-        os.makedirs(os.path.dirname(self.out))
-        with open(self.out, "w", encoding="utf-8") as handle:
-            handle.write("previous run\n")
-        with self.assertRaises(SystemExit):
-            self._run(FakeSerial("COM3", clock=self.clock))
-        self.assertFalse(os.path.exists(self.out))
+    def test_a_failed_capture_preserves_the_prior_log(self):
+        path = Path(self.out)
+        path.parent.mkdir()
+        path.write_text("previous run\n", encoding="utf-8")
+        opened = FakeSerial("COM3", clock=self.clock)
+        with self.assertRaisesRegex(SystemExit, "streamed nothing"):
+            self._run(opened)
+        self.assertEqual(path.read_text(encoding="utf-8"), "previous run\n")
+        self.assertEqual(list(path.parent.iterdir()), [path])
 
-    def test_a_nonpositive_duration_is_rejected(self):
-        for seconds in ("0", "-5"):
-            with self.subTest(seconds=seconds):
-                argv = ["profile_capture.py", "--out", self.out,
-                        "--seconds", seconds]
-                with mock.patch.object(sys, "argv", argv), \
-                        mock.patch.object(sys, "stderr", mock.MagicMock()):
-                    with self.assertRaises(SystemExit) as caught:
-                        pc.main()
-                self.assertEqual(caught.exception.code, 2)
-                self.assertFalse(os.path.exists(self.out))
+        opened = FakeSerial("COM3", clock=self.clock)
+        with mock.patch.object(opened, "read", side_effect=[
+                b"partial\n", _SerialException("USB disconnected")]), \
+                contextlib.redirect_stderr(io.StringIO()), \
+                self.assertRaisesRegex(SystemExit, "dropped after 1 lines"):
+            self._run(opened)
+        self.assertEqual(path.read_text(encoding="utf-8"), "previous run\n")
+        self.assertEqual(list(path.parent.iterdir()), [path])
+
+        self._run(FakeSerial("COM3", [b"new run\n"], self.clock))
+        self.assertEqual(path.read_text(encoding="utf-8"), "new run\n")
+        self.assertEqual(list(path.parent.iterdir()), [path])
+
+    def test_invalid_durations_are_rejected_before_opening_the_port(self):
+        for flag in ("--seconds", "--connect-timeout"):
+            for duration in ("0", "-5", "nan", "inf", "-inf"):
+                with self.subTest(flag=flag, duration=duration):
+                    with mock.patch.object(pc, "open_port") as open_port, \
+                            mock.patch.object(sys, "stderr", mock.MagicMock()), \
+                            mock.patch.object(sys, "argv", [
+                                "profile_capture.py", "--out", self.out, f"{flag}={duration}"]):
+                        with self.assertRaises(SystemExit) as caught:
+                            pc.main()
+                    self.assertEqual(caught.exception.code, 2)
+                    open_port.assert_not_called()
+                    self.assertFalse(Path(self.out).parent.exists())
 
 
 class TestBoardPinForwarding(unittest.TestCase):

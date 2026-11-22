@@ -11,8 +11,11 @@ Needs pyserial (`python -m pip install pyserial`).
 import argparse
 from collections import deque
 import contextlib
+import math
 import os
+from pathlib import Path
 import sys
+import tempfile
 import time
 
 import serial
@@ -105,43 +108,48 @@ def main():
                          "are attached")
     args = ap.parse_args()
 
-    if args.seconds <= 0:
-        ap.error("--seconds must be greater than zero")
-    # Before the port wait, so a missing build/ cannot lose a finished capture.
-    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+    for flag, duration in (("--seconds", args.seconds),
+                           ("--connect-timeout", args.connect_timeout)):
+        if not math.isfinite(duration) or duration <= 0:
+            ap.error(f"{flag} must be finite and greater than zero")
 
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
     ser = open_port(args.connect_timeout, args.port)
     port = ser.port
-    if hasattr(ser, "set_buffer_size"):
-        ser.set_buffer_size(rx_size=RX_BUFFER_BYTES)
-    reader = LineReader(ser)
-    print(f"profile_capture: reading {port} for {args.seconds:.0f} s",
-          flush=True)
-    end = time.monotonic() + args.seconds
     captured = 0
     tail = deque(maxlen=20)
-    # An interrupted capture must still release the port.
+    pending = None
     try:
-        with contextlib.closing(ser), \
-                open(args.out, "w", encoding="utf-8", newline="\n") as f:
-            while time.monotonic() < end:
-                # The 1 s read timeout keeps the deadline responsive.
-                for line in reader.read():
-                    captured += record(line, f, tail)
-            for line in reader.rest():
-                captured += record(line, f, tail)
+        with contextlib.closing(ser):
+            if hasattr(ser, "set_buffer_size"):
+                ser.set_buffer_size(rx_size=RX_BUFFER_BYTES)
+            reader = LineReader(ser)
+            print(f"profile_capture: reading {port} for {args.seconds:.0f} s",
+                  flush=True)
+            end = time.monotonic() + args.seconds
+            with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", newline="\n", dir=out.parent,
+                    prefix=f".{out.name}.", suffix=".tmp", delete=False) as handle:
+                pending = Path(handle.name)
+                while time.monotonic() < end:
+                    for line in reader.read():
+                        captured += record(line, handle, tail)
+                for line in reader.rest():
+                    captured += record(line, handle, tail)
+        if not captured:
+            raise SystemExit(
+                f"profile_capture: {port} streamed nothing in "
+                f"{args.seconds:.0f} s; no log written")
+        pending.replace(out)
     except serial.SerialException as exc:
-        os.remove(args.out)
         for line in tail:
             print(line, file=sys.stderr)
         raise SystemExit(
             f"profile_capture: {port} dropped after {captured} lines: {exc}") from None
-    # An empty log left behind would read downstream as a real capture.
-    if not captured:
-        os.remove(args.out)
-        raise SystemExit(
-            f"profile_capture: {port} streamed nothing in "
-            f"{args.seconds:.0f} s; no log written")
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
     print(f"profile_capture: wrote {args.out} ({captured} lines)", flush=True)
 
 
