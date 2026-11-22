@@ -44,7 +44,7 @@ advance_wrapped(double current, double inc, double lo, double period) {
         next += period;
     }
   }
-  return next;
+  return next >= hi ? lo : next;
 }
 
 /**

@@ -194,6 +194,8 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
 
 /** @brief Wrapped channels follow live speeds after large temporal advances. */
 inline void test_mobiuswarp_evolving_wrapped_live_channels() {
+  HS_EXPECT_EQ(Animation::advance_wrapped(0.0, -1e-20, 0.0, 1.0), 0.0);
+  HS_EXPECT_EQ(Animation::advance_wrapped(0.0, 1e-20, 0.0, 1.0), 1e-20);
   const hs_test::ScopedRng saved_rng;
   hs::random().seed(1337);
   math::MobiusParams params;
