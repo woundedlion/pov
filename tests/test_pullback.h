@@ -241,23 +241,17 @@ struct MalformedValueState {
   using FrameState = TestFrame;
 };
 
-struct WrongReturnStage {
-  using Input = Pullback::FieldSample;
-  using Output = Pullback::ColorSample;
+struct WrongReturnStage
+    : Pullback::Stage::Contract<WrongReturnStage, Pullback::FieldSample,
+                                Pullback::ColorSample> {
   using Policies = std::tuple<>;
 
-  template <typename Binding> struct Bind : Pullback::ApproximationDefaults {
-    using Descriptor = WrongReturnStage;
-    using Input = Pullback::FieldSample;
-    using Output = Pullback::ColorSample;
-    using FrameState = typename Binding::FrameState;
-    using Prepared = Pullback::NoPrepared;
-
-    static Prepared prepare(const FrameState &) { return {}; }
-    static int run(const Input &, const FrameState &, const Prepared &) {
-      return 0;
-    }
-  };
+  template <typename Binding>
+  static int run(const Pullback::FieldSample &,
+                 const typename Binding::FrameState &,
+                 const Pullback::NoPrepared &) {
+    return 0;
+  }
 };
 
 struct WrongPrepareStage {

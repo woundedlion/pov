@@ -885,7 +885,13 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
      * @param prepared State from `prepare`.
      * @return Output carrier. */
     HS_HOT_INLINE static Output run(const Input &input, const FrameState &frame,
-                                    const Prepared &prepared) {
+                                    const Prepared &prepared)
+      requires requires {
+        {
+          Derived::template run<BindingT>(input, frame, prepared)
+        } -> std::same_as<Output>;
+      }
+    {
       return Derived::template run<BindingT>(input, frame, prepared);
     }
 
