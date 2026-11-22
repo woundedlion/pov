@@ -302,14 +302,16 @@ public:
    */
   math::Quaternion path_frame(float s) const {
     math::Vector point = path_fn(s).normalized();
-    math::Vector ahead = path_fn(s + FRAME_TANGENT_H).normalized();
+    math::Vector ahead =
+        path_fn(std::min(s + FRAME_TANGENT_H, 1.0f)).normalized();
     math::Vector tangent = ahead - point;
     tangent = tangent - math::dot(tangent, point) * point;
     math::Vector seed = math::least_parallel_axis(point);
     math::Vector b1;
     if (math::dot(tangent, tangent) < math::EPS_NORMALIZE_SQ) {
       // Forward tangent degenerate (clamped endpoint): use the backward one.
-      math::Vector behind = path_fn(s - FRAME_TANGENT_H).normalized();
+      math::Vector behind =
+          path_fn(std::max(s - FRAME_TANGENT_H, 0.0f)).normalized();
       math::Vector back = point - behind;
       back = back - math::dot(back, point) * point;
       b1 = math::normalized_or(back, math::cross(seed, point).normalized());

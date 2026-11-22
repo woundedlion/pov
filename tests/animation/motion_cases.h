@@ -32,7 +32,9 @@ inline void test_motion_repeating_does_not_drift() {
   ProceduralPath path;
   // lissajous(.,.,.,0) == +Y, so the identity-start orientation places the head
   // on the path at phase 0.
-  path.f = [](float t) {
+  bool bounded = true;
+  path.f = [&bounded](float t) {
+    bounded = bounded && t >= 0.0f && t <= 1.0f;
     return math::lissajous(1.06f, 1.06f, 0.0f, t * 5.909f);
   };
 
@@ -67,6 +69,7 @@ inline void test_motion_repeating_does_not_drift() {
   }
   std::printf("  late-cycle motion angle drift: %.9g rad\n", max_error);
   HS_EXPECT_LT(max_error, MOTION_WARP_TOL);
+  HS_EXPECT_TRUE(bounded);
 }
 
 /** @brief Verifies reanchor preserves orientation continuity when the live path changes. */
