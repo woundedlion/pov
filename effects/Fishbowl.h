@@ -286,7 +286,10 @@ public:
                                   (int)params.cycle_duration, {.repeat = true}),
                               Timeline::Pin::PINNED);
 
-    timeline.add(0, Animation::Driver(cycle_phase, &palette_speed, 1.0f));
+    timeline.add(
+        0, Animation::Driver(cycle_phase, &palette_speed, 1.0f).then([this] {
+          palette_advance = palette_speed;
+        }));
 
     last_cycle_duration = (int)params.cycle_duration;
   }
@@ -297,7 +300,7 @@ public:
   HS_HOT_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     const bool was_full = node->trail.length() == TRAIL_LENGTH;
-    const float previous_phase = cycle_phase;
+    palette_advance = 0.0f;
     palette_speed = palette_phase_speed(params.cycle_speed, params.scale_factor,
                                         node->trail.length());
     {
@@ -331,7 +334,7 @@ public:
       return;
     }
 
-    render_trail(canvas, was_full, previous_phase);
+    render_trail(canvas, was_full, palette_advance);
   }
 
 private:
@@ -424,9 +427,9 @@ private:
   /** @brief Renders the recorded trail and retains its warped endpoints.
    * @param canvas Target frame.
    * @param was_full Whether recording evicted the oldest frame.
-   * @param previous_phase Palette phase before the frame advance. */
+   * @param phase_delta Unwrapped palette phase advance for this frame. */
   HS_HOT_FLASH_MEMBER void render_trail(Canvas &canvas, bool was_full,
-                                        float previous_phase) {
+                                        float phase_delta) {
     ScratchScope scratch_a_guard(scratch_arena_a);
     ArenaVector<TrailVertex> vertices(scratch_arena_a, MAX_FRAGMENTS);
     auto *history_indices = scratch_arena_a.allocate_n<uint16_t>(MAX_FRAGMENTS);
@@ -448,8 +451,6 @@ private:
       Plot::Multiline::sample(points, vertices);
     }
     const float bound = retain_trail_endpoints(vertices, history_indices);
-    const float phase_delta =
-        cycle_phase != previous_phase ? palette_speed : 0.0f;
     const float palette_shift = phase_delta / params.scale_factor -
                                 (was_full ? 1.0f / TRAIL_LENGTH : 0.0f);
     auto shade = [&](float palette_t, float time) HS_HOT_INLINE {
@@ -698,6 +699,7 @@ private:
   int last_cycle_duration = -1; /**< Last applied cycle duration, in frames. */
   float cycle_phase = 0.0f;     /**< Current palette cycle phase. */
   float palette_speed = 0.0f;   /**< Fill-compensated palette phase speed. */
+  float palette_advance = 0.0f; ///< Unwrapped phase advance applied this frame.
   Node *node = nullptr; /**< The single animated body, arena-allocated. */
   NoiseTransformer<1>
       noise_xform; /**< Warps the trail with noise each frame. */

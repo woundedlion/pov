@@ -49,7 +49,7 @@ struct FishbowlWhiteBox {
     const auto old_noise = noise;
     {
       Canvas canvas(fx);
-      fx.render_trail(canvas, false, fx.cycle_phase);
+      fx.render_trail(canvas, false, 0.0f);
     }
     fx.advance_display();
     math::Orientation<FX::ORIENTATION_SUBSTEPS> newest;
@@ -60,14 +60,19 @@ struct FishbowlWhiteBox {
     if (full)
       fx.history_head = 1;
     const auto end_pose = math::make_rotation(math::Y_AXIS, .02f);
-    fx.orientation.set(end_pose);
-    noise.time = .28f;
-    fx.palette_speed = .1f;
-    fx.cycle_phase = .1f;
+    const float advance = full ? 1.0f : 0.1f;
+    fx.palette_speed = advance;
+    const float previous_phase = fx.cycle_phase;
     {
       Canvas canvas(fx);
+      fx.timeline.step(canvas);
+      HS_EXPECT_EQ(fx.palette_advance, advance);
+      if (full)
+        HS_EXPECT_EQ(fx.cycle_phase, previous_phase);
+      fx.orientation.set(end_pose);
+      noise.time = .28f;
       if (timed) {
-        fx.render_trail(canvas, full, 0.0f);
+        fx.render_trail(canvas, full, fx.palette_advance);
       } else {
         ScratchScope guard(scratch_arena_a);
         ArenaVector<typename FX::TrailVertex> points(scratch_arena_a,
@@ -120,7 +125,7 @@ struct FishbowlWhiteBox {
           const float age = palette_t / fill;
           Color4 color = fx.shade_trail(
               palette_t -
-                  (1.0f - fraction) * (.1f / fx.params.scale_factor -
+                  (1.0f - fraction) * (advance / fx.params.scale_factor -
                                        (full ? 1.0f / FX::TRAIL_LENGTH : 0.0f)),
               age);
           if (age > (active - 1.0f + fraction) / active)
