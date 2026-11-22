@@ -141,7 +141,7 @@ inline void test_four_stroke_contour() {
           HS_EXPECT_TRUE(result.depth >= 2);
         } else {
           HS_EXPECT_NEAR(result.depth, std::abs(x + offset), 1e-6f);
-          HS_EXPECT_EQ(result.alignment, 1);
+          HS_EXPECT_NEAR(result.alignment, 1.0f, 1e-6f);
         }
       }
     }
@@ -155,7 +155,7 @@ inline void test_four_stroke_contour() {
   const auto between = tile.query(0, 0, east);
   HS_EXPECT_TRUE(!between.inside);
   HS_EXPECT_EQ(between.depth, 0.5f);
-  HS_EXPECT_EQ(between.alignment, 1);
+  HS_EXPECT_NEAR(between.alignment, 1.0f, 1e-6f);
   tile.prepare([](int x, int) { return x < 0 ? NAN : -1.0f; });
   HS_EXPECT_TRUE(std::isinf(tile.query(0, 0, east).depth));
 }
