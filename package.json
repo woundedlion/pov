@@ -4,7 +4,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {
-    "node": ">=22.15"
+    "node": "^22.15.0 || >=24"
   },
   "scripts": {
     "test": "node scripts/run_tests.mjs --all",

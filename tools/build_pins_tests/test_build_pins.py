@@ -176,10 +176,17 @@ class EngineRanges(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("24.13.0", errors[0])
 
+    def test_disjoint_engine_ranges_include_only_their_supported_versions(self):
+        engines = {"node": "^22.15.0 || >=24"}
+        for pin in ("22.15.0", "22.20.0", "24.0.0", "26.1.0"):
+            with self.subTest(pin=pin):
+                self.assertEqual(self._check(engines, pin), [])
+        for pin in ("22.14.0", "23.0.0"):
+            with self.subTest(pin=pin):
+                self.assertEqual(len(self._check(engines, pin)), 1)
+
     def test_a_range_the_gate_cannot_compare_is_reported(self):
-        # A caret/tilde/OR range silently stops declaring a floor; the gate must
-        # say so rather than skip the manifest.
-        for spec in ("^22", "~24.13.0", ">=22 <25", "*"):
+        for spec in ("^22", "~24.13.0", ">=22 <25", "*", ">=22 || *"):
             errors = self._check({"node": spec}, "24.13.0")
             self.assertEqual(len(errors), 1, spec)
             self.assertIn("expected '>=X'", errors[0])

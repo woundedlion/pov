@@ -1972,7 +1972,7 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   └── phantasm_pcb_spec.md                      Phantasm carrier board contract
 │   └── subsystems.md                  Engine subsystem reference
 ├── Doxyfile                    Doxygen config for the published API reference
-├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22.15, CI pinned via tools/build_pins.py)
+├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node 22.15+ in 22.x or Node ≥ 24, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
 ├── requirements/               Per-tool `*.in` sources and hashed `*.txt` locks installed individually by CI; `dev.txt` combines the locks for `just setup`
 ├── .clangd                     Checkout-local native compilation database for editor diagnostics

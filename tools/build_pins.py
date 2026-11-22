@@ -294,8 +294,7 @@ CHECK_TOOLS = {
                    lambda v: v.rsplit(".", 1)[0]),
 }
 
-# (manifest, JSON path to a `>=X` range, pin name); the pin must satisfy the
-# range.
+# (manifest, JSON path to an engine range, pin name).
 ENGINE_RANGES = (
     (ROOT / "package.json", ("engines", "node"), "node"),
 )
@@ -517,8 +516,25 @@ def _version_tuple(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.split("."))
 
 
+def _matches_engine_range(version: str, expression: str) -> bool:
+    pinned = _version_tuple(version)
+    matches = []
+    for clause in expression.split("||"):
+        found = re.fullmatch(r">=\s*([0-9]+(?:\.[0-9]+)*)|\^([1-9][0-9]*\.[0-9]+\.[0-9]+)",
+                             clause.strip())
+        if found is None:
+            raise ValueError("expected '>=X' or '^X.Y.Z' clauses joined by '||'")
+        minimum, same_major = found.groups()
+        floor = _version_tuple(minimum or same_major)
+        width = max(len(floor), len(pinned))
+        matches.append(pinned + (0,) * (width - len(pinned)) >=
+                       floor + (0,) * (width - len(floor))
+                       and (same_major is None or pinned[0] == floor[0]))
+    return any(matches)
+
+
 def check_engine_ranges() -> list[str]:
-    """Return one error per manifest whose declared floor the pin misses."""
+    """Return one error per manifest whose declared range excludes the pin."""
     errors: list[str] = []
     for path, keys, name in ENGINE_RANGES:
         where = path.relative_to(ROOT)
@@ -536,18 +552,14 @@ def check_engine_ranges() -> list[str]:
             errors.append(f"{where}: no {'.'.join(keys)} range for the "
                           f"{name} pin")
             continue
-        found = re.fullmatch(r">=\s*([0-9]+(?:\.[0-9]+)*)", node.strip())
-        if found is None:
+        try:
+            supported = _matches_engine_range(PINS[name], node)
+        except ValueError as error:
             errors.append(
                 f"{where}: {'.'.join(keys)} is {node!r}, which build_pins.py "
-                f"cannot compare against the {name} pin (expected '>=X')")
+                f"cannot compare against the {name} pin ({error})")
             continue
-        floor = _version_tuple(found.group(1))
-        pinned = _version_tuple(PINS[name])
-        width = max(len(floor), len(pinned))
-        floor += (0,) * (width - len(floor))
-        pinned += (0,) * (width - len(pinned))
-        if pinned < floor:
+        if not supported:
             errors.append(
                 f"{where}: {'.'.join(keys)} requires {node!r} but {name} is "
                 f"pinned to {PINS[name]} in build_pins.py")
