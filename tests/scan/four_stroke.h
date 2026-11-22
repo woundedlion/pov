@@ -11,6 +11,15 @@
 
 namespace hs_test::scan_tests {
 
+template <typename Arrow>
+concept BindableFourStrokeArrow = requires(Arrow &&arrow) {
+  Scan::four_stroke_tangent_direction<96, 20>(std::forward<Arrow>(arrow));
+};
+using FourStrokeTestArrow =
+    decltype([](const math::Vector &, uint64_t) { return math::X_AXIS; });
+static_assert(BindableFourStrokeArrow<FourStrokeTestArrow &>);
+static_assert(!BindableFourStrokeArrow<FourStrokeTestArrow>);
+
 /** @brief Both public rasterizers expose signed contour data after the base shader. */
 inline void test_four_stroke_fragment_registers() {
   constexpr int W = 96, H = 20;

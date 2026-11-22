@@ -96,9 +96,11 @@ inline auto four_stroke_output_direction(FourStroke::Direction direction) {
 
 /** @brief Binds a physical arrow in view coordinates to a draw.
  * @tparam W,H Output dimensions.
- * @param arrow Returns the sphere or rotated object arrow at the sample time.
+ * @tparam Arrow Callable returning the sphere or rotated object arrow at the sample time.
+ * @param arrow Borrowed callable; must outlive the returned closure.
  * @return Physical tangent alignment using calibrated latitude spacing. */
-template <int W, int H> auto four_stroke_tangent_direction(const auto &arrow) {
+template <int W, int H, typename Arrow>
+auto four_stroke_tangent_direction(Arrow &arrow) {
   return [&arrow](float x, float y, uint64_t time, FourStroke::Direction n) {
     constexpr float STEP = 2 * math::PI_F / W;
     const float phi = math::DisplayGeometry<H>::row_to_phi(y);
