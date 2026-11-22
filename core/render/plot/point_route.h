@@ -184,8 +184,7 @@ public:
   HS_HOT_FLASH_MEMBER
 #if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) &&            \
     defined(__OPTIMIZE_SIZE__)
-      __attribute__((optimize("no-unroll-completely-grow-size", "no-peel-loops",
-                              "no-split-paths")))
+      __attribute__((optimize("no-peel-loops", "no-split-paths")))
 #endif
       void plot_resident_batch(Sink &sink, Canvas &canvas,
                                Samples &&samples) const {
