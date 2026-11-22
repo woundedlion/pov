@@ -38,6 +38,12 @@ inline void test_world_trails_int16_quantization_roundtrip() {
       [&](const math::Vector &, const Pixel &, float, float) { ++passthru; });
   HS_EXPECT_EQ(passthru, 1);
   HS_EXPECT_EQ(trails.size(), (size_t)1);
+  trails.plot(
+      v0, Pixel(100, 100, 100), 0x1p31f, 1.0f,
+      [&](const math::Vector &, const Pixel &, float, float) { ++passthru; });
+  HS_EXPECT_EQ(passthru, 2);
+  HS_EXPECT_EQ(trails.size(), (size_t)1);
+  HS_EXPECT_EQ(trails.records(), 2u);
 
   // flush() decodes the int16 entry and re-emits it, then ages (10->9, alive).
   math::Vector decoded(0, 0, 0);

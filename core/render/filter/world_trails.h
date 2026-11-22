@@ -195,9 +195,9 @@ private:
         age >= 0.0f,
         "World::Trails: a negative age narrows ttl past the uint8_t range");
     ++recorded_samples;
-    // round, not truncate (ttl is an integer byte)
-    int ttl = lifetime - static_cast<int>(age + 0.5f);
-    if (ttl > 0) {
+    const float rounded_age = age + 0.5f;
+    if (rounded_age < lifetime) {
+      const int ttl = lifetime - static_cast<int>(rounded_age);
       HS_CHECK(items, "World::Trails::plot: storage missing");
       items.check_storage_alive("World::Trails");
       items.append(encode(v, static_cast<uint8_t>(ttl)));
