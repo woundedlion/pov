@@ -55,6 +55,8 @@ constexpr std::array IDENTITY_GOLDENS{
     IdentityGolden{"DreamBalls", "dream-balls", "DreamBalls",
                    0xB9C2D5D2EF43B3DAULL},
     IdentityGolden{"Dynamo", "dynamo", "Dynamo", 0xE278943A66B53DF4ULL},
+    IdentityGolden{"Filigree", "filigree", "ember-tracery",
+                   0x93A1CED5CC691796ULL},
     IdentityGolden{"Fishbowl", "fishbowl", "Fishbowl", 0x3F899529C749D7A0ULL},
     IdentityGolden{"FourStrokeStars", "four-stroke-stars", "four-stroke-stars",
                    0x7296F0362C36E782ULL},

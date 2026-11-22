@@ -34,6 +34,7 @@
 #include "tests/effects/lens_cases.h"
 #include "tests/effects/mobius_rings.h"
 #include "tests/effects/roster_cases.h"
+#include "tests/effects/four_stroke_stars.h"
 #include "tests/effects/petal_flow_oracle.h"
 #include "tests/effects/fishbowl_oracle.h"
 #include "tests/effects/galaxies_tests.h"
@@ -98,6 +99,7 @@ inline int run_effects_tests() {
   run_effect_case_petalflow_parameter_edit_continuity();
   run_effect_case_meshfeedback_temporal_source_oracle();
   run_effect_case_meshfeedback_stationary_timed_source();
+  run_effect_case_four_stroke_stars();
   run_effect_case_parameter_lint_failure_guards();
   run_effect_case_parameter_probe_targets();
   run_effect_case_float_dropdown_lint();

@@ -8,6 +8,9 @@
 
 namespace hs_test::effects_tests {
 
+/** @brief Runs FourStrokeStars shading and presentation cases. */
+void run_effect_case_four_stroke_stars();
+
 /** @brief Runs negative and healthy parameter lint companions. */
 void run_effect_case_parameter_lint_failure_guards();
 

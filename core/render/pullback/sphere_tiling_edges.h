@@ -12,6 +12,7 @@
 #include <span>
 
 #include "core/math/cube_projection.h"
+#include "core/math/rotation_math.h"
 #include "core/math/scalar_kernels.h"
 #include "core/math/vector.h"
 #include "core/platform/attributes.h"

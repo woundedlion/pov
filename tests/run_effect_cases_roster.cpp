@@ -14,6 +14,11 @@
 
 namespace hs_test::effects_tests {
 
+void run_effect_case_four_stroke_stars() {
+  HS_RUN(run_case, test_four_stroke_stars_fixed_geometry);
+  HS_RUN(run_case, test_four_stroke_stars_skipped_window);
+}
+
 void run_effect_case_mesh_seam_dark_sample_guards() {
   HS_RUN(run_case, test_mesh_seam_dark_sample_guards);
 }
@@ -59,8 +64,7 @@ namespace hs_test::module_runners {
 int run_roster_tests() {
   using namespace effects_tests;
   ModuleFixture fixture("effects");
-  HS_RUN(run_case, test_four_stroke_stars_fixed_geometry);
-  HS_RUN(run_case, test_four_stroke_stars_skipped_window);
+  run_effect_case_four_stroke_stars();
   run_effect_case_mesh_seam_dark_sample_guards();
   run_effect_case_parameter_lint_failure_guards();
   run_effect_case_parameter_probe_targets();
