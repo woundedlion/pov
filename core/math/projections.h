@@ -204,8 +204,7 @@ bonne_projection(const math::Vector &v, float central_meridian,
   const float cos_latitude = sqrtf(fmaxf(0.0f, 1.0f - y * y));
   const float cut_distance = cos_latitude * (math::PI_F - fabsf(longitude));
   math::Complex coords;
-  if (standard_parallel == 0.0f) {
-    // cot(phi1) diverges here; the limit is the sinusoidal projection.
+  if (fabsf(standard_parallel) <= 0x1p-126f) {
     coords = math::Complex(longitude * cos_latitude, latitude);
   } else {
     const float c = fabsf(standard_parallel) == 0.5f * math::PI_F

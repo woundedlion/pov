@@ -152,6 +152,14 @@ inline void test_wrap_longitude_fmod_contract() {
 
 /** @brief Bonne converges to sinusoidal coordinates as the standard parallel approaches zero. */
 inline void test_bonne_sinusoidal_limit() {
+  const auto equator = direction(0.0f, 1.0f);
+  const auto zero = bonne_projection(equator, 0.0f, 0.0f);
+  constexpr float TINY = std::numeric_limits<float>::denorm_min();
+  for (float parallel : {-TINY, TINY}) {
+    const auto limit = bonne_projection(equator, 0.0f, parallel);
+    HS_EXPECT_EQ(limit.coords.re, zero.coords.re);
+    HS_EXPECT_EQ(limit.coords.im, zero.coords.im);
+  }
   for (const float pole : {-1.0f, 1.0f}) {
     const auto result =
         bonne_projection(math::Vector(0.0f, pole, 0.0f), 0.7f, 0.0f);
