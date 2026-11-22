@@ -93,11 +93,11 @@ private:
   }
 
   struct Params {
-    float strength = 1;     ///< Linear RGB mix.
-    int width = 1;          ///< Inner band width in output pixels.
-    bool reference = false; ///< Use full color at either edge polarity.
-    bool reverse = false;   ///< Negate the common world-space direction.
-  } params;                 ///< Live material controls.
+    float strength = 1;    ///< Linear RGB mix.
+    int width = 1;         ///< Inner band width in output pixels.
+    bool reference = true; ///< Use full color at either edge polarity.
+    bool reverse = false;  ///< Negate the common world-space direction.
+  } params;                ///< Live material controls.
   /** @brief Describes the exposed material controls.
    * @return Parameter field descriptors in display order. */
   static constexpr auto parameter_fields() {

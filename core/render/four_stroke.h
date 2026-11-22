@@ -182,17 +182,29 @@ inline constexpr Pixel GRAY = linear_rgb(0x808080);
  * @return The active beat's palette. */
 inline const Colors &colors(uint64_t elapsed_us) {
   static constexpr auto BEATS = [] {
-    constexpr uint32_t FILLS[] = {0x24b5b8, 0x5a78e6, 0xe06858, 0xd4a838,
-                                  0x24b5b8, 0xd4a838, 0xe06858, 0x5a78e6};
-    std::array<Colors, 2 * std::size(FILLS)> beats{};
-    for (size_t i = 0; i < std::size(FILLS); ++i) {
-      const Pixel fill = linear_rgb(FILLS[i]);
-      const Pixel incoming = linear_rgb(FILLS[(i + 1) % std::size(FILLS)]);
-      const bool light_leading = i % 2 != 0;
-      beats[i * 2] = {fill, linear_rgb(light_leading ? 0xe6e6e6 : 0x222222),
-                      linear_rgb(light_leading ? 0x222222 : 0xe6e6e6)};
-      beats[i * 2 + 1] = {linear_rgb(light_leading ? 0xd6d9dc : 0x333b42), fill,
-                          incoming};
+    constexpr uint32_t HUES[] = {0x24b5b8, 0x5a78e6, 0xe06858, 0xd4a838};
+    constexpr int CONTRAST_PERCENT = 45;
+    constexpr int CHROMATIC_MIX = CONTRAST_PERCENT * 115;
+    constexpr int NEUTRAL_MIX = CONTRAST_PERCENT * 72;
+    const auto soften = [](uint32_t hex, int mix) {
+      const auto channel = [=](int shift) -> uint32_t {
+        const int value = (hex >> shift) & 255;
+        return (128 * 10000 + (value - 128) * mix + 5000) / 10000;
+      };
+      return linear_rgb((channel(16) << 16) | (channel(8) << 8) | channel(0));
+    };
+    const Pixel dark = soften(0x222222, CHROMATIC_MIX);
+    const Pixel light = soften(0xe6e6e6, CHROMATIC_MIX);
+    const Pixel slate = soften(0x333b42, NEUTRAL_MIX);
+    const Pixel mist = soften(0xd6d9dc, NEUTRAL_MIX);
+    std::array<Colors, 2 * std::size(HUES)> beats{};
+    for (size_t i = 0; i < std::size(HUES); i += 2) {
+      const Pixel a = soften(HUES[i], CHROMATIC_MIX);
+      const Pixel b = soften(HUES[i + 1], CHROMATIC_MIX);
+      beats[2 * i] = {a, dark, light};
+      beats[2 * i + 1] = {slate, a, b};
+      beats[2 * i + 2] = {b, light, dark};
+      beats[2 * i + 3] = {mist, b, a};
     }
     return beats;
   }();
