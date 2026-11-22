@@ -705,12 +705,28 @@ fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
 HS_HOT_FLASH_MEMBER inline math::Complex
 closest_repeat_offset(const math::Complex &delta,
                       const PreparedRepeat &repeat) {
-  const float u =
-      floorf(repeat.dual_a.re * delta.re + repeat.dual_a.im * delta.im);
-  const float v =
-      floorf(repeat.dual_b.re * delta.re + repeat.dual_b.im * delta.im);
-  const math::Complex base{delta.re - u * repeat.a.re - v * repeat.b.re,
-                           delta.im - u * repeat.a.im - v * repeat.b.im};
+  const float u = repeat.dual_a.re * delta.re + repeat.dual_a.im * delta.im;
+  const float v = repeat.dual_b.re * delta.re + repeat.dual_b.im * delta.im;
+  math::Complex base;
+  if (fabsf(u) < 0x1p12f && fabsf(v) < 0x1p12f) {
+    const float a = floorf(u), b = floorf(v);
+    base = {delta.re - a * repeat.a.re - b * repeat.b.re,
+            delta.im - a * repeat.a.im - b * repeat.b.im};
+  } else {
+    const double ax = repeat.a.re, ay = repeat.a.im;
+    const double bx = repeat.b.re, by = repeat.b.im;
+    const double x = delta.re, y = delta.im;
+    const double det = ax * by - ay * bx;
+    const auto fraction = [det](double p, double q) {
+      const double reduced = std::fmod(p, det) - std::fmod(q, det);
+      const double coordinate = reduced / det;
+      return coordinate - std::floor(coordinate);
+    };
+    const double a = fraction(x * by, y * bx);
+    const double b = fraction(y * ax, x * ay);
+    base = {static_cast<float>(a * ax + b * bx),
+            static_cast<float>(a * ay + b * by)};
+  }
   math::Complex best = base;
   for (const math::Complex &corner :
        {base - repeat.a, base - repeat.b, base - repeat.a - repeat.b})

@@ -453,6 +453,12 @@ inline void test_shader_chain_affine_repeat_reduction() {
       HS_EXPECT_NEAR(std::hypot(general.re, general.im), shortest, 2e-5);
     }
   }
+  const auto hex =
+      PB::Warp::prepare_repeat({0.6f, 0.0f}, {0.3f, 0.3f * std::sqrt(3.0f)});
+  for (const float offset : {-1e30f, -1e7f, 1e7f, 1e30f}) {
+    const auto result = PB::Warp::closest_repeat_offset({offset, offset}, hex);
+    HS_EXPECT_LE(result.magnitude(), 0.6f / std::sqrt(3.0f) + 1e-5f);
+  }
   HS_EXPECT_EQ(PB::Warp::prepare_repeat({0.0f, 0.5f}, {0.3f, 0.0f}).reduction,
                PB::Warp::RepeatReduction::RECTANGULAR);
 }
