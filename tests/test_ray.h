@@ -350,9 +350,24 @@ inline void test_unverified_boundaries_remain_unresolved() {
   HS_EXPECT_FALSE(result.has_surface);
 }
 
+/** @brief Overrelaxation retains a surface before the end of the interval. */
+inline void test_closest_approach_near_interval_end() {
+  struct OffsetSphere {
+    float distance(const math::Vector &p) const {
+      return math::distance_between(p, {0, 0, -0.9f}) - 0.05f;
+    }
+  };
+  math::Vector hit;
+  const float distance = Raycast::closest_approach(
+      OffsetSphere{}, math::Z_AXIS, -math::Z_AXIS, 2.0f, 24, 0.01f, hit);
+  HS_EXPECT_NEAR(distance, 0.0f, 0.001f);
+  HS_EXPECT_NEAR(hit.z, -0.85f, 0.001f);
+}
+
 inline int run_ray_tests() {
   hs_test::ModuleFixture fixture("ray");
   HS_RUN(test_camera);
+  HS_RUN(test_closest_approach_near_interval_end);
   HS_RUN(test_unverified_boundaries_remain_unresolved);
   HS_RUN(test_surface_boundaries);
   HS_RUN(test_bounded_failures);

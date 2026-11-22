@@ -90,8 +90,17 @@ closest_approach(const Shape &shape, const math::Vector &origin,
   float prev_r = 0.0f;
   float step_len = 0.0f;
   march_steps(max_steps, [&]() HS_HOT_INLINE {
-    if (t > end_t)
-      return false;
+    if (t > end_t) {
+      if (omega <= 1.0f)
+        return false;
+      const float conservative = fmaxf(prev_r * STEP_SAFETY, MIN_STEP);
+      const float rewind = conservative - step_len;
+      t += rewind;
+      if (!(t <= end_t))
+        return false;
+      local_p = advance(local_p, direction, rewind);
+      omega = 1.0f;
+    }
     float d = shape.distance(local_p);
     float r = d < 0.0f ? -d : d;
     if (omega > 1.0f && spheres_disjoint(r, prev_r, step_len)) {
