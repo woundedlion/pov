@@ -11,6 +11,37 @@
 
 namespace hs_test::scan_tests {
 
+/** @brief Coalesced spans cover the union of independently painted columns. */
+inline void test_coalesced_spans_preserve_exclusive_end_point() {
+  constexpr int W = 16;
+  const auto footprint = [](const auto &spans) {
+    StaticCircularBuffer<SDF::Interval, 8> columns;
+    Scan::coalesce_spans<W>(spans, columns);
+    std::array<int, W> visits{};
+    for (const auto &run : columns)
+      for (int x = static_cast<int>(run.start); x < static_cast<int>(run.end);
+           ++x)
+        ++visits[x];
+    return visits;
+  };
+  StaticCircularBuffer<SDF::Interval, 4> spans;
+  spans.push_back({0.0f, 1.0f});
+  spans.push_back({1.0f, 1.0f});
+  spans.push_back({2.5f, 3.25f});
+  spans.push_back({3.1f, 3.9f});
+  const auto combined = footprint(spans);
+  std::array<int, W> expected{};
+  for (const auto &span : spans) {
+    StaticCircularBuffer<SDF::Interval, 1> single;
+    single.push_back(span);
+    const auto individual = footprint(single);
+    for (int x = 0; x < W; ++x)
+      expected[x] |= individual[x];
+  }
+  HS_EXPECT_TRUE(combined == expected);
+  HS_EXPECT_EQ(combined[1], 1);
+}
+
 // ============================================================================
 // Scan::Ring::draw — SDF rasterize() path through a Pipeline sink
 // ============================================================================

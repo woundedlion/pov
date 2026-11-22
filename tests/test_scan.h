@@ -54,6 +54,7 @@ inline int run_scan_tests() {
   HS_RUN(test_shader_clip_arc_matches_predicate);
   HS_RUN(test_shader_render_x_window_matches_predicate);
   HS_RUN(test_simulate_in_slabs_orders_substeps_and_columns);
+  HS_RUN(test_coalesced_spans_preserve_exclusive_end_point);
   HS_RUN(test_ring_rasterize_produces_bounded_output);
   HS_RUN(test_ring_long_radius_azimuth_unflipped);
   HS_RUN(test_ring_rasterize_lights_expected_row);

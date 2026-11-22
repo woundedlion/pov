@@ -581,20 +581,13 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
   SDF::normalize_intervals_to_range<W>(intervals, norm);
   SDF::sort_intervals_by_start(norm);
 
-  float current_end = -FLT_MAX;
   int last_x2 = 0;
   size_t write = 0;
   const size_t count = norm.size();
   for (size_t read = 0; read < count; ++read) {
     const auto iv = norm[read];
-    if (iv.end <= current_end)
-      continue;
-    float start = std::max(iv.start, current_end);
-    float end = iv.end;
-    current_end = end;
-
-    int x1 = static_cast<int>(floorf(start));
-    int x2 = static_cast<int>(ceilf(end));
+    int x1 = static_cast<int>(floorf(iv.start));
+    int x2 = static_cast<int>(ceilf(iv.end));
     // A zero-width interval (x1 == x2) still owns its pixel column; widen to
     // paint it.
     if (x1 == x2)
@@ -603,6 +596,8 @@ HS_NOINLINE_NOCLONE inline void coalesce_spans(const IntervalBufT &intervals,
       x1 = 0;
     if (x2 > W)
       x2 = W;
+    if (x2 <= last_x2)
+      continue;
     if (x1 < last_x2)
       x1 = last_x2;
     last_x2 = x2;
