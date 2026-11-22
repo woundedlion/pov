@@ -693,6 +693,20 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
         self.assertIn(["history_vertex", "20", "100.0", "10.00", "5.00", "0.10"], rows)
         self.assertIn(["aa_weights", "100", "40.0", "3.00", "0.50", "0.01"], rows)
 
+    def test_count_command_rejects_a_window_missing_any_count_group(self):
+        complete = self.LOG
+        for group in ("particles", "gate", "render", "aa"):
+            with self.subTest(group=group):
+                partial = complete.replace("frames 1-4", "frames 5-8")
+                partial = "\n".join(line for line in partial.splitlines()
+                                    if not line.startswith(f"msp counts {group}:"))
+                self.LOG = complete + partial + "\n"
+                with contextlib.redirect_stdout(io.StringIO()) as output, \
+                        contextlib.redirect_stderr(io.StringIO()) as errors:
+                    self.assertEqual(pp.cmd_msp_counts(self._parse()), 2)
+                self.assertEqual(output.getvalue(), "")
+                self.assertIn(f"frames 5-8: missing {group}", errors.getvalue())
+
     def test_commands_reject_capture_without_instrumentation(self):
         self.LOG = "\n".join(line for line in self.LOG.splitlines()
                              if not line.startswith("msp "))

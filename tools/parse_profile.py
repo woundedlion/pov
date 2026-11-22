@@ -89,6 +89,12 @@ MSP_AA_RE = re.compile(
     r"tap4=(\d+) interior=(\d+) boundary=(\d+)(?: integer=(\d+))?\s*$")
 MSP_AA_FIELDS = ("tap0", "tap1", "tap2", "tap3", "tap4", "interior",
                  "boundary", "integer")
+MSP_COUNT_GROUPS = (
+    ("particles", MSP_PARTICLE_RE, MSP_PARTICLE_FIELDS),
+    ("gate", MSP_GATE_RE, MSP_GATE_FIELDS),
+    ("render", MSP_RENDER_RE, MSP_RENDER_FIELDS),
+    ("aa", MSP_AA_RE, MSP_AA_FIELDS),
+)
 MSP_STALL_RE = re.compile(
     r"^(?:msp|plot) stall: stage=(\S+) batches=(\d+) cyc=(\d+) cpi=(\d+) lsu=(\d+) "
     r"exc=(\d+)\s*$")
@@ -270,20 +276,14 @@ class _CaptureParser:
             self.cur.plot = dict(zip(PLOT_FIELDS,
                                 (int(g) for g in m.groups())))
             return True
-        matched_msp_counts = False
-        for regex, fields in ((MSP_PARTICLE_RE, MSP_PARTICLE_FIELDS),
-                              (MSP_GATE_RE, MSP_GATE_FIELDS),
-                              (MSP_RENDER_RE, MSP_RENDER_FIELDS),
-                              (MSP_AA_RE, MSP_AA_FIELDS)):
+        for _, regex, fields in MSP_COUNT_GROUPS:
             m = regex.match(line)
             if m and self.cur:
-                self.cur.msp_counts = dict(self.cur.msp_counts or {})
+                if self.cur.msp_counts is None:
+                    self.cur.msp_counts = {}
                 self.cur.msp_counts.update(zip(fields,
-                                          (int(g) if g is not None else 0 for g in m.groups())))
-                matched_msp_counts = True
-                break
-        if matched_msp_counts:
-            return True
+                    (int(g) if g is not None else 0 for g in m.groups())))
+                return True
         m = MSP_STALL_RE.match(line)
         if m and self.cur:
             self.cur.msp_stalls.setdefault(m.group(1), {}).update(dict(
@@ -809,6 +809,17 @@ def cmd_msp_counts(windows):
         print("no plot-render count lines: use HS_PROFILE_MINDSPLATTER=counts",
               file=sys.stderr)
         return 2
+    incomplete = []
+    for w in have:
+        missing = [name for name, _, fields in MSP_COUNT_GROUPS
+                   if fields[0] not in w.msp_counts]
+        if missing:
+            incomplete.append(f"frames {w.f_start}-{w.f_end}: missing {', '.join(missing)}")
+    if incomplete:
+        print("incomplete plot-render count windows:", file=sys.stderr)
+        for window in incomplete:
+            print(f"  {window}", file=sys.stderr)
+        return 2
     agg = Counter()
     frames = 0
     for w in have:
@@ -816,9 +827,9 @@ def cmd_msp_counts(windows):
         frames += w.frames
     print(f"frames={frames} windows={len(have)}")
     print(f"{'# counter':<24} {'total':>12} {'per-frame':>12}")
-    for field in (MSP_PARTICLE_FIELDS + MSP_GATE_FIELDS + MSP_RENDER_FIELDS +
-                  MSP_AA_FIELDS):
-        print(f"{field:<24} {agg[field]:12d} {agg[field] / frames:12.2f}")
+    for _, _, fields in MSP_COUNT_GROUPS:
+        for field in fields:
+            print(f"{field:<24} {agg[field]:12d} {agg[field] / frames:12.2f}")
     return 0
 
 
