@@ -161,10 +161,17 @@ struct ChamberNoiseCache {
       observed = false;
       return {};
     }
-    if (patches[slot].matches(source, orientation))
-      return {&patches[slot], orientation};
     const bool repeated = observed && observed_phase == phase &&
                           exact_same(observed_projection, orientation);
+    if (patches[slot].matches(source, orientation)) {
+      if (!repeated || !accepted) {
+        observed_projection = orientation;
+        observed_phase = phase;
+        observed = true;
+        accepted = true;
+      }
+      return {&patches[slot], orientation};
+    }
     if (repeated && !accepted)
       return {};
     accepted = !observed || ChamberNoisePatch::continuous(observed_phase,

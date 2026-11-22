@@ -107,6 +107,14 @@ inline void test_chamber_noise_cache_admission() {
   }
   HS_EXPECT_TRUE(cache.prepare(source.prepared, math::Quaternion()).patch ==
                  first.patch);
+  const auto at_start = source.prepared;
+  clock.phase.phase_turns = 0.1f;
+  HS_EXPECT_TRUE(
+      cache.prepare(source.prepare(config, clock), math::Quaternion()).patch ==
+      nullptr);
+  HS_EXPECT_EQ(cache.slot, slot);
+  HS_EXPECT_TRUE(cache.prepare(at_start, math::Quaternion()).patch ==
+                 first.patch);
   clock.phase.phase_turns = 0.00015f;
   HS_EXPECT_TRUE(
       cache.prepare(source.prepare(config, clock), math::Quaternion()).patch !=
