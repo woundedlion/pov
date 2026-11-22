@@ -986,9 +986,10 @@ struct OctetEvents4 : PlaneStreams<8> {
       const float q = local_origin[k] + local_direction[k] * t;
       const float rounded = roundf(q);
       residual[k] = q - rounded;
-      parity += static_cast<int>(rounded);
+      if (fabsf(rounded) < 0x1p24f)
+        parity ^= static_cast<int>(rounded) & 1;
     }
-    const bool odd = parity & 1;
+    const bool odd = parity != 0;
     float numerator = INFINITY;
     float denominator = 1.0f;
     for (size_t c = 0; c < owner.count; ++c) {

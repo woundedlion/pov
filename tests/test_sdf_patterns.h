@@ -839,6 +839,22 @@ inline void test_octet4_ambient_events_and_limits() {
   HS_EXPECT_EQ(result.counters.candidates, 8);
   HS_EXPECT_EQ(count, size_t{2});
   HS_EXPECT_FALSE(result.has_surface);
+  for (const float cell : {0x1p29f, 0x1p31f}) {
+    const float offset = cell * SDF::OctetFramework4::HALF_CUBE;
+    SDF::OctetEvents4 translated(octet, {{offset, offset, offset, offset}},
+                                 DIRECTION, INTERVAL);
+    SDF::OctetEvents4 base(octet, ORIGIN, DIRECTION, INTERVAL);
+    for (size_t family = 0; family < SDF::OctetEvents4::STREAM_COUNT;
+         ++family) {
+      if (!base.active(family))
+        continue;
+      HS_EXPECT_TRUE(translated.active(family));
+      uint32_t original_feature = 0, translated_feature = 0;
+      HS_EXPECT_EQ(translated.coverage(family, 0.0f, translated_feature),
+                   base.coverage(family, 0.0f, original_feature));
+      HS_EXPECT_EQ(translated_feature, original_feature);
+    }
+  }
   SDF::OctetEvents4 limited(octet, ORIGIN, DIRECTION, INTERVAL);
   limits.max_candidates = 3;
   const auto limited_value = Raycast::trace_events(
