@@ -226,6 +226,15 @@ inline void test_shader_chain_schema_invariants() {
   static_assert(
       In::schema_ids_unique(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV4>));
   static_assert(In::topology_wellformed(In::SCHEMA<In::Op::SampleGridV4>));
+  static constexpr const char *DUPLICATE_IDS[] = {"same", "same"};
+  static constexpr auto DUPLICATE_SCHEMA = [] {
+    std::array<PB::ParamFieldInfo, 1> schema{};
+    schema[0].topology = true;
+    schema[0].enum_count = 2;
+    schema[0].enum_ids = DUPLICATE_IDS;
+    return schema;
+  }();
+  static_assert(!In::topology_wellformed(DUPLICATE_SCHEMA));
   static_assert(
       In::topology_wellformed(In::SCHEMA<In::Op::ColorizeGeneratedPaletteV4>));
 

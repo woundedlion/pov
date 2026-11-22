@@ -410,8 +410,8 @@ consteval bool schema_ids_unique(const std::array<ParamFieldInfo, N> &schema) {
 /** @brief Every topology enum8 is a genuine switch with well-formed values.
  *  @tparam N Schema size.
  *  @param schema Registered schema.
- *  @return True when each has at least two named values and an in-range
- *          default. */
+ *  @return True when each has at least two uniquely named values and an
+ *          in-range default. */
 template <size_t N>
 consteval bool
 topology_wellformed(const std::array<ParamFieldInfo, N> &schema) {
@@ -421,9 +421,13 @@ topology_wellformed(const std::array<ParamFieldInfo, N> &schema) {
     if (field.enum_count < 2 || field.enum_ids == nullptr ||
         field.enum_def >= field.enum_count)
       return false;
-    for (uint8_t value = 0; value < field.enum_count; ++value)
+    for (uint8_t value = 0; value < field.enum_count; ++value) {
       if (field.enum_ids[value] == nullptr)
         return false;
+      for (uint8_t previous = 0; previous < value; ++previous)
+        if (std::string_view(field.enum_ids[value]) == field.enum_ids[previous])
+          return false;
+    }
   }
   return true;
 }
