@@ -22,6 +22,11 @@ struct CometsWhiteBox {
    */
   static void check_paths_close() {
     using FullComets = Comets<DEFAULT_W, DEFAULT_H>;
+    auto params = FullComets::initial_params();
+    HS_EXPECT_TRUE(FullComets::valid_params(params));
+    params.function.m2 = 1.2e-38f;
+    params.function.domain = 1.0f;
+    HS_EXPECT_FALSE(FullComets::valid_params(params));
     int idx = 0;
     for (const PresetEntry<math::LissajousParams> &entry :
          FullComets::PRESETS) {

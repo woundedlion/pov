@@ -138,9 +138,15 @@ public:
    * @return True when `p` is renderable.
    */
   static bool valid_params(const Params &p) {
-    return std::isfinite(p.function.m1) && std::isfinite(p.function.m2) &&
-           std::isfinite(p.function.a) && std::isfinite(p.function.domain) &&
-           p.function.m2 > 0.0f && Control::valid_fields(p, parameter_fields());
+    const auto &function = p.function;
+    if (!std::isfinite(function.m1) || !std::isfinite(function.m2) ||
+        !std::isfinite(function.a) || !std::isfinite(function.domain) ||
+        !(function.m2 > 0.0f) || !Control::valid_fields(p, parameter_fields()))
+      return false;
+    const float closed = closing_domain(function);
+    return std::isfinite(closed) && std::isfinite(function.m1 * closed) &&
+           std::isfinite(function.m1 * closed - function.a) &&
+           std::isfinite(function.m2 * closed);
   }
 
   /** @brief Comet head state: world orientation, recorded trail, body axis. */
