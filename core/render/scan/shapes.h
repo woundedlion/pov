@@ -730,10 +730,7 @@ struct RingGroup {
     SDF::Ring cover(
         math::Basis{shapes[mid].u, shapes[mid].normal, shapes[mid].w},
         shapes[mid].radius, pad_th);
-    // A column's lit pixels lie in the middle member's band, about its axis at
-    // the column's time, widened by every member's deviation from it at
-    // either endpoint; the lerped axes' deviations stay within the larger,
-    // up to their normalisation.
+    // The covering band is centered on the middle slot's column-time axis.
     [[maybe_unused]] float cover_cos_min = -2.0f, cover_cos_max = 2.0f;
     if constexpr (COLUMN_TIME) {
       float pad = pad_th;
@@ -744,7 +741,13 @@ struct RingGroup {
           pad = std::max(
               pad, member_reach(previous_normals[mid], previous_normals[s], s));
         }
-        pad = pad * (1.0f + max_slot_sweep * max_slot_sweep) + 1e-3f;
+        if (max_slot_sweep >= 0.5f * math::PI_F) {
+          // Each axis is within half its sweep of the nearer time endpoint.
+          pad += max_slot_sweep;
+        } else {
+          pad *= 1.0f + max_slot_sweep * max_slot_sweep;
+        }
+        pad += 1e-3f;
       }
       SDF::band_edge_cosines(shapes[mid].target_angle - pad,
                              shapes[mid].target_angle + pad, cover_cos_max,

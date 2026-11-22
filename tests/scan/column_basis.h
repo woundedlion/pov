@@ -1001,9 +1001,11 @@ inline void test_volume_columns_match_rotated_placements() {
  * @tparam H Canvas height.
  * @param turns Per-slot angle between the previous and current axes, slow
  *        slots taking the chord and fast ones the arc.
+ * @param diverging Two near-half-turn slots turn to opposite sides.
  */
 template <int W, int H>
-inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
+inline void check_ring_group_previous_axes(std::initializer_list<float> turns,
+                                           bool diverging = false) {
   constexpr int N = 3;
   HS_CONTEXT(W == 96 ? "previous axes 96" : "previous axes 288");
   const ScopedPoleLod lod(0.0f);
@@ -1020,6 +1022,14 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
       current[s] = -math::Y_AXIS;
     }
     ++s;
+  }
+  if (diverging) {
+    for (int index = 0; index < N; ++index) {
+      previous[index] = math::X_AXIS;
+      current[index] =
+          math::Vector(-1.0f, index == 0 ? -0.001f : 0.001f, 0.0f).normalized();
+    }
+    previous[2] = current[2];
   }
   const auto draw = [&](const math::Vector *axes, const math::Vector *before) {
     return render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
@@ -1094,6 +1104,7 @@ inline void test_ring_group_previous_axes_match_column_rings() {
   check_ring_group_previous_axes<96, 48>({0.25f, 0.35f, 0.45f});
   check_ring_group_previous_axes<96, 48>({0.02f, 0.35f, math::PI_F});
   check_ring_group_previous_axes<288, 144>({0.02f, 0.2f, 1.2f});
+  check_ring_group_previous_axes<96, 48>({}, true);
 }
 
 /** @brief Column row spans contain every sample inside the cosine band. */
