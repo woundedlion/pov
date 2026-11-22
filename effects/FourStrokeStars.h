@@ -55,17 +55,22 @@ public:
     const auto base = [](const math::Vector &, Fragment &fragment) {
       fragment.color = Color4(FourStroke::linear_rgb(0xb5b5b5), 1);
     };
-    const auto arrow = direction.orient(math::Y_AXIS);
-    const float pixel_angle =
-        std::max(math::TWO_PI_F / W, math::DisplayGeometry<H>::RADIANS_PER_ROW);
+    const auto walk_arrow = direction.orient(math::Y_AXIS);
+    const auto arrow = params.reverse ? -walk_arrow : walk_arrow;
+    constexpr float LONGITUDE_STEP = math::TWO_PI_F / W;
+    const float row_step = math::DisplayGeometry<H>::RADIANS_PER_ROW;
+    const float pixel_angle = std::max(LONGITUDE_STEP, row_step);
     const auto &clip = canvas.clip();
     for (int y = clip.y_start; y < clip.y_end; ++y)
       std::fill_n(canvas.data() + y * W + clip.x_start,
                   clip.x_end - clip.x_start, FourStroke::GRAY);
     for (int i = 0; i < STAR_COUNT; ++i) {
       const SDF::Star shape(bases[i], RADIUS, 5, 0, false);
-      const float rim_scale =
-          std::min(1.f, 0.25f * shape.plane_d / pixel_angle);
+      constexpr float REFERENCE_TILE_PIXELS = 64;
+      const float angular_width =
+          params.reference ? 2 * shape.circumradius / REFERENCE_TILE_PIXELS
+                           : 0.25f * shape.plane_d;
+      const float rim_scale = std::min(1.f, angular_width / pixel_angle);
       const Scan::FourStrokeMaterial material{
           .controls = {.width = params.width * rim_scale,
                        .strength = params.strength,
@@ -73,7 +78,11 @@ public:
                                    ? FourStroke::Mode::REFERENCE_POLARITY
                                    : FourStroke::Mode::DIRECTIONAL_CONTRAST},
           .base = base,
-          .arrow = params.reverse ? -arrow : arrow};
+          .arrow = arrow,
+          .strip_direction =
+              params.reference
+                  ? std::optional{screen_direction(bases[i].v, arrow, row_step)}
+                  : std::nullopt};
       Scan::Star::draw<W, H>(pipeline, canvas, shape, (*contours)[i], material);
     }
   }
@@ -89,6 +98,23 @@ private:
   float north = 0, south = 0;      ///< Cached display latitude endpoints.
   uint32_t next_display_frame = 1; ///< Next one-based physical display window.
 
+  static FourStroke::Direction
+  screen_direction(math::Vector axis, math::Vector arrow, float row_step) {
+    const float latitude_sine = std::hypot(axis.x, axis.z);
+    if (latitude_sine == 0)
+      return {};
+    const math::Vector east{-axis.z / latitude_sine, 0, axis.x / latitude_sine};
+    const float horizontal = math::dot(arrow, east);
+    const float vertical = math::dot(arrow, math::cross(axis, east));
+    const float x = horizontal / (latitude_sine * (math::TWO_PI_F / W));
+    const float y = vertical / row_step;
+    const float length = std::hypot(x, y);
+    if (length == 0)
+      return {};
+    const float scale = std::hypot(horizontal, vertical) / length;
+    return {x * scale, y * scale};
+  }
+
   HS_FLASH_MEMBER void prepare_contours() {
     north = math::DISPLAY_NORTH_PHI;
     south = math::DISPLAY_SOUTH_PHI;
@@ -99,7 +125,7 @@ private:
   struct Params {
     float strength = 1;    ///< Linear RGB mix.
     int width = 1;         ///< Inner band width in output pixels.
-    bool reference = true; ///< Use full color at either edge polarity.
+    bool reference = true; ///< Use the demo's opposing strips.
     bool reverse = false;  ///< Negate the common world-space direction.
   } params;                ///< Live material controls.
   /** @brief Describes the exposed material controls.

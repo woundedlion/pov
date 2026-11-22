@@ -60,6 +60,21 @@ inline void test_four_stroke_roles() {
                      1.0);
     }
   }
+  const auto square_strip = [](float x, float y, Direction shift) {
+    return translated_strips(x, y, shift, [](float sx, float sy) {
+      return sx >= 0 && sx < 10 && sy >= 0 && sy < 10;
+    });
+  };
+  HS_EXPECT_EQ(square_strip(9.5f, 5, {1, 0}).alignment, 1);
+  HS_EXPECT_EQ(square_strip(0.5f, 5, {1, 0}).alignment, -1);
+  HS_EXPECT_EQ(square_strip(5, 0.1f, {1, 0}).alignment, 0);
+  HS_EXPECT_EQ(square_strip(5, 9.9f, {1, 0}).alignment, 0);
+  HS_EXPECT_EQ(square_strip(9.5f, 5, {-1, 0}).alignment, -1);
+  HS_EXPECT_EQ(square_strip(5, 9.5f, {0, 1}).alignment, 1);
+  HS_EXPECT_EQ(square_strip(0.5f, 5, {10, 0}).alignment, 1);
+  HS_EXPECT_EQ(square_strip(9.5f, 5, {0, 0}).alignment, 0);
+  HS_EXPECT_FALSE(square_strip(-0.1f, 5, {1, 0}).inside);
+
   HS_EXPECT_NEAR(interpolate_heading(359, 1, 0.5f), 0, 1e-5);
   HS_EXPECT_NEAR(interpolate_heading(180, 0, 0.5f), 270, 1e-5);
   Direction dir{};

@@ -137,6 +137,25 @@ public:
    * @return Exclusive row limit. */
   int end_row() const { return static_cast<int>(std::floor(y_max + 0.5f)) + 1; }
 
+  /** @brief Tests coverage without resolving contour distance or direction.
+   * @param x,y Sample coordinates in the contour's unwrapped chart.
+   * @return True inside or on the exposed outline. */
+  bool contains(float x, float y) const {
+    bool inside = false;
+    for (int i = 0; i < count; ++i) {
+      const auto &edge = edges[i];
+      const float dx = edge.b.x - edge.a.x, dy = edge.b.y - edge.a.y;
+      const float px = x - edge.a.x, py = y - edge.a.y;
+      const float cross = px * dy - py * dx;
+      if (cross == 0 && px * dx + py * dy >= 0 &&
+          (x - edge.b.x) * dx + (y - edge.b.y) * dy <= 0)
+        return true;
+      if ((edge.a.y > y) != (edge.b.y > y) && x < edge.a.x + py * dx / dy)
+        inside = !inside;
+    }
+    return inside;
+  }
+
   /** @brief Classifies one sample against the exposed segments.
    * @param x,y Unwrapped sample coordinates.
    * @param align Alignment of the physical or output heading with a unit normal.

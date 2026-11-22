@@ -117,6 +117,22 @@ struct Boundary {
   float alignment = 0;                        ///< Signed unit direction cosine.
 };
 
+/** @brief Classifies the opposing strips of a translated silhouette.
+ * @param x,y Output sample coordinates.
+ * @param shift Displacement of the silhouette in output pixels.
+ * @param inside Coverage predicate in the same chart.
+ * @return Coverage and strip polarity, with the primary strip painted last. */
+inline Boundary translated_strips(float x, float y, Direction shift,
+                                  const auto &inside) {
+  if (!inside(x, y))
+    return {};
+  if (!inside(x + shift.x, y + shift.y))
+    return {true, 0, 1};
+  if (!inside(x - shift.x, y - shift.y))
+    return {true, 0, -1};
+  return {true};
+}
+
 /// Edge-neutral angular deadband.
 inline constexpr float DEADBAND = 0.05f;
 

@@ -129,16 +129,16 @@ auto four_stroke_tangent_direction(Arrow &arrow) {
  * @param alignment Signed alignment for a unit outward normal at a tap.
  * @param controls Four-stroke material controls.
  * @param t0,t1 Integer presentation endpoints.
+ * @param strip_shift Optional silhouette displacement in output pixels.
  * @param boundary_shader Optional replacement consuming the same contour registers. */
 template <int W, int H, typename Shape, typename Shader, typename ColumnFn>
-void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
-                               const Shape &shape, const Shader &shader,
-                               const auto &view, const auto &alignment,
-                               const FourStroke::Controls &controls,
-                               uint64_t t0, uint64_t t1,
-                               FragmentShaderRef boundary_shader,
-                               const ColumnFn &select_column,
-                               const ProjectedStar<W, H> *prepared) {
+void rasterize_four_stroke_sdf(
+    auto &pipeline, Canvas &canvas, const Shape &shape, const Shader &shader,
+    const auto &view, const auto &alignment,
+    const FourStroke::Controls &controls, uint64_t t0, uint64_t t1,
+    FragmentShaderRef boundary_shader, const ColumnFn &select_column,
+    const ProjectedStar<W, H> *prepared,
+    std::optional<FourStroke::Direction> strip_shift) {
   if (controls.strength == 0) {
     rasterize<W, H>(pipeline, canvas, shape, shader);
     return;
@@ -189,6 +189,11 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
           const auto &beat = FourStroke::colors(time);
           for (int y = y0; y < y1; ++y) {
             const auto query = [&](float dx, float dy, const auto &align) {
+              if (strip_shift)
+                return FourStroke::translated_strips(
+                    ux + dx, y + dy, *strip_shift, [&](float sx, float sy) {
+                      return contour.contains(sx, sy);
+                    });
               return contour.query(ux + dx, y + dy, align,
                                    boundary_shader ? INFINITY
                                                    : float(controls.width));
@@ -230,6 +235,21 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
     const auto time =
         FourStroke::column_time(t0, t1, x, W, Spacetime::flat_surface());
     const auto &beat = FourStroke::colors(time);
+    if (strip_shift) {
+      const auto inside = [&](float sx, float sy) {
+        SDF::DistanceResult hit;
+        shape.template distance<false>(view(sx, sy, time), hit);
+        return hit.dist <= 0;
+      };
+      const auto query = [&](float dx, float dy, const auto &) {
+        return FourStroke::translated_strips(x + dx, y + dy, *strip_shift,
+                                             inside);
+      };
+      emit(x, y,
+           four_stroke_pixel(x, y, time, beat, controls, query, alignment,
+                             shade, boundary_shader));
+      return 1;
+    }
     float center[3][3];
     bool covered = false;
     for (int dy = -1; dy <= 1; ++dy)
@@ -288,6 +308,8 @@ struct FourStrokeMaterial {
       boundary{}; ///< Optional replacement for the standard register shader.
   std::optional<math::Vector>
       arrow{}; ///< Physical direction in the view frame.
+  std::optional<FourStroke::Direction>
+      strip_direction{}; ///< Silhouette displacement per band pixel.
 };
 
 /** @brief Rasterizes an SDF with a boundary-aware fragment material.
@@ -337,10 +359,15 @@ void rasterize(auto &pipeline, Canvas &canvas, const Shape &shape,
     if (drifted)
       drifted->reach(x);
   };
+  auto strip_shift = material.strip_direction;
+  if (strip_shift) {
+    strip_shift->x *= material.controls.width;
+    strip_shift->y *= material.controls.width;
+  }
   rasterize_four_stroke_sdf<W, H>(pipeline, canvas, shape, material.base, view,
                                   alignment, material.controls, interval.t0,
                                   interval.t1, material.boundary, save_column,
-                                  prepared);
+                                  prepared, strip_shift);
 }
 
 } // namespace Scan
