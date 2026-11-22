@@ -394,10 +394,18 @@ inline Complex clog(const Complex &z) {
  * @param z Argument.
  * @return Hyperbolic cosine followed by hyperbolic sine. */
 HS_HOT_INLINE inline std::pair<Complex, Complex> ccosh_csinh(const Complex &z) {
-  const float exponential = expf(z.re);
-  const float inverse = 1.0f / exponential;
-  const float real_cosh = 0.5f * (exponential + inverse);
-  const float real_sinh = 0.5f * (exponential - inverse);
+  float real_cosh;
+  float real_sinh;
+  const float absolute = fabsf(z.re);
+  if (absolute < 0x1p-5f || absolute > 88.0f) [[unlikely]] {
+    real_cosh = coshf(z.re);
+    real_sinh = sinhf(z.re);
+  } else {
+    const float exponential = expf(z.re);
+    const float inverse = 1.0f / exponential;
+    real_cosh = 0.5f * (exponential + inverse);
+    real_sinh = 0.5f * (exponential - inverse);
+  }
   const float cosine = cosf(z.im);
   const float sine = sinf(z.im);
   return {Complex(real_cosh * cosine, real_sinh * sine),

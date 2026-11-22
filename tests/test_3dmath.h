@@ -1538,6 +1538,19 @@ inline void test_complex_principal_root_extremes() {
   }
 }
 
+/** @brief Shared complex hyperbolics preserve small and large finite terms. */
+inline void test_complex_hyperbolic_extremes() {
+  for (float input : {-89.0f, -1e-8f, 1e-8f, 89.0f}) {
+    const auto [c, s] = math::ccosh_csinh({input, 0.0f});
+    const double expected_c = std::cosh(static_cast<double>(input));
+    const double expected_s = std::sinh(static_cast<double>(input));
+    HS_EXPECT_NEAR(c.re, expected_c, expected_c * 1e-6);
+    HS_EXPECT_NEAR(s.re, expected_s, std::abs(expected_s) * 1e-6);
+    HS_EXPECT_EQ(c.im, 0.0f);
+    HS_EXPECT_EQ(s.im, 0.0f);
+  }
+}
+
 /** @brief Projection division preserves finite ratios and singular directions. */
 inline void test_project_div_conventions() {
   const math::Complex A(1, 2), B(3, 4);
@@ -2552,6 +2565,7 @@ inline int run_3dmath_tests() {
   HS_RUN(test_stereo_roundtrip);
   HS_RUN(test_complex_arithmetic);
   HS_RUN(test_complex_principal_root_extremes);
+  HS_RUN(test_complex_hyperbolic_extremes);
   HS_RUN(test_project_div_conventions);
   HS_RUN(test_mobius_params_accessors);
   HS_RUN(test_mobius_transform);
