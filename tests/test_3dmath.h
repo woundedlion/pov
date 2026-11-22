@@ -1525,8 +1525,10 @@ inline void test_project_div_conventions() {
                                         math::Complex(divisor, 0)),
                       math::Complex(1, 1), 2e-6f);
   }
-  // project_div matches ordinary division away from the singularity.
   HS_EXPECT_COMPLEX(math::project_div(A, B), A / B, 1e-6f);
+  const math::Complex LARGE(1e20f, 0.0f);
+  HS_EXPECT_COMPLEX(math::project_div(LARGE, LARGE), math::Complex(1, 0),
+                    1e-6f);
 
   // project_div convention: 0 / 0 → 0.
   HS_EXPECT_COMPLEX(math::project_div(math::Complex(0, 0), math::Complex(0, 0)),

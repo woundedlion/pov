@@ -75,8 +75,17 @@ inline math::Complex project_div(const math::Complex &num,
     denom = den_re * den_re + den_im * den_im;
   }
   float num_mag = num_re * num_re + num_im * num_im;
-  if (num_mag >= denom * (projections::STEREO_INF * projections::STEREO_INF))
-    return mobius_detail::saturated_quotient(num, den);
+  if (!(num_mag <
+        denom * (projections::STEREO_INF * projections::STEREO_INF)) ||
+      !std::isfinite(denom)) [[unlikely]] {
+    const double a = num.re, b = num.im, c = den.re, d = den.im;
+    const double norm = c * c + d * d;
+    constexpr double LIMIT = projections::STEREO_INF;
+    if (!(a * a + b * b < norm * LIMIT * LIMIT))
+      return mobius_detail::saturated_quotient(num, den);
+    return {static_cast<float>((a * c + b * d) / norm),
+            static_cast<float>((b * c - a * d) / norm)};
+  }
   return math::Complex((num_re * den_re + num_im * den_im) / denom,
                        (num_im * den_re - num_re * den_im) / denom);
 }
