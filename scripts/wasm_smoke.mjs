@@ -313,6 +313,23 @@ async function main(probe) {
             fail('batch-pause: rejected write changed the pause state');
           }
         }
+        const palette = { instance: 'colorize', from: {}, to: {}, mix: 0.5 };
+        for (const [method, rest] of [
+          ['setShaderChainMorphParameters', [[]]],
+          ['setShaderChainPaletteMorphParameters', [[], palette]],
+        ]) {
+          const writes = (value) => [{ name: 'sample.pattern-freq', value }];
+          const accepted = chainCall(engine, method, writes(2), null, ...rest);
+          if (accepted !== Module.ParamSetResult.APPLIED)
+            fail(`${method}: explicit null did not omit the planar morph`);
+          const current = Array.from(engine.getParamValues());
+          const invalid = { invalid() {} };
+          const refused = chainCall(engine, method, writes(3), invalid, ...rest);
+          if (refused !== Module.ParamSetResult.MALFORMED_PAYLOAD
+              || Array.from(engine.getParamValues()).some((value, index) => value !== current[index])) {
+            fail(`${method}: failed planar clone applied a partial preview`);
+          }
+        }
         const before = Array.from(engine.getParamValues());
         const malformedName = chainCall(engine, 'setShaderChainParameters', [
           { name: 'sample.pattern-freq', value: 2 },

@@ -513,9 +513,11 @@ private:
     const PayloadDecodeGuard decode_guard(&decoding);
     if (!isValid())
       return ParamSetResult::NO_EFFECT;
+    const bool has_morph = caller_morph != nullptr &&
+                           !(caller_modulations && caller_morph->isNull());
     const emscripten::val entries = clone_payload(caller_entries);
-    const auto morph = caller_morph == nullptr ? emscripten::val::undefined()
-                                               : clone_payload(*caller_morph);
+    const auto morph =
+        has_morph ? clone_payload(*caller_morph) : emscripten::val::undefined();
     const auto modulations = caller_modulations == nullptr
                                  ? emscripten::val::undefined()
                                  : clone_payload(*caller_modulations);
@@ -568,8 +570,6 @@ private:
     std::string instance;
     SourceMorphEndpoint from, to;
     ShaderChainSourceMorphWrite source{};
-    const bool has_morph =
-        caller_morph != nullptr && !(caller_modulations && morph.isNull());
     if (has_morph) {
       if (!hs_wasm::is_js_object(morph) || !morph["instance"].isString() ||
           !morph["evaluation"].isNumber() || !morph["duration"].isNumber() ||
