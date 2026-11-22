@@ -592,7 +592,7 @@ inline void test_point_particle_step_start_recovers_previous_position() {
           continue;
         const math::Vector start =
             Animation::particle_step_start(p.get_position(), p.velocity, cap);
-        worst = fmaxf(worst, (start - before[i]).magnitude());
+        worst = fold_worst(worst, (start - before[i]).magnitude());
         capped += p.velocity.magnitude() > cap;
         ++checked;
       }

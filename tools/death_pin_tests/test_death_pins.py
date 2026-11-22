@@ -3,7 +3,7 @@
 import contextlib
 import io
 from pathlib import Path
-import subprocess
+import os
 import sys
 import tempfile
 import unittest
@@ -11,6 +11,9 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tests"))
 import check_death_pins as checker
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from git_test_env import git_run, isolated_env
 
 
 class DeathPinUniqueness(unittest.TestCase):
@@ -140,8 +143,7 @@ class NewGuardsNeedACase(unittest.TestCase):
         self.base = self.git("rev-parse", "HEAD")
 
     def git(self, *args):
-        return subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@t",
-                               *args], check=True, capture_output=True, text=True).stdout.strip()
+        return git_run(self.repo, *args).stdout.strip()
 
     def commit(self, files):
         for name, text in files.items():
@@ -153,7 +155,9 @@ class NewGuardsNeedACase(unittest.TestCase):
         return self.git("rev-parse", "HEAD")
 
     def missing(self, files):
-        return checker.new_guards(self.repo, self.base, self.commit(files))
+        tip = self.commit(files)
+        with mock.patch.dict(os.environ, isolated_env(), clear=True):
+            return checker.new_guards(self.repo, self.base, tip)
 
     def test_added_guard_without_a_case_is_reported(self):
         self.assertEqual(self.missing({"core/guard.h": self.GUARD}),
@@ -193,7 +197,8 @@ class NewGuardsNeedACase(unittest.TestCase):
 
     def test_command_line_fails_on_a_missing_case(self):
         tip = self.commit({"core/guard.h": self.GUARD})
-        with mock.patch.object(sys, "argv", ["check", str(self.repo), "--new-guards", self.base, tip]), \
+        with mock.patch.dict(os.environ, isolated_env(), clear=True), \
+                mock.patch.object(sys, "argv", ["check", str(self.repo), "--new-guards", self.base, tip]), \
                 contextlib.redirect_stdout(io.StringIO()) as out, \
                 self.assertRaisesRegex(SystemExit, "1 new guard"):
             checker.main()

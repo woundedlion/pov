@@ -254,7 +254,15 @@ inline void test_noise_transform_tangent_slide() {
     HS_EXPECT_NEAR(r2.length(), 1.0f, 1e-5f);
     const math::Vector t = slide(v, r), t2 = slide(v, r2);
     HS_EXPECT_GT(t.length(), 0.0f);
-    HS_EXPECT_NEAR(math::dot(t, v), 0.0f, 1e-5f);
+    const auto noise = [&](float shift) {
+      return single.noise.GetNoise(v.x * single.scale + shift,
+                                   v.y * single.scale + shift,
+                                   v.z * single.scale + single.time + shift);
+    };
+    const math::Vector raw(noise(0), noise(100), noise(200));
+    const math::Vector expected =
+        (raw - v * math::dot(raw, v)) * (single.amplitude * 0.05f);
+    HS_EXPECT_VEC(t, expected, 1e-5f);
     HS_EXPECT_NEAR(t2.x, 2.0f * t.x, 1e-5f);
     HS_EXPECT_NEAR(t2.y, 2.0f * t.y, 1e-5f);
     HS_EXPECT_NEAR(t2.z, 2.0f * t.z, 1e-5f);

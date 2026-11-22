@@ -7,6 +7,10 @@
 #include "tests/test_harness.h"
 #include "core/mesh/mesh.h"
 #include "tests/mesh_test_util.h"
+#include <algorithm>
+#include <numeric>
+#include <optional>
+#include <span>
 #include <vector>
 #include <cstring>
 #include <cmath>
@@ -130,30 +134,60 @@ inline void check_primary_faces_match_seed(const PolyMesh &seed,
   }
 }
 
-/**
- * @brief Asserts two meshes carry the same geometry up to vertex order:
- *        equal counts, equal face-type histograms, and a vertex-set bijection
- *        within tol.
- */
+/** @brief Sorted face cycles after remapping each vertex index. */
+inline std::optional<std::vector<std::vector<size_t>>>
+face_cycles(const PolyMesh &mesh, std::span<const size_t> indices) {
+  std::vector<std::vector<size_t>> faces;
+  size_t offset = 0;
+  for (const size_t count : mesh.face_counts) {
+    if (count < 3 || count > mesh.faces.size() - offset)
+      return std::nullopt;
+    std::vector<size_t> cycle;
+    for (size_t corner = 0; corner < count; ++corner) {
+      const size_t index = mesh.faces[offset++];
+      if (index >= indices.size())
+        return std::nullopt;
+      cycle.push_back(indices[index]);
+    }
+    auto canonical = cycle;
+    for (size_t corner = 0; corner < count; ++corner) {
+      canonical = std::min(canonical, cycle);
+      const std::vector<size_t> reversed(cycle.rbegin(), cycle.rend());
+      canonical = std::min(canonical, reversed);
+      std::rotate(cycle.begin(), cycle.begin() + 1, cycle.end());
+    }
+    faces.push_back(std::move(canonical));
+  }
+  if (offset != mesh.faces.size())
+    return std::nullopt;
+  std::sort(faces.begin(), faces.end());
+  return faces;
+}
+
+/** @brief Checks equivalent vertices and face cycles in either traversal direction. */
 inline void check_equal_up_to_vertex_order(const PolyMesh &got,
                                            const PolyMesh &want, float tol) {
-  expect_same_mesh_sizes(got, want);
-  HS_EXPECT_TRUE(conway_tests::face_type_histogram(got) ==
-                 conway_tests::face_type_histogram(want));
-  if (got.vertices.size() != want.vertices.size())
+  if (!expect_same_mesh_sizes(got, want))
     return;
+  std::vector<size_t> correspondence(got.vertices.size());
   std::vector<bool> used(want.vertices.size(), false);
   for (size_t i = 0; i < got.vertices.size(); ++i) {
-    bool matched = false;
-    for (size_t j = 0; j < want.vertices.size(); ++j) {
-      if (!used[j] && (got.vertices[i] - want.vertices[j]).length() <= tol) {
-        used[j] = true;
-        matched = true;
+    size_t j = 0;
+    for (; j < want.vertices.size(); ++j)
+      if (!used[j] && (got.vertices[i] - want.vertices[j]).length() <= tol)
         break;
-      }
-    }
-    HS_EXPECT_TRUE(matched);
+    HS_CONTEXT("vertex", i);
+    HS_EXPECT_LT(j, want.vertices.size());
+    if (j == want.vertices.size())
+      return;
+    used[j] = true;
+    correspondence[i] = j;
   }
+  std::vector<size_t> identity(want.vertices.size());
+  std::iota(identity.begin(), identity.end(), size_t{0});
+  const auto got_faces = face_cycles(got, correspondence);
+  const auto want_faces = face_cycles(want, identity);
+  HS_EXPECT_TRUE(got_faces && want_faces && got_faces == want_faces);
 }
 
 } // namespace hs_test::conway_morph_tests

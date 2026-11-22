@@ -61,6 +61,16 @@ constexpr int DEFAULT_H = 144;
 
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
+/** @brief Checks an indexed option label after validating its table and index. */
+inline void expect_option_label(const char *const *labels, int count, int index,
+                                const char *label) {
+  HS_CONTEXT(label);
+  HS_EXPECT_TRUE(labels != nullptr);
+  HS_EXPECT_GT(count, index);
+  if (labels && index < count)
+    HS_EXPECT_STREQ(labels[index], label);
+}
+
 /** @brief Sets companion controls that make the probed parameter admissible. */
 template <typename FX>
 inline void prepare_chain_parameter_probe(FX &effect,

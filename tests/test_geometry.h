@@ -363,6 +363,14 @@ inline void test_random_vector_distribution() {
   for (int i = 0; i < N; ++i) {
     math::Vector v = math::random_vector();
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
+    const auto valid_component = [](float component) {
+      return std::isfinite(component) && std::fabs(component) <= 1.001f;
+    };
+    const bool valid =
+        valid_component(v.x) && valid_component(v.y) && valid_component(v.z);
+    HS_EXPECT_TRUE(valid);
+    if (!valid)
+      continue;
     sx += v.x;
     sy += v.y;
     sz += v.z;

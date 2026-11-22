@@ -232,7 +232,8 @@ inline void test_ordered_sweep_cycle() {
         const int node = HankinWalkProbe::node(fx);
         HS_EXPECT_EQ(node, completed % ConwayGraph::NUM_NODES);
         ++completed;
-        ++swept[node];
+        if (node >= 0 && node < ConwayGraph::NUM_NODES)
+          ++swept[node];
       }
     }
     for (int node = 0; node < ConwayGraph::NUM_NODES; ++node)

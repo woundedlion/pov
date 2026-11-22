@@ -242,7 +242,8 @@ inline void test_shader_chain_refusal_migrate_failed() {
       {"colorize", "colorize.generated-palette.v4"},
   };
   const In::ChainRefusal first = program.compile(CHAIN);
-  expect_compiled(first);
+  if (!expect_compiled(first))
+    return;
   HS_EXPECT_EQ(CountLifecycle::inits, 1);
   program.advance();
   program.advance();

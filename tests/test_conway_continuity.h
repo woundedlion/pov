@@ -1881,27 +1881,26 @@ inline void test_star_midpoint_dissolve() {
                   star_blend);
   capture_opening(fx, star_angle, 1.0f, sliver_target, 1.0f, 1.0f, cf, 0.0f);
 
-  // Only star fragments are shaped, so the pixels where the two renders differ
-  // are exactly the star's; score them against the fully resolved rim target.
+  const auto distance = [](const Pixel &a, const Pixel &b) {
+    return std::abs(int(a.r) - b.r) + std::abs(int(a.g) - b.g) +
+           std::abs(int(a.b) - b.b);
+  };
   long long e_plain = 0, e_shaped = 0;
   size_t star_px = 0;
   for (size_t i = 0; i < sliver_plain.size(); ++i) {
-    if (sliver_plain[i] == sliver_shaped[i])
+    const int plain_error = distance(sliver_plain[i], sliver_target[i]);
+    if (plain_error <= 16)
       continue;
+    const int shaped_error = distance(sliver_shaped[i], sliver_target[i]);
+    HS_CONTEXT("pixel", i % W, i / W);
+    HS_EXPECT_LT(shaped_error, plain_error);
     ++star_px;
-    e_plain += std::abs((int)sliver_plain[i].r - sliver_target[i].r) +
-               std::abs((int)sliver_plain[i].g - sliver_target[i].g) +
-               std::abs((int)sliver_plain[i].b - sliver_target[i].b);
-    e_shaped += std::abs((int)sliver_shaped[i].r - sliver_target[i].r) +
-                std::abs((int)sliver_shaped[i].g - sliver_target[i].g) +
-                std::abs((int)sliver_shaped[i].b - sliver_target[i].b);
+    e_plain += plain_error;
+    e_shaped += shaped_error;
   }
-  std::printf("  [star-mid] %zu shaped px, rim energy unshaped=%lld "
+  std::printf("  [star-mid] %zu star pixels, rim energy unshaped=%lld "
               "shaped=%lld\n",
               star_px, e_plain, e_shaped);
-
-  // The shaping must reach the closing star, and must carry it toward the ramp
-  // the midpoint leaves in its place.
   HS_EXPECT_GT(star_px, 100u);
   HS_EXPECT_GT(e_plain, 100000);
   HS_EXPECT_LT(e_shaped, e_plain);

@@ -404,7 +404,7 @@ inline void test_normalized_terms_have_tight_speed_bounds() {
         const double lambda = lon * (math::TWO_PI_F / 256);
         const math::Vector p(std::cos(phi) * std::cos(lambda), std::sin(phi),
                              std::cos(phi) * std::sin(lambda));
-        peak = std::max(peak, field.velocity(p).length());
+        peak = fold_worst(peak, field.velocity(p).length());
       }
     }
     HS_EXPECT_GE(peak, 0.985f);

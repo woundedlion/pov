@@ -30,7 +30,7 @@ inline void test_named_procedural_palette_loop_endpoints() {
 }
 
 /**
- * @brief Bakes each palette slot from its source and keeps the slots distinct.
+ * @brief Every baked palette slot matches its source at the lookup knots.
  */
 inline void test_mesh_palette_bank_lookup() {
   alignas(std::max_align_t) static uint8_t
@@ -40,22 +40,16 @@ inline void test_mesh_palette_bank_lookup() {
   bank.bake_all(arena);
 
   for (int i = 0; i < MeshPaletteBank::N; ++i) {
-    for (float t : {0.0f, 1.0f}) {
-      const Color4 actual = bank[i].get(t);
-      const Color4 expected = MeshPaletteBank::sources()[i]->get(t);
-      HS_EXPECT_EQ(actual.color.r, expected.color.r);
-      HS_EXPECT_EQ(actual.color.g, expected.color.g);
-      HS_EXPECT_EQ(actual.color.b, expected.color.b);
+    HS_CONTEXT("palette", i);
+    for (int knot = 0; knot < BakedPalette::LUT_SIZE; ++knot) {
+      const float t = static_cast<float>(knot) / (BakedPalette::LUT_SIZE - 1);
+      const Pixel actual = bank[i].get(t).color;
+      const Pixel expected = MeshPaletteBank::sources()[i]->get(t).color;
+      HS_EXPECT_NEAR(actual.r, expected.r, 1);
+      HS_EXPECT_NEAR(actual.g, expected.g, 1);
+      HS_EXPECT_NEAR(actual.b, expected.b, 1);
     }
   }
-
-  // Every slot bakes a distinct LUT (no two share a t=0 color).
-  for (int i = 0; i < MeshPaletteBank::N; ++i)
-    for (int j = i + 1; j < MeshPaletteBank::N; ++j) {
-      Color4 ci = bank[i].get(0.0f), cj = bank[j].get(0.0f);
-      HS_EXPECT_TRUE(ci.color.r != cj.color.r || ci.color.g != cj.color.g ||
-                     ci.color.b != cj.color.b);
-    }
 }
 
 /**

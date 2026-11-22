@@ -595,7 +595,7 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
           return vertex.particle == f.v2 && vertex.progress == f.v0;
         });
     if (expected == original_vertices.end() ||
-        (orig - expected->position).length() > 1e-4f)
+        !((orig - expected->position).length() <= 1e-4f))
       ++orig_mismatches;
     const float index = f.v2 + 0.5f;
     HS_EXPECT_TRUE(index >= 0.0f && index < 2.0f);

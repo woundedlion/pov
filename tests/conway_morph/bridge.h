@@ -9,6 +9,7 @@
 
 #include "tests/conway_morph/fixture.h"
 #include "tests/conway_morph/oracles.h"
+#include "tests/probe_test_util.h"
 
 #include <vector>
 
@@ -132,6 +133,19 @@ inline void test_ambo_tetrahedron_is_regular_octahedron() {
   PolyMesh octahedron;
   build_solid<Solids::Octahedron>(octahedron, temp);
   check_equal_up_to_vertex_order(a, octahedron, 1e-4f);
+}
+
+/** @brief Geometric equivalence detects missing and duplicated faces. */
+inline void test_mesh_geometry_rejects_duplicate_face() {
+  Arena target(morph_target_buf, sizeof(morph_target_buf));
+  Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+  PolyMesh want, got;
+  build_solid<Solids::Octahedron>(want, target);
+  build_solid<Solids::Octahedron>(got, temp);
+  std::copy_n(got.faces.data(), 3, got.faces.data() + 3);
+  expect_probe_failures(
+      [&] { check_equal_up_to_vertex_order(got, want, 1e-4f); }, 1,
+      "got_faces == want_faces");
 }
 
 } // namespace hs_test::conway_morph_tests

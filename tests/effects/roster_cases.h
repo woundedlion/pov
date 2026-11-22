@@ -84,6 +84,17 @@ inline void test_mesh_seam_dark_sample_guards() {
   HS_EXPECT_EQ(flat_step.arm_samples, 4);
   HS_EXPECT_EQ(flat_step.interior_samples, 3);
   check_guard(flat_step, 2, "steps.arm_ratios / steps.arm_samples");
+
+  std::vector<Pixel> interior_spike(W * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = W / 4; x < 3 * W / 4; ++x)
+      interior_spike[y * W + x] = Pixel(1000, 0, 0);
+  MeshSeamSteps mid_arm_step = measured;
+  mid_arm_step.add(interior_spike, interior_spike, W, H);
+  HS_EXPECT_EQ(mid_arm_step.interior_samples, measured.interior_samples + 1);
+  HS_EXPECT_TRUE(std::isinf(mid_arm_step.interior_ratios));
+  check_guard(mid_arm_step, 1,
+              "steps.interior_ratios / steps.interior_samples");
 }
 
 /** @brief Parameter lints reject overwritten sliders and paused animation leaks. */

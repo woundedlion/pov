@@ -187,6 +187,11 @@ inline void check_star_faces_first_in_base_face_order() {
     const int bc = base.face_counts[fi];
     const int oc = compiled.face_counts[fi];
     HS_EXPECT_EQ(oc, 2 * bc);
+    const bool face_in_range = size_t(oc) <= compiled.faces.size() - off &&
+                               size_t(bc) <= base.faces.size() - base_off;
+    HS_EXPECT_TRUE(face_in_range);
+    if (!face_in_range)
+      return;
 
     std::vector<uint16_t> corners;
     for (int k = 0; k < oc; ++k) {
@@ -194,7 +199,12 @@ inline void check_star_faces_first_in_base_face_order() {
       if (k % 2 == 0) {
         HS_EXPECT_TRUE(idx < static_offset);
       } else {
-        HS_EXPECT_TRUE(idx >= static_offset);
+        const bool in_range =
+            idx >= static_offset &&
+            size_t(idx - static_offset) < compiled.dynamic_instructions.size();
+        HS_EXPECT_TRUE(in_range);
+        if (!in_range)
+          return;
         corners.push_back(
             compiled.dynamic_instructions[idx - static_offset].v_corner);
       }
@@ -216,8 +226,14 @@ inline void check_star_faces_first_in_base_face_order() {
   // Everything after the f star faces is a rosette: reversed emission puts a
   // star-point entry first, never a midpoint.
   for (size_t fi = f; fi < compiled.face_counts.size(); ++fi) {
+    const size_t count = compiled.face_counts[fi];
+    const bool face_in_range =
+        count > 0 && count <= compiled.faces.size() - off;
+    HS_EXPECT_TRUE(face_in_range);
+    if (!face_in_range)
+      return;
     HS_EXPECT_TRUE(compiled.faces[off] >= static_offset);
-    off += compiled.face_counts[fi];
+    off += count;
   }
 }
 

@@ -69,20 +69,20 @@ inline void test_shapeshifter_preset_defaults() {
     HS_EXPECT_FALSE(alpha->preset);
   if (shape) {
     HS_EXPECT_TRUE(shape->is_enum());
-    HS_EXPECT_EQ(std::string_view(shape->export_options[3]),
-                 std::string_view("ShapeType::PLANAR_STAR"));
-    HS_EXPECT_EQ(std::string_view(shape->export_options[4]),
-                 std::string_view("ShapeType::SPHERICAL_STAR"));
+    expect_option_label(shape->export_options, shape->option_count, 3,
+                        "ShapeType::PLANAR_STAR");
+    expect_option_label(shape->export_options, shape->option_count, 4,
+                        "ShapeType::SPHERICAL_STAR");
   }
   if (falloff) {
     HS_EXPECT_TRUE(falloff->is_enum());
-    HS_EXPECT_EQ(std::string_view(falloff->export_options[1]),
-                 std::string_view("AlphaFalloff::TOWARD_EQUATOR"));
+    expect_option_label(falloff->export_options, falloff->option_count, 1,
+                        "AlphaFalloff::TOWARD_EQUATOR");
   }
   if (spacing) {
     HS_EXPECT_TRUE(spacing->is_enum());
-    HS_EXPECT_EQ(std::string_view(spacing->export_options[1]),
-                 std::string_view("RadiusSpacing::SCREEN_BALANCED"));
+    expect_option_label(spacing->export_options, spacing->option_count, 1,
+                        "RadiusSpacing::SCREEN_BALANCED");
   }
 
   HS_EXPECT_EQ(ss.updateParameter("Alpha", 0.37f), ParamSetResult::APPLIED);

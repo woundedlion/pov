@@ -197,7 +197,8 @@ inline void test_volume_timed_shader_reads_column_sweep_time() {
             },
             24, 0.02f, *columns);
       });
-  HS_EXPECT_GT(expect_factored_tolerance("timed volume", drawn, expected), 50);
+  HS_EXPECT_GT(expect_factored_tolerance<W>("timed volume", drawn, expected),
+               50);
 }
 
 /**
@@ -390,11 +391,11 @@ inline void test_drift_matches_shape_at_column_centre() {
       Scan::Star::draw<W, H, false>(pipeline, canvas, basis, 0.15f, 5,
                                     basis_flat_shader);
     };
-    HS_EXPECT_GT(expect_factored_tolerance("drifting disc", drifting(disc),
-                                           oracle(disc)),
+    HS_EXPECT_GT(expect_factored_tolerance<W>("drifting disc", drifting(disc),
+                                              oracle(disc)),
                  40);
-    HS_EXPECT_GT(expect_factored_tolerance("drifting star", drifting(star),
-                                           oracle(star)),
+    HS_EXPECT_GT(expect_factored_tolerance<W>("drifting star", drifting(star),
+                                              oracle(star)),
                  40);
   }
 }

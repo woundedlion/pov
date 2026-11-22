@@ -915,7 +915,6 @@ inline void test_shader_chain_grid_motion_equivalence() {
   affine.speed = SPEED / (5.0f * math::TWO_PI_F);
   affine.rotation_rate = ANGLE_RATE / affine.speed;
   const auto lattice = In::Op::SampleGridV4::translation_lattice(grid);
-  float worst = 0.0f;
   for (const float complexity : {0.0f, 1.7f})
     for (const float mix : {0.0f, 0.4f, 1.0f})
       for (const int frame : {1, 7, 60, 333, 784}) {
@@ -940,19 +939,21 @@ inline void test_shader_chain_grid_motion_equivalence() {
               Pattern::PlanePosition{projections::stereo_pattern_args(
                   PB::Warp::affine_coords(point, prepared), FREQ)},
               grid, source);
-          worst = std::max(worst,
-                           std::fabs(actual - coupled_grid(point, complexity,
-                                                           mix, p, s, angle)));
+          HS_CONTEXT("point in milliunits",
+                     static_cast<long long>(point.re * 1000),
+                     static_cast<long long>(point.im * 1000));
+          HS_CONTEXT("frame", frame);
+          const float expected =
+              coupled_grid(point, complexity, mix, p, s, angle);
+          HS_EXPECT_LT(std::fabs(actual - expected), 1e-3f);
         }
       }
-  HS_EXPECT_LT(worst, 1e-3f);
 }
 
 /** @brief An affine rotation of -(a + p / 3) before the stationary
     three-armed spiral reproduces sin(r - 3 (azimuth + a) - p). */
 inline void test_shader_chain_spiral_rotation_equivalence() {
   PB::Warp::AffineParams affine;
-  float worst = 0.0f;
   for (const float p : {0.0f, 0.4f, 2.9f})
     for (const float a : {0.0f, 0.3f, 5.1f}) {
       const auto prepared = PB::Warp::prepare(affine, 0.0f, -(a + p / 3.0f),
@@ -966,10 +967,15 @@ inline void test_shader_chain_spiral_rotation_equivalence() {
         const float actual = Pattern::spiral(
             Pattern::PlanePosition{PB::Warp::affine_coords(point, prepared)},
             3.0f);
-        worst = std::max(worst, std::fabs(actual - expected));
+        HS_CONTEXT("point in milliunits",
+                   static_cast<long long>(point.re * 1000),
+                   static_cast<long long>(point.im * 1000));
+        HS_CONTEXT("phase and angle in milliradians",
+                   static_cast<long long>(p * 1000),
+                   static_cast<long long>(a * 1000));
+        HS_EXPECT_LT(std::fabs(actual - expected), 0.02f);
       }
     }
-  HS_EXPECT_LT(worst, 0.02f);
 }
 
 /** @brief Zero spiral arms draws the concentric rings sin(r). */
@@ -1077,8 +1083,8 @@ inline void test_shader_chain_planar_column_weights_and_fields() {
   constexpr uint8_t EDGES =
       static_cast<uint8_t>(Kind::TESSELLATION_SQUARE_EDGES);
 
-  const auto fixture = std::make_unique<ProgramFixture>();
   const auto temporal = std::make_unique<TemporalBlocks>();
+  const auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
   program.bind_temporal_storage(temporal->history, temporal->column);
   const In::ChainEntryRequest CHAIN[] = {
@@ -1166,9 +1172,9 @@ template <typename Source> void check_tessellation_endpoint_fields() {
             input, *static_cast<const typename Source::Params *>(params),
             *reinterpret_cast<const typename Source::Prepared *>(prepared));
       };
+  const auto temporal = std::make_unique<TemporalBlocks>();
   const auto fixture =
       std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, operators);
-  const auto temporal = std::make_unique<TemporalBlocks>();
   auto &program = fixture->program;
   program.bind_temporal_storage(temporal->history, temporal->column);
   const In::ChainEntryRequest chain[] = {
@@ -1278,9 +1284,9 @@ inline void test_shader_chain_affine_morph_phase_wrap() {
             input, *static_cast<const Source::Params *>(params),
             *reinterpret_cast<const Source::Prepared *>(prepared));
       };
+  const auto blocks = std::make_unique<TemporalBlocks>();
   const auto fixture =
       std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, operators);
-  const auto blocks = std::make_unique<TemporalBlocks>();
   auto &program = fixture->program;
   program.bind_temporal_storage(blocks->history, blocks->column);
   const In::ChainEntryRequest chain[] = {

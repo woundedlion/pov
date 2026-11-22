@@ -217,7 +217,12 @@ inline void check_segment_clips(int S, int N, int w) {
       const SegmentMap m = segment_map(seg, S, N);
       const SegmentClip c = segment_clip(m, arm_a_left, S, N, w);
 
-      // Half the width, one segment's row band.
+      const bool valid_bounds = 0 <= c.x0 && c.x0 <= c.x1 && c.x1 <= w &&
+                                0 <= c.y0 && c.y0 <= c.y1 && c.y1 <= rows;
+      HS_EXPECT_TRUE(valid_bounds);
+      if (!valid_bounds)
+        continue;
+
       HS_EXPECT_EQ(c.x1 - c.x0, w / 2);
       HS_EXPECT_EQ(c.y1 - c.y0, pps);
       const int expected_y0 = m.y_step > 0 ? m.y_base : m.y_base - (pps - 1);

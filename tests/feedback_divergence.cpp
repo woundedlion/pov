@@ -216,8 +216,14 @@ std::vector<uint16_t> load(const char *path, int &frames, int &np) {
     fclose(f);
     exit(1);
   }
-  std::vector<uint16_t> data(static_cast<size_t>(bytes - HEADER_BYTES) /
-                             sizeof(uint16_t));
+  const auto channels = (bytes - HEADER_BYTES) / sizeof(uint16_t);
+  std::vector<uint16_t> data;
+  if (channels > data.max_size()) {
+    printf("%s: dump exceeds addressable buffer size\n", path);
+    fclose(f);
+    exit(1);
+  }
+  data.resize(static_cast<size_t>(channels));
   if (fread(data.data(), sizeof(uint16_t), data.size(), f) != data.size()) {
     printf("%s: truncated body\n", path);
     exit(1);

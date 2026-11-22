@@ -72,8 +72,10 @@ struct MeshSeamSteps {
       mean_arm_ratios += mean_arm * 0.5;
       ++arm_samples;
     }
-    if (interior_neighbors > 0.0) {
-      interior_ratios += interior / (interior_neighbors / 4.0);
+    if (interior_neighbors > 0.0 || interior > 0.0) {
+      interior_ratios += interior_neighbors > 0.0
+                             ? interior / (interior_neighbors / 4.0)
+                             : std::numeric_limits<double>::infinity();
       ++interior_samples;
     }
     ++frames;

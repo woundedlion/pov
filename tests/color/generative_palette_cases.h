@@ -193,8 +193,9 @@ inline void test_effect_palette_recipe_roster() {
     HS_CONTEXT("preset", i);
     HS_EXPECT_TRUE(presets[i].name != nullptr && presets[i].name[0] != '\0');
     for (size_t j = i + 1; j < presets.size(); ++j)
-      HS_EXPECT_TRUE(std::string_view(presets[i].name) !=
-                     std::string_view(presets[j].name));
+      if (presets[i].name && presets[j].name)
+        HS_EXPECT_TRUE(std::string_view(presets[i].name) !=
+                       std::string_view(presets[j].name));
     GenerativePalette palette;
     PaletteRecipe canonical;
     PaletteCompileStatus status;

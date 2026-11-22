@@ -602,7 +602,8 @@ inline void test_palette_lab_cache_through_lerp() {
       const math::Vector view = math::pixel_to_vector<SMALL_W, SMALL_H>(x, y);
       const Color4 actual = Pipeline::shade(view, cached);
       const Color4 expected = Pipeline::shade(view, canonical);
-      alpha_error = std::max(alpha_error, fabsf(actual.alpha - expected.alpha));
+      alpha_error =
+          fold_worst(alpha_error, fabsf(actual.alpha - expected.alpha));
       stats = compare_buffers(std::span(&expected.color, 1),
                               std::span(&actual.color, 1), stats);
     }

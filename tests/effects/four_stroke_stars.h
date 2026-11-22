@@ -13,47 +13,50 @@
 
 namespace hs_test::effects_tests {
 
-/** @brief Direction changes shade a stationary star footprint even with the beat held. */
+/** @brief Direction and presentation time change shading on a fixed footprint. */
 inline void test_four_stroke_stars_fixed_geometry() {
   constexpr int W = 96, H = 20;
-  reset_globals();
-  FourStrokeStars<W, H> effect;
-  effect.init();
-  auto render = [&](uint64_t time) {
-    effect.set_presentation_interval({time, time});
-    effect.draw_frame();
-    effect.advance_display();
-    std::array<Pixel, W * H> pixels;
-    std::copy_n(effect.display_buffer(), pixels.size(), pixels.data());
-    return pixels;
+  using Frame = std::array<Pixel, W * H>;
+  const auto render = [](float strength, bool reverse, uint64_t final_time) {
+    reset_globals();
+    FourStrokeStars<W, H> effect;
+    effect.init();
+    HS_EXPECT_EQ(effect.updateParameter("Strength", strength),
+                 ParamSetResult::APPLIED);
+    if (reverse)
+      HS_EXPECT_EQ(effect.updateParameter("Reverse Direction", true),
+                   ParamSetResult::APPLIED);
+    std::array<Frame, 7> frames;
+    for (size_t i = 0; i < frames.size(); ++i) {
+      const uint64_t time = i + 1 == frames.size() ? final_time : 0;
+      effect.set_presentation_interval({time, time});
+      effect.draw_frame();
+      effect.advance_display();
+      std::copy_n(effect.display_buffer(), frames[i].size(), frames[i].begin());
+    }
+    return frames;
   };
-  HS_EXPECT_EQ(effect.updateParameter("Strength", 0.0f),
-               ParamSetResult::APPLIED);
-  const auto unshaded = render(0);
+
+  const auto stationary = render(0.0f, false, 0);
   int occupied = 0;
-  for (const auto &pixel : unshaded)
+  for (const auto &pixel : stationary.front())
     occupied += !(pixel == FourStroke::GRAY);
   HS_EXPECT_GT(occupied, 20);
   HS_EXPECT_LT(occupied, W * H / 2);
+  for (const auto &frame : stationary)
+    HS_EXPECT_TRUE(frame == stationary.front());
 
-  for (int i = 0; i < 6; ++i)
-    HS_EXPECT_TRUE(render(0) == unshaded);
-  HS_EXPECT_EQ(effect.updateParameter("Strength", 1.0f),
-               ParamSetResult::APPLIED);
-  const auto forward = render(0);
-  const auto advanced = render(0);
-  HS_EXPECT_TRUE(forward != advanced);
-  HS_EXPECT_EQ(effect.updateParameter("Reverse Direction", true),
-               ParamSetResult::APPLIED);
-  const auto reversed = render(0);
-  const auto beat = render(62500);
-  HS_EXPECT_TRUE(forward != reversed);
-  HS_EXPECT_TRUE(reversed != beat);
-  for (size_t i = 0; i < unshaded.size(); ++i) {
-    if (forward[i] == FourStroke::GRAY) {
-      HS_EXPECT_TRUE(advanced[i] == FourStroke::GRAY);
-      HS_EXPECT_TRUE(reversed[i] == FourStroke::GRAY);
-      HS_EXPECT_TRUE(beat[i] == FourStroke::GRAY);
+  const auto forward = render(1.0f, false, 0);
+  const auto reverse = render(1.0f, true, 0);
+  const auto beat = render(1.0f, true, 62500);
+  HS_EXPECT_TRUE(forward.front() != forward[1]);
+  HS_EXPECT_TRUE(forward.back() != reverse.back());
+  HS_EXPECT_TRUE(reverse.back() != beat.back());
+  for (size_t i = 0; i < forward.front().size(); ++i) {
+    if (forward.front()[i] == FourStroke::GRAY) {
+      HS_EXPECT_TRUE(forward[1][i] == FourStroke::GRAY);
+      HS_EXPECT_TRUE(reverse.back()[i] == FourStroke::GRAY);
+      HS_EXPECT_TRUE(beat.back()[i] == FourStroke::GRAY);
     }
   }
 }

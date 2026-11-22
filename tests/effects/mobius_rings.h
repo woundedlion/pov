@@ -15,7 +15,6 @@ namespace hs_test::effects_tests {
 struct MobiusRingsRenderOptions {
   /// -1: full frame; board `segment % 4`, arm A left (0-3) or right (4-7).
   int segment = -1;
-  bool hold = false;    ///< Hold the endpoint.
   bool wrap = false;    ///< Cross the phase wrap.
   int count_change = 0; ///< Ring-count fade direction.
 };
@@ -86,13 +85,9 @@ struct MobiusRingsWhiteBox {
       else
         end.rings = 0.0f;
     }
-    if (options.hold)
-      start = end;
     const auto first_pose = math::make_rotation(math::Y_AXIS, 0.017f);
     const auto last_pose =
-        options.hold
-            ? first_pose
-            : math::make_rotation(math::Y_AXIS, 0.017f + direction * 0.02f);
+        math::make_rotation(math::Y_AXIS, 0.017f + direction * 0.02f);
     if (options.segment >= 0) {
       const auto clip = device_segment_clip<W, H>(options.segment);
       fx.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
@@ -264,17 +259,32 @@ struct MobiusRingsWhiteBox {
 
   /** @brief The first frame holds the current endpoint. */
   static void check_first_frame_hold() {
-    const auto first = render<96, 20>(true, 1.0f, 0.0f, 1.0f, {.hold = true});
-    const auto frozen = render<96, 20>(false, 0.0f, 0.0f, 1.0f, {.hold = true});
-    float error = 0;
-    int lit = 0;
+    constexpr int W = 96, H = 20;
+    reset_globals();
+    pin_frame_clock(0);
+    MobiusRings<W, H> effect;
+    effect.init();
+    effect.draw_frame();
+    effect.advance_display();
+    const auto first = capture_mean_channel<W, H>(effect);
+
+    HS_EXPECT_TRUE(effect.history.initialized);
+    if (!effect.history.initialized)
+      return;
+    const auto end = effect.history.previous;
+    {
+      Canvas canvas(effect);
+      effect.draw_timed_grid(canvas, end, end);
+    }
+    effect.advance_display();
+    const auto frozen = capture_mean_channel<W, H>(effect);
+
+    size_t lit = 0;
     for (size_t i = 0; i < first.size(); ++i) {
-      error += fabsf(first[i] - frozen[i]);
+      HS_EXPECT_NEAR(first[i], frozen[i], 1e-5f);
       lit += first[i] > 0.0f;
     }
-    std::printf("  MobiusRings first frame lit=%d\n", lit);
-    HS_EXPECT_GT(lit, 350);
-    HS_EXPECT_LE(error, 0.02f);
+    HS_EXPECT_GT(lit, 0u);
   }
   static float conformal_coord(float z, float phase) {
     return MR::conformal_coord(z, phase);

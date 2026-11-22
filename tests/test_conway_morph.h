@@ -68,6 +68,7 @@ inline int run_conway_morph_tests() {
 
   HS_RUN(test_snub_bridge_icosahedron_classifies_like_registry);
   HS_RUN(test_ambo_tetrahedron_is_regular_octahedron);
+  HS_RUN(test_mesh_geometry_rejects_duplicate_face);
 
   HS_RUN(test_jitterbug_icosa_point_is_regular);
   HS_RUN(test_jitterbug_octa_end_covers_octahedron);

@@ -195,9 +195,9 @@ inline void test_authored_tangent_fields_after_twist() {
         const auto second = step_tangent_field(first.sphere, symmetric,
                                                -1.0657501f, integrator, true);
         worst_norm_error =
-            std::max(worst_norm_error,
-                     fabsf(math::dot(second.sphere, second.sphere) - 1));
-        worst_tangent_residual = std::max(
+            fold_worst(worst_norm_error,
+                       fabsf(math::dot(second.sphere, second.sphere) - 1));
+        worst_tangent_residual = fold_worst(
             worst_tangent_residual,
             fabsf(math::dot(first.sphere, symmetric.velocity(first.sphere))));
         HS_EXPECT_TRUE(std::isfinite(second.path_length));

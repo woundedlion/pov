@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <span>
+#include <set>
 #include <vector>
 
 #include "core/render/canvas.h"
@@ -285,18 +286,20 @@ inline void test_face_shader_setup_matches_face_index() {
  * @brief Asserts every edge is lit and every lit pixel lies on an edge arc.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @param mesh Closed mesh whose edges are extracted and drawn.
- * @param geom Arena backing the extracted edge list.
- * @param edge_cap Capacity of the extracted edge list.
+ * @param mesh Closed mesh whose face-ring edges are drawn.
  * @details Each lit pixel must lie within 4*pi/H radians of an edge arc.
  */
 template <int W, int H>
-inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
-                                            size_t edge_cap) {
+inline void check_wireframe_pixels_on_edges(PolyMesh &mesh) {
   configure_arenas_default();
-  ArenaVector<Plot::Mesh::Edge> edges;
-  edges.bind(geom, edge_cap);
-  Plot::Mesh::extract_edges(mesh, edges);
+  std::set<std::pair<uint16_t, uint16_t>> edges;
+  size_t offset = 0;
+  for (const size_t count : mesh.face_counts) {
+    for (size_t i = 0; i < count; ++i)
+      edges.insert(std::minmax(mesh.faces[offset + i],
+                               mesh.faces[offset + (i + 1) % count]));
+    offset += count;
+  }
   HS_EXPECT_EQ(edges.size(),
                mesh.vertices.size() + mesh.face_counts.size() - 2);
 
@@ -309,8 +312,8 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
   fx.advance_display();
 
   const float TOL = 4.0f * (math::PI_F / H);
-  for (const auto &edge : edges) {
-    const math::Vector a = mesh.vertices[edge.u], b = mesh.vertices[edge.v];
+  for (const auto &[u, v] : edges) {
+    const math::Vector a = mesh.vertices[u], b = mesh.vertices[v];
     auto point = (a + b).normalized();
     if (fabsf(point.y) > 0.99f)
       point = math::slerp(a, b, 0.25f);
@@ -325,9 +328,9 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
       ++lit;
       math::Vector v = math::pixel_to_vector<W, H>(x, y);
       float best = math::PI_F;
-      for (size_t e = 0; e < edges.size(); ++e) {
-        float d = arc_angular_distance(v, mesh.vertices[edges[e].u],
-                                       mesh.vertices[edges[e].v]);
+      for (const auto &[a, b] : edges) {
+        const float d =
+            arc_angular_distance(v, mesh.vertices[a], mesh.vertices[b]);
         if (d < best)
           best = d;
       }
@@ -350,10 +353,8 @@ inline void test_wireframe_pixels_lie_on_edges() {
 
   Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
-  Arena geom(mr_geom, sizeof(mr_geom));
-
   PolyMesh mesh = Solids::Platonic::octahedron(seed_a, seed_b);
-  check_wireframe_pixels_on_edges<W, H>(mesh, geom, 64);
+  check_wireframe_pixels_on_edges<W, H>(mesh);
 }
 
 /**
@@ -413,9 +414,8 @@ inline void test_cube_wireframe_and_fill() {
   Arena scratch(mr_scratch, sizeof(mr_scratch));
 
   PolyMesh cube = Solids::Platonic::cube(seed_a, seed_b);
-  check_wireframe_pixels_on_edges<W, H>(cube, geom, 64);
-  Arena geom2(mr_geom, sizeof(mr_geom)); // fresh: edge list above is dead now
-  check_solid_fill_tiles<W, H>(cube, geom2, scratch);
+  check_wireframe_pixels_on_edges<W, H>(cube);
+  check_solid_fill_tiles<W, H>(cube, geom, scratch);
 }
 
 /**
@@ -430,9 +430,8 @@ inline void test_dodecahedron_wireframe_and_fill() {
   Arena scratch(mr_scratch, sizeof(mr_scratch));
 
   PolyMesh dodec = Solids::Platonic::dodecahedron(seed_a, seed_b);
-  check_wireframe_pixels_on_edges<W, H>(dodec, geom, 64);
-  Arena geom2(mr_geom, sizeof(mr_geom));
-  check_solid_fill_tiles<W, H>(dodec, geom2, scratch);
+  check_wireframe_pixels_on_edges<W, H>(dodec);
+  check_solid_fill_tiles<W, H>(dodec, geom, scratch);
 }
 
 /**
@@ -448,9 +447,8 @@ inline void test_truncated_icosahedron_wireframe_and_fill() {
 
   PolyMesh goldberg =
       Solids::Archimedean::truncated_icosahedron(seed_a, seed_b);
-  check_wireframe_pixels_on_edges<W, H>(goldberg, geom, 128);
-  Arena geom2(mr_geom, sizeof(mr_geom));
-  check_solid_fill_tiles<W, H>(goldberg, geom2, scratch);
+  check_wireframe_pixels_on_edges<W, H>(goldberg);
+  check_solid_fill_tiles<W, H>(goldberg, geom, scratch);
 }
 
 /**

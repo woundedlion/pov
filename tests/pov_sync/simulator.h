@@ -238,25 +238,9 @@ public:
    *        EMI edges before it, then runs that board's tick.
    */
   void step() {
-    int bi = 0;
-    double best = effective_tick(boards[0]);
-    for (size_t i = 1; i < boards.size(); ++i) {
-      const double e = effective_tick(boards[i]);
-      if (e < best) {
-        best = e;
-        bi = static_cast<int>(i);
-      }
-    }
-    const uint64_t tg = static_cast<uint64_t>(best + 0.5);
-    // Deliver EMI edges due before this wake (edge ISRs run on their own).
-    while (emi_pos < emi.size() && emi[emi_pos].first <= tg) {
-      deliver_edge(emi[emi_pos].second, emi[emi_pos].first);
-      ++emi_pos;
-    }
-    run_tick(boards[bi], tg);
-    g = tg;
+    const auto [bi, tg] = next_wake();
+    step(bi, tg);
   }
-
   /**
    * @brief Steps the simulation until @p revs revolutions of global time have
    *        elapsed.
@@ -280,12 +264,14 @@ public:
   [[nodiscard]] bool run_until(Pred pred, double max_revs) {
     const uint64_t until =
         g + static_cast<uint64_t>(max_revs * 2 * cfg.cycles_per_half_rev);
-    while (g < until) {
-      step();
+    for (;;) {
+      const auto [board, wake] = next_wake();
+      if (wake > until)
+        return false;
+      step(board, wake);
       if (pred(*this))
         return true;
     }
-    return false;
   }
 
   /**
@@ -331,6 +317,29 @@ public:
   }
 
 private:
+  std::pair<size_t, uint64_t> next_wake() const {
+    size_t board = 0;
+    double earliest = effective_tick(boards.front());
+    for (size_t i = 1; i < boards.size(); ++i) {
+      const double scheduled = effective_tick(boards[i]);
+      if (scheduled < earliest) {
+        earliest = scheduled;
+        board = i;
+      }
+    }
+    return {board, static_cast<uint64_t>(earliest + 0.5)};
+  }
+
+  void step(size_t bi, uint64_t tg) {
+    // Deliver EMI edges due before this wake (edge ISRs run on their own).
+    while (emi_pos < emi.size() && emi[emi_pos].first <= tg) {
+      deliver_edge(emi[emi_pos].second, emi[emi_pos].first);
+      ++emi_pos;
+    }
+    run_tick(boards[bi], tg);
+    g = tg;
+  }
+
   /**
    * @brief Runs one flywheel wake for board @p b at global cycle @p tg.
    * @param b The board being woken.
@@ -464,7 +473,7 @@ inline auto master_emit_losses(const Telemetry &telemetry) {
 inline auto all_boards_on(int index) {
   return [index](const Sim &sim) {
     for (const auto &board : sim.boards)
-      if (board.live_index != index)
+      if (!board.live || board.live_index != index)
         return false;
     return true;
   };
@@ -735,6 +744,21 @@ inline void test_sim_epoch_commit() {
       sim.run_until(all_boards_on(0), double(cfg.revs_per_effect) + 6));
 }
 
+/** @brief Deadline includes every wake it coincides with and excludes later wakes. */
+inline void test_sim_until_includes_deadline_wakes() {
+  const int32_t PPM[2] = {0, 0};
+  Sim sim(test_config(), 2, PPM);
+  sim.boards[0].next_tick = sim.boards[1].next_tick = 100;
+  int calls = 0;
+  const auto pred = [&](const Sim &) { return ++calls == 2; };
+  HS_EXPECT_FALSE(sim.run_until(pred, 0.0));
+  HS_EXPECT_EQ(calls, 0);
+  sim.g = 100;
+  HS_EXPECT_TRUE(sim.run_until(pred, 0.0));
+  HS_EXPECT_EQ(calls, 2);
+  HS_EXPECT_EQ(sim.g, 100u);
+}
+
 /** @brief Verifies the master schedules each epoch from its roster duration. */
 inline void test_sim_variable_effect_durations() {
   uint32_t effect_revolutions[4] = {24, 52, 32, 64};
@@ -751,8 +775,7 @@ inline void test_sim_variable_effect_durations() {
   // (52 + R + K).
   constexpr double PROBE_REVS = 50.0;
   sim.run_revs(PROBE_REVS);
-  for (auto &b : sim.boards)
-    HS_EXPECT_EQ(b.live_index, 1);
+  HS_EXPECT_TRUE(all_boards_on(1)(sim));
 
   HS_EXPECT_TRUE(sim.run_until(
       all_boards_on(2),

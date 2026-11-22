@@ -132,9 +132,9 @@ inline constexpr int BASIS_FRINGE_CHANNEL = 1024;
  * @param actual Rendered frame.
  * @param expected Oracle frame.
  * @return Number of lit oracle pixels, so a vacuous comparison is visible.
- * @details A faint pixel where the oracle is black is exempt: the oracle's
- * fixed-meridian bounds drop AA fringe that the swept bounds keep.
+ * @details A faint pixel adjoining lit oracle output may come from antialiasing.
  */
+template <int W>
 inline int expect_factored_tolerance(const char *label,
                                      const std::vector<Pixel> &actual,
                                      const std::vector<Pixel> &expected) {
@@ -147,13 +147,25 @@ inline int expect_factored_tolerance(const char *label,
     lit += !is_black(expected[i]);
     const Pixel &a = actual[i];
     const Pixel &b = expected[i];
-    const bool fringe =
-        is_black(b) && !is_black(a) && a.r <= BASIS_FRINGE_CHANNEL &&
-        a.g <= BASIS_FRINGE_CHANNEL && a.b <= BASIS_FRINGE_CHANNEL;
+    const auto borders_lit_pixel = [&] {
+      const int x = static_cast<int>(i % W);
+      const int y = static_cast<int>(i / W);
+      const int height = static_cast<int>(expected.size() / W);
+      for (int row = std::max(0, y - 1); row <= std::min(height - 1, y + 1);
+           ++row)
+        for (int dx = -1; dx <= 1; ++dx)
+          if (!is_black(expected[size_t(row) * W + (x + dx + W) % W]))
+            return true;
+      return false;
+    };
+    const bool fringe = is_black(b) && !is_black(a) &&
+                        a.r <= BASIS_FRINGE_CHANNEL &&
+                        a.g <= BASIS_FRINGE_CHANNEL &&
+                        a.b <= BASIS_FRINGE_CHANNEL && borders_lit_pixel();
+    if (fringe)
+      continue;
     for (int error : {std::abs(int(a.r) - b.r), std::abs(int(a.g) - b.g),
                       std::abs(int(a.b) - b.b)}) {
-      if (fringe)
-        continue;
       maximum_error = std::max(maximum_error, error);
       error_sum += error;
       ++channels;
@@ -236,10 +248,10 @@ inline void test_column_basis_matches_rotated_shapes() {
                                   math::make_basis(q, math::Vector(0, 0, 1)),
                                   0.6f, 0.04f, basis_flat_shader);
   };
-  HS_EXPECT_GT(
-      expect_factored_tolerance("ring", render_column_basis<W, H>(motion, ring),
-                                render_column_oracle<W, H>(motion, ring)),
-      40);
+  HS_EXPECT_GT(expect_factored_tolerance<W>(
+                   "ring", render_column_basis<W, H>(motion, ring),
+                   render_column_oracle<W, H>(motion, ring)),
+               40);
 
   const auto star = [](Pipeline<W, H> &pipeline, Canvas &canvas,
                        const math::Quaternion &q) {
@@ -247,10 +259,10 @@ inline void test_column_basis_matches_rotated_shapes() {
                                   math::make_basis(q, math::Vector(1, 0, 0)),
                                   0.2f, 5, basis_flat_shader);
   };
-  HS_EXPECT_GT(
-      expect_factored_tolerance("star", render_column_basis<W, H>(motion, star),
-                                render_column_oracle<W, H>(motion, star)),
-      10);
+  HS_EXPECT_GT(expect_factored_tolerance<W>(
+                   "star", render_column_basis<W, H>(motion, star),
+                   render_column_oracle<W, H>(motion, star)),
+               10);
 
   ScratchScope scope(scratch_arena_a);
   MeshState mesh;
@@ -263,7 +275,7 @@ inline void test_column_basis_matches_rotated_shapes() {
     Scan::Mesh::draw<W, H>(pipeline, canvas, mesh, basis_face_shader,
                            scratch_arena_b);
   };
-  HS_EXPECT_GT(expect_factored_tolerance(
+  HS_EXPECT_GT(expect_factored_tolerance<W>(
                    "mesh", render_column_basis<W, H>(motion, solid),
                    render_column_oracle<W, H>(motion, solid)),
                1000);
@@ -280,7 +292,7 @@ inline void test_column_basis_matches_rotated_shapes() {
     Scan::RingGroup::draw<W, H>(pipeline, canvas, shapes, N,
                                 basis_group_shader);
   };
-  HS_EXPECT_GT(expect_factored_tolerance(
+  HS_EXPECT_GT(expect_factored_tolerance<W>(
                    "ring group", render_column_basis<W, H>(motion, group),
                    render_column_oracle<W, H>(motion, group)),
                100);
@@ -303,7 +315,7 @@ inline void test_column_basis_matches_rotated_shapes() {
                           math::make_rotation(math::X_AXIS, 0.8f)};
   for (const BasisMotion &frame :
        {swing, BasisMotion{swing.current, swing.previous}})
-    HS_EXPECT_GT(expect_factored_tolerance(
+    HS_EXPECT_GT(expect_factored_tolerance<W>(
                      "ring stack", render_column_basis<W, H>(frame, stack),
                      render_column_oracle<W, H>(frame, stack)),
                  100);
@@ -420,7 +432,7 @@ template <int W, int H> inline void check_column_basis_blocks() {
     const ScopedPoleLod off(0.0f);
     exact = render_column_oracle<W, H>(motion, fan);
   }
-  HS_EXPECT_GT(expect_factored_tolerance("pole-LOD mesh", decimated, exact),
+  HS_EXPECT_GT(expect_factored_tolerance<W>("pole-LOD mesh", decimated, exact),
                100);
 
   const math::Vector dot = math::Vector(-0.2f, 1.0f, 0.1f).normalized();
@@ -438,8 +450,8 @@ template <int W, int H> inline void check_column_basis_blocks() {
     const ScopedPoleLod off(0.0f);
     exact_shapes = render_column_oracle<W, H>(motion, polar);
   }
-  HS_EXPECT_GT(expect_factored_tolerance("pole-LOD shapes", decimated_shapes,
-                                         exact_shapes),
+  HS_EXPECT_GT(expect_factored_tolerance<W>("pole-LOD shapes", decimated_shapes,
+                                            exact_shapes),
                100);
 }
 
@@ -977,7 +989,7 @@ inline void test_volume_columns_match_rotated_placements() {
           Scan::Volume::draw<W, H>(pipeline, canvas, at, BOUNDS, volume, shade,
                                    24, 0.02f);
         });
-    HS_EXPECT_GT(expect_factored_tolerance("volume", swept, expected), 30);
+    HS_EXPECT_GT(expect_factored_tolerance<W>("volume", swept, expected), 30);
   }
 }
 
@@ -1046,7 +1058,7 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
     }
     return draw(axes, nullptr);
   });
-  HS_EXPECT_GT(expect_factored_tolerance("previous axes", swept, expected),
+  HS_EXPECT_GT(expect_factored_tolerance<W>("previous axes", swept, expected),
                100);
   HS_EXPECT_GT(arcs, 0);
   HS_EXPECT_LT(arcs, N);
@@ -1191,8 +1203,8 @@ inline void test_column_basis_follows_history_path() {
     const math::Quaternion delta =
         orientation.get() * orientation.sample(u).conjugate();
     const math::Vector up = math::rotate(math::Y_AXIS, delta);
-    worst = fmaxf(worst, (time.up[c] - up).magnitude());
-    worst = fmaxf(
+    worst = fold_worst(worst, (time.up[c] - up).magnitude());
+    worst = fold_worst(
         worst, (time.azimuth[c] - math::rotate(meridian, delta)).magnitude());
     const math::Quaternion slerped =
         orientation.get() *
@@ -1249,16 +1261,15 @@ inline void test_object_column_basis_matches_rotated_meridian() {
             const math::Vector meridian(sp * math::TrigLUT<W, H>::cos_theta(x),
                                         cp,
                                         sp * math::TrigLUT<W, H>::sin_theta[x]);
-            const auto gap = [](const math::Vector &a, const math::Vector &b) {
-              return std::max({std::fabs(a.x - b.x), std::fabs(a.y - b.y),
-                               std::fabs(a.z - b.z)});
+            const auto compare = [&](const math::Vector &a,
+                                     const math::Vector &b) {
+              worst = fold_worst(worst, std::fabs(a.x - b.x));
+              worst = fold_worst(worst, std::fabs(a.y - b.y));
+              worst = fold_worst(worst, std::fabs(a.z - b.z));
             };
-            worst =
-                std::max(worst, gap(center, math::rotate(meridian, inverse)));
+            compare(center, math::rotate(meridian, inverse));
             for (int i = 0; i < 4; ++i)
-              worst =
-                  std::max(worst, gap(grid.at(column, i),
-                                      math::rotate(grid.at(x, i), inverse)));
+              compare(grid.at(column, i), math::rotate(grid.at(x, i), inverse));
             return Pixel(0, 0, 0);
           });
     }

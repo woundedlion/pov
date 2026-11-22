@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -442,20 +443,19 @@ inline void dump_png(const char *name, const std::vector<Pixel> &px) {
   png_chunk(png, "IDAT", z);
   png_chunk(png, "IEND", {});
 
-  char path[512];
-  std::snprintf(path, sizeof(path), "%s/%s.png", dir, name);
+  const std::string path = std::string(dir) + "/" + name + ".png";
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  FILE *f = std::fopen(path, "wb");
+  FILE *f = std::fopen(path.c_str(), "wb");
 #pragma clang diagnostic pop
   if (!f) {
-    std::perror(path);
+    std::perror(path.c_str());
     return;
   }
   if (std::fwrite(png.data(), 1, png.size(), f) != png.size())
-    std::perror(path);
+    std::perror(path.c_str());
   if (std::fclose(f) != 0)
-    std::perror(path);
+    std::perror(path.c_str());
 }
 
 // ---------------------------------------------------------------------------

@@ -392,13 +392,17 @@ inline void test_dreamballs_base_mesh_selector() {
   HS_EXPECT_TRUE(base_mesh->animated);
   for (int i = 0; i < EXPECTED_SOLIDS; ++i)
     HS_EXPECT_TRUE(WB::solid_loaded(db, static_cast<size_t>(i)));
-  HS_EXPECT_EQ(std::string_view(base_mesh->options[0]), "Tetrahedron");
-  HS_EXPECT_EQ(std::string_view(base_mesh->options[17]), "Snub Dodecahedron");
-  HS_EXPECT_EQ(std::string_view(base_mesh->options[18]), "Triakis Tetrahedron");
-  HS_EXPECT_EQ(std::string_view(base_mesh->options[EXPECTED_SOLIDS - 1]),
-               "Pentagonal Hexecontahedron");
-  HS_EXPECT_EQ(std::string_view(base_mesh->export_options[EXPECTED_SOLIDS - 1]),
-               "BaseMesh::PENTAGONAL_HEXECONTAHEDRON");
+  expect_option_label(base_mesh->options, base_mesh->option_count, 0,
+                      "Tetrahedron");
+  expect_option_label(base_mesh->options, base_mesh->option_count, 17,
+                      "Snub Dodecahedron");
+  expect_option_label(base_mesh->options, base_mesh->option_count, 18,
+                      "Triakis Tetrahedron");
+  expect_option_label(base_mesh->options, base_mesh->option_count,
+                      EXPECTED_SOLIDS - 1, "Pentagonal Hexecontahedron");
+  expect_option_label(base_mesh->export_options, base_mesh->option_count,
+                      EXPECTED_SOLIDS - 1,
+                      "BaseMesh::PENTAGONAL_HEXECONTAHEDRON");
 
   HS_EXPECT_EQ(
       db.updateParameter("Base Mesh", static_cast<float>(EXPECTED_SOLIDS - 1)),
@@ -602,13 +606,15 @@ inline void test_dreamballs_weave_topology_schema() {
   HS_REQUIRED_PARAM(gap, db, "Weave Gap");
 
   HS_EXPECT_EQ(topology->option_count, 3);
-  HS_EXPECT_EQ(std::string_view(topology->options[0]), "Automatic");
-  HS_EXPECT_EQ(std::string_view(topology->options[1]), "Original with defects");
-  HS_EXPECT_EQ(std::string_view(topology->options[2]), "Medial");
-  HS_EXPECT_EQ(std::string_view(topology->export_options[1]),
-               "WeaveTopology::ORIGINAL_WITH_DEFECTS");
-  HS_EXPECT_EQ(std::string_view(topology->export_options[2]),
-               "WeaveTopology::MEDIAL");
+  expect_option_label(topology->options, topology->option_count, 0,
+                      "Automatic");
+  expect_option_label(topology->options, topology->option_count, 1,
+                      "Original with defects");
+  expect_option_label(topology->options, topology->option_count, 2, "Medial");
+  expect_option_label(topology->export_options, topology->option_count, 1,
+                      "WeaveTopology::ORIGINAL_WITH_DEFECTS");
+  expect_option_label(topology->export_options, topology->option_count, 2,
+                      "WeaveTopology::MEDIAL");
   HS_EXPECT_TRUE(topology->animated);
   HS_EXPECT_TRUE(gap->animated);
 }

@@ -139,7 +139,7 @@ template <typename EffectT> size_t measure(const char *name) {
 int main() {
   if (!hs_test::require_ci_smoke_frames())
     return 1;
-  std::printf("=== host stack high-water mark per effect (-Os, x86-64, %dx%d, "
+  std::printf("=== host stack high-water mark per effect (-Os, %dx%d, "
               "%d frames) ===\n",
               W, H, FRAMES);
   size_t worst = 0;

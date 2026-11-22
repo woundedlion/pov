@@ -103,7 +103,8 @@ inline void test_world_orient_follows_history_at_column_times() {
       for (int c = 0; c < 144; ++c) {
         const float t = Spacetime::SamplingSurface<288>::time(c);
         const math::Vector want = math::rotate(v, history.sample(t));
-        worst = fmaxf(worst, (orient.at_time(canvas, v, t) - want).magnitude());
+        worst = fold_worst(worst,
+                           (orient.at_time(canvas, v, t) - want).magnitude());
         const math::Quaternion slerped =
             math::slerp(history.get(0), history.get(), t);
         endpoint =

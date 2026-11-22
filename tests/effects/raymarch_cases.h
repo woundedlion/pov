@@ -343,13 +343,14 @@ inline void test_raymarch_preset_and_placement_solids() {
   HS_EXPECT_TRUE(base_solid->preset);
   HS_EXPECT_EQ(base_solid->option_count,
                static_cast<int>(RM::PLACEMENT_SOLID_COUNT));
-  HS_EXPECT_EQ(std::string_view(base_solid->options[0]), "Tetrahedron");
-  HS_EXPECT_EQ(std::string_view(base_solid->options[17]),
-               "Disdyakis Dodecahedron");
-  HS_EXPECT_EQ(std::string_view(base_solid->options[20]),
-               "Pentakis Dodecahedron");
-  HS_EXPECT_EQ(std::string_view(base_solid->export_options[17]),
-               "RaymarchPlacementSolid::DISDYAKIS_DODECAHEDRON");
+  expect_option_label(base_solid->options, base_solid->option_count, 0,
+                      "Tetrahedron");
+  expect_option_label(base_solid->options, base_solid->option_count, 17,
+                      "Disdyakis Dodecahedron");
+  expect_option_label(base_solid->options, base_solid->option_count, 20,
+                      "Pentakis Dodecahedron");
+  expect_option_label(base_solid->export_options, base_solid->option_count, 17,
+                      "RaymarchPlacementSolid::DISDYAKIS_DODECAHEDRON");
   constexpr RaymarchParams PRESET{};
   HS_EXPECT_EQ(value("Base Solid"), static_cast<float>(PRESET.base_solid));
 

@@ -63,6 +63,7 @@ inline int run_pov_sync_tests() {
   HS_RUN(test_sim_submit_overruns_recover);
   HS_RUN(test_sim_epoch_commit);
   HS_RUN(test_sim_variable_effect_durations);
+  HS_RUN(test_sim_until_includes_deadline_wakes);
   HS_RUN(test_sim_commit_beacon_gap);
   HS_RUN(test_sim_rejoin_worst_case);
   HS_RUN(test_sim_commit_deadline_trap);
