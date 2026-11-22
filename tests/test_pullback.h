@@ -1207,11 +1207,11 @@ inline void test_pullback_provider_contracts() {
   HS_EXPECT_EQ(carried.path_length, 4.0f);
 }
 
-/** @brief Rectangular repeats reduce finite displacements beyond int range. */
+/** @brief Rectangular repeats retain the phase for large finite displacements. */
 inline void test_pullback_rectangular_repeat_large_displacements() {
   const auto repeat =
       Pullback::Warp::prepare_repeat({0.3f, 0.0f}, {0.0f, 0.7f});
-  for (float scale : {0.0f, 0.25f, 0x1p31f, 0x1p32f})
+  for (float scale : {0.0f, 0.25f, 0x1p28f, 0x1p31f, 0x1p32f})
     for (float sign : {-1.0f, 1.0f}) {
       const math::Complex delta{sign * scale * repeat.a.re,
                                 -sign * scale * repeat.b.im};

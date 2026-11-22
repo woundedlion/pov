@@ -747,7 +747,7 @@ __attribute__((always_inline)) inline math::Complex
 repeat_offset(const math::Complex &delta, const PreparedRepeat &repeat) {
   if constexpr (Reduction == RepeatReduction::RECTANGULAR) {
     const auto reduce_axis = [](float value, float period) {
-      if (fabsf(value) < period * 0x1p31f)
+      if (fabsf(value) < period * 0x1p12f)
         return math::centered_remainder(value, period);
       return std::remainder(value, period);
     };
