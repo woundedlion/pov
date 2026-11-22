@@ -18,9 +18,9 @@ inline void test_pullback_square_cells_formula() {
   const auto reference = [](const Pattern::PlanePosition &coordinate,
                             const Pattern::TessellationCellParams &params) {
     const float x =
-        math::wrap_t(params.cell_scale * coordinate.value.re + 0.5f) - 0.5f;
+        std::remainder(params.cell_scale * coordinate.value.re, 1.0f);
     const float y =
-        math::wrap_t(params.cell_scale * coordinate.value.im + 0.5f) - 0.5f;
+        std::remainder(params.cell_scale * coordinate.value.im, 1.0f);
     const float circle = sqrtf(x * x + y * y) - params.cell_radius;
     const float bx = fabsf(x) - params.cell_radius;
     const float by = fabsf(y) - params.cell_radius;
@@ -31,6 +31,18 @@ inline void test_pullback_square_cells_formula() {
                              -params.cell_softness, params.cell_softness,
                              hs::lerp(circle, square, params.cell_shape));
   };
+  Pattern::TessellationCellParams unit;
+  unit.cell_scale = 1.0f;
+  unit.cell_radius = 0.25f;
+  unit.cell_softness = 0.1f;
+  constexpr float SHIFT = 0x1p23f;
+  HS_EXPECT_EQ(Pattern::square_cells({{SHIFT, 0.0f}}, unit),
+               Pattern::square_cells({{0.0f, 0.0f}}, unit));
+  HS_EXPECT_EQ(
+      Pattern::tessellation_edge_distance<Pattern::TessellationKind::SQUARE>(
+          SHIFT, 0.0f),
+      0.5f);
+  HS_EXPECT_EQ(Pattern::distance_to_lattice_line(SHIFT), 0.0f);
   hs::Pcg32 random(0x12345678u);
   for (float scale : {1.0f / 64.0f, 0.98971874f, 1.0f, 8.0f})
     for (float radius : {1.0f / 64.0f, 0.25f, 0.37757313f, 0.49f})

@@ -406,6 +406,14 @@ HS_HOT_INLINE inline void triangular_cell_offset(float u, float v, float &x,
   y = (up ? 1.5f : -1.5f) * db;
 }
 
+/** @brief Signed distance from the nearest integer, with half-cell ties at -0.5.
+ * @param coordinate Lattice coordinate.
+ * @return Offset in [-0.5, 0.5). */
+HS_HOT_INLINE inline float square_cell_offset(float coordinate) {
+  const float t = math::wrap_t(coordinate);
+  return t >= 0.5f ? t - 1.0f : t;
+}
+
 /**
  * @brief Primitive centred on each cell of the square lattice.
  * @tparam Params TessellationCellParams-shaped parameter block.
@@ -417,8 +425,8 @@ template <typename Params>
 HS_HOT_ITCM_MEMBER inline float square_cells(const PlanePosition &coordinate,
                                              const Params &params) {
   const auto &input = coordinate.value;
-  const float x = math::wrap_t(params.cell_scale * input.re + 0.5f) - 0.5f;
-  const float y = math::wrap_t(params.cell_scale * input.im + 0.5f) - 0.5f;
+  const float x = square_cell_offset(params.cell_scale * input.re);
+  const float y = square_cell_offset(params.cell_scale * input.im);
   return cell_primitive<TessellationKind::SQUARE>(x, y, params);
 }
 
@@ -461,7 +469,7 @@ triangular_cells(const PlanePosition &coordinate, const Params &params) {
  * @return Distance in [0, 0.5].
  */
 HS_O3_FN inline float distance_to_lattice_line(float coordinate) {
-  return fabsf(math::wrap_t(coordinate + 0.5f) - 0.5f);
+  return fabsf(square_cell_offset(coordinate));
 }
 
 /** @brief Distance from a plane point to the nearest cell edge of @p Kind.
@@ -472,8 +480,8 @@ HS_O3_FN inline float distance_to_lattice_line(float coordinate) {
 template <TessellationKind Kind>
 HS_HOT_INLINE inline float tessellation_edge_distance(float u, float v) {
   if constexpr (Kind == TessellationKind::SQUARE) {
-    const float cell_x = math::wrap_t(u + 0.5f) - 0.5f;
-    const float cell_y = math::wrap_t(v + 0.5f) - 0.5f;
+    const float cell_x = square_cell_offset(u);
+    const float cell_y = square_cell_offset(v);
     return 0.5f - fmaxf(fabsf(cell_x), fabsf(cell_y));
   } else if constexpr (Kind == TessellationKind::HEXAGONAL) {
     float x, y;
