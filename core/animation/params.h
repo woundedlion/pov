@@ -166,8 +166,19 @@ public:
       from = mutant;
       captured = true;
     }
-    auto t_norm = normalized_progress();
-    auto n = std::lerp(from, to, easing_fn(t_norm));
+    const float progress = easing_fn(normalized_progress());
+#if defined(__clang__)
+    float n;
+    if ((from <= 0.0f && to >= 0.0f) || (from >= 0.0f && to <= 0.0f)) {
+#pragma clang fp reassociate(off)
+      // Opposite-sign endpoint differences can overflow.
+      n = (1.0f - progress) * from + progress * to;
+    } else {
+      n = std::lerp(from, to, progress);
+    }
+#else
+    float n = std::lerp(from, to, progress);
+#endif
     if (quantized) {
       n = std::floor(n);
     }
