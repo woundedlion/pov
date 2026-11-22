@@ -167,7 +167,7 @@ public:
       captured = true;
     }
     auto t_norm = normalized_progress();
-    auto n = easing_fn(t_norm) * (to - from) + from;
+    auto n = std::lerp(from, to, easing_fn(t_norm));
     if (quantized) {
       n = std::floor(n);
     }

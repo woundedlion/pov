@@ -37,6 +37,19 @@ inline void test_transition_reaches_target_linear() {
   }
   HS_EXPECT_TRUE(tr.done());
   HS_EXPECT_NEAR(v, 100.0f, 1e-3f);
+
+  v = 0x1p24f;
+  Animation::Transition single(v, 0.5f, 1, math::ease_linear);
+  single.step(fake_canvas());
+  HS_EXPECT_EQ(v, 0.5f);
+
+  constexpr float LARGE = std::numeric_limits<float>::max();
+  v = LARGE;
+  Animation::Transition span(v, -LARGE, 2, math::ease_linear);
+  span.step(fake_canvas());
+  HS_EXPECT_EQ(v, 0.0f);
+  span.step(fake_canvas());
+  HS_EXPECT_EQ(v, -LARGE);
 }
 
 /**
