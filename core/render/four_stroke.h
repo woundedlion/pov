@@ -23,7 +23,7 @@ enum class Mode { REFERENCE_POLARITY, DIRECTIONAL_CONTRAST };
 /// Authored material settings in output-pixel units.
 struct Controls {
   float heading = 37; ///< Clockwise degrees from increasing column.
-  int width = 1;      ///< Inner band width in pixels, one or two.
+  float width = 1;    ///< Inner band width in output pixels.
   float strength = 1; ///< Straight linear RGB mix.
   Mode mode = Mode::DIRECTIONAL_CONTRAST; ///< Angular contrast law.
 };

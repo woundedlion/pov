@@ -56,20 +56,24 @@ public:
       fragment.color = Color4(FourStroke::linear_rgb(0xb5b5b5), 1);
     };
     const auto arrow = direction.orient(math::Y_AXIS);
-    const Scan::FourStrokeMaterial material{
-        .controls = {.width = params.width,
-                     .strength = params.strength,
-                     .mode = params.reference
-                                 ? FourStroke::Mode::REFERENCE_POLARITY
-                                 : FourStroke::Mode::DIRECTIONAL_CONTRAST},
-        .base = base,
-        .arrow = params.reverse ? -arrow : arrow};
+    const float pixel_angle =
+        std::max(math::TWO_PI_F / W, math::DisplayGeometry<H>::RADIANS_PER_ROW);
     const auto &clip = canvas.clip();
     for (int y = clip.y_start; y < clip.y_end; ++y)
       std::fill_n(canvas.data() + y * W + clip.x_start,
                   clip.x_end - clip.x_start, FourStroke::GRAY);
     for (int i = 0; i < STAR_COUNT; ++i) {
       const SDF::Star shape(bases[i], RADIUS, 5, 0, false);
+      const float rim_scale =
+          std::min(1.f, 0.25f * shape.plane_d / pixel_angle);
+      const Scan::FourStrokeMaterial material{
+          .controls = {.width = params.width * rim_scale,
+                       .strength = params.strength,
+                       .mode = params.reference
+                                   ? FourStroke::Mode::REFERENCE_POLARITY
+                                   : FourStroke::Mode::DIRECTIONAL_CONTRAST},
+          .base = base,
+          .arrow = params.reverse ? -arrow : arrow};
       Scan::Star::draw<W, H>(pipeline, canvas, shape, (*contours)[i], material);
     }
   }
