@@ -277,6 +277,10 @@ test('checkProfiles accepts current reports without retired archives', async t =
   t.after(() => rm(root, { recursive: true, force: true }));
   await cp(PROFILES_DIR, root, { recursive: true });
   await rm(join(root, 'retired'), { recursive: true, force: true });
+  const index = join(root, 'README.md');
+  const indexText = await readFile(index, 'utf8');
+  const retiredSection = /\r?\n## Retired effect profiles\r?\n[\s\S]*?(?=\r?\n## |$)/;
+  await writeFile(index, indexText.replace(retiredSection, ''));
   const result = await checkProfiles(root);
   assert.deepEqual(result.errors, []);
   assert.equal(result.retiredCount, 0);
