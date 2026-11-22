@@ -523,7 +523,7 @@ class TestHotLayoutLink(unittest.TestCase):
 
     def test_failing_gate_writes_a_report_and_returns_failure(self):
         with tempfile.TemporaryDirectory() as directory:
-            hook, env = _hot_layout_hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
+            hook, env = _hot_layout_hook(BUILD_DIR=directory, HS_FIRMWARE_MAP_PATH="firmware.map")
             hook._write_probe_fragment([], [], env)
             with mock.patch.object(hook, "_toolchain", return_value=None), \
                     mock.patch.object(hook.hot_layout, "check", return_value=(["gate sentinel"], False)), \
@@ -533,7 +533,7 @@ class TestHotLayoutLink(unittest.TestCase):
 
     def test_layout_errors_fail_plan_and_gate(self):
         with tempfile.TemporaryDirectory() as directory:
-            hook, env = _hot_layout_hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map")
+            hook, env = _hot_layout_hook(BUILD_DIR=directory, HS_FIRMWARE_MAP_PATH="firmware.map")
             for action, target in ((hook._gate, "check"), (hook._plan, "write_plan")):
                 for failure in (hook.hot_layout.LayoutError, OSError):
                     with self.subTest(action=target, failure=failure), \
@@ -542,6 +542,19 @@ class TestHotLayoutLink(unittest.TestCase):
                             contextlib.redirect_stdout(io.StringIO()) as output:
                         self.assertEqual(action(["firmware.elf"], [], env), 2)
                         self.assertIn("sentinel", output.getvalue())
+
+    def test_final_gate_uses_the_map_hook_path_with_spaces(self):
+        with tempfile.TemporaryDirectory(prefix="release builds ") as directory:
+            hook, env = _hot_layout_hook(BUILD_DIR=directory)
+            load_hook("teensy_map.py", env=env)
+            hook._write_probe_fragment([], [], env)
+            with mock.patch.object(hook, "_toolchain", return_value=None), \
+                    mock.patch.object(hook.hot_layout, "check", return_value=([], True)) as check, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(hook._gate(["firmware.elf"], [], env), 0)
+            expected = directory + "/firmware.map"
+            self.assertEqual(env["LINKFLAGS"], ["-Wl,-Map," + expected])
+            self.assertEqual(check.call_args.args[2], expected)
 
     def test_final_map_requires_an_explicit_linker_output(self):
         hook, env = _hot_layout_hook(LINKFLAGS="-Os")
@@ -565,7 +578,7 @@ class TestHotLayoutLink(unittest.TestCase):
 
     def test_successful_plan_and_gate_return_zero(self):
         with tempfile.TemporaryDirectory() as directory:
-            hook, env = _hot_layout_hook(BUILD_DIR=directory, LINKFLAGS="-Wl,-Map,firmware.map",
+            hook, env = _hot_layout_hook(BUILD_DIR=directory, HS_FIRMWARE_MAP_PATH="firmware.map",
                                    CPPDEFINES=[("HS_PROFILE_TARGET", "HopfFibration")])
             hook._write_probe_fragment([], [], env)
             toolchain = mock.sentinel.toolchain

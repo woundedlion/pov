@@ -556,6 +556,14 @@ class CheckVerdict(unittest.TestCase):
         self.assertEqual(result, 2)
         self.assertIn("missing.map", error.getvalue())
 
+    def test_check_fails_with_no_effects_and_no_expected_roster(self):
+        with mock.patch.object(hl, "load_program", return_value=(_program([], []), {})):
+            lines, passed = hl.check(None, "firmware.elf", "firmware.map",
+                                     ["Alpha"], [], "fixture")
+        self.assertFalse(passed)
+        self.assertIn("FAIL", lines[0])
+        self.assertIn("  FAIL: no effects measured", lines)
+
     def test_missing_and_overbound_effects_fail_with_a_valid_companion(self):
         def program(count):
             return _program([(f"_ZN5Alpha2f{i}Ev", 0x60010000 + i * WAY, 32,

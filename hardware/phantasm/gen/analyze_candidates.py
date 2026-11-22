@@ -179,7 +179,10 @@ def run_drc(pcb_path):
 
 def analyze(path):
     with open(path, encoding="utf-8") as fh:
-        root = sexp.parse(fh.read())[0]
+        try:
+            root = sexp.parse_one(fh.read())
+        except ValueError as error:
+            raise ValueError(f"{path}: {error}") from error
     title = F(root, "title_block")
     revision = field(title[0], "rev") if title else None
     if not revision:

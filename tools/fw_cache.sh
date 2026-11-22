@@ -69,12 +69,46 @@ hs_fw_cache_toolchain() {
   _hs_fw_manifest_versions packages "$packages" "$packages"/*teensy*/package.json
 }
 
-# One VAR=value line per build-flag variable, whitespace-normalized.
+# Collapse argument separators while keeping quoted and escaped bytes.
+_hs_fw_normalize_flags() {
+  local value=$1 char quote='' spacer='' normalized='' escaped=0 i
+  for ((i = 0; i < ${#value}; ++i)); do
+    char=${value:i:1}
+    if [ "$escaped" = 1 ]; then
+      escaped=0
+    elif [ "$char" = "\\" ] && [ "$quote" != "'" ]; then
+      escaped=1
+    elif [ -n "$quote" ]; then
+      if [ "$char" = "$quote" ]; then quote=''; fi
+    elif [ "$char" = '"' ] || [ "$char" = "'" ]; then
+      quote=$char
+    elif [[ "$char" == [[:space:]] ]]; then
+      if [ -n "$normalized" ]; then spacer=' '; fi
+      continue
+    fi
+    normalized+="$spacer$char"
+    spacer=''
+  done
+  if [ -n "$normalized" ]; then printf '%q' "$normalized"; fi
+}
+
 hs_fw_cache_flags() {
   local var value
   for var in $HS_FW_CACHE_VARS; do
-    value=$(printf '%s' "${!var:-}" | tr -s ' \t\r\n' ' ' | sed 's/^ //; s/ $//')
-    printf '%s=%s\n' "$var" "$value"
+    value=${!var:-}
+    printf '%s=' "$var"
+    if [ -n "$value" ]; then
+      case "$var" in
+        PLATFORMIO_BUILD_SRC_FILTER|PLATFORMIO_EXTRA_SCRIPTS)
+          printf '%q' "$value" ;;
+        *)
+          case "$value" in
+            *$'\n'*|*,*|*\;*|*\!*) printf '%q' "$value" ;;
+            *) _hs_fw_normalize_flags "$value" ;;
+          esac ;;
+      esac
+    fi
+    printf '\n'
   done
 }
 
@@ -87,7 +121,7 @@ hs_fw_cache_key() {
       { echo "fw_cache: cannot fingerprint the PlatformIO toolchain" >&2; return 2; }
   fi
   HS_FW_MATERIAL=$(
-    printf 'fw-cache 1\ntree %s\nenv %s\n' "$tree" "$env"
+    printf 'fw-cache 2\ntree %s\nenv %s\n' "$tree" "$env"
     hs_fw_cache_flags
     printf '%s\n' "$HS_FW_TOOLCHAIN"
   )

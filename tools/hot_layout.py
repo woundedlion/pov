@@ -628,12 +628,14 @@ def _function_label(section: Section) -> str:
 def format_reports(env: str, reports: list[EffectReport], missing: list[str]) -> list[str]:
     """Gate lines: one per effect, offenders under a failing one."""
     failed = [r for r in reports if not r.passed]
-    verdict = "FAIL" if failed or missing else "PASS"
+    verdict = "FAIL" if failed or missing or not reports else "PASS"
     lines = [f"[hot-layout] {env}: {verdict} - {len(reports)} effects, at most "
              f"{MAX_LINES_PER_SET} lines per instruction-cache set over each "
              f"effect's first {GATED_BYTES // 1024} KiB of hot code"]
     for effect in missing:
         lines.append(f"  FAIL {effect}: no code in the image names this effect")
+    if not reports:
+        lines.append("  FAIL: no effects measured")
     for report in sorted(reports, key=lambda r: (r.passed, -r.worst, r.effect)):
         status = "ok  " if report.passed else "FAIL"
         lines.append(
@@ -987,7 +989,7 @@ def check(tools: Toolchain, elf: str, map_path: str, effects: list[str],
     missing = [e for e in expected if e not in hot_sets]
     reports = evaluate(program, hot_sets)
     return (format_reports(env, reports, missing),
-            not missing and all(r.passed for r in reports))
+            bool(reports) and not missing and all(r.passed for r in reports))
 
 
 def roster(root: str) -> list[str]:

@@ -456,15 +456,16 @@ def cmd_commit(args) -> int:
     trail = Path(args.trail) if args.trail else default_trail()
     try:
         payload = json.loads(pending.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict) or not isinstance(payload.get("envs"), dict):
-            raise ValueError("expected a capture object with an environment map")
-        if not all(isinstance(sizes, dict) for sizes in payload["envs"].values()):
-            raise ValueError("expected a size map for each environment")
+        if not isinstance(payload, dict) or not isinstance(payload.get("envs"), dict) or not payload["envs"]:
+            raise ValueError("expected a capture object with a nonempty environment map")
+        for env, sizes in payload["envs"].items():
+            if (not isinstance(sizes, dict) or sizes.keys() != set(REGIONS)
+                    or any(type(size) is not int or size < 0 for size in sizes.values())):
+                raise ValueError(f"{env}: expected a complete nonnegative integer size map")
         tree = payload.get("tree")
         if not isinstance(tree, str) or not tree:
             raise ValueError("missing capture tree identifier")
-        measured = [(env, {r: int(sizes.get(r, 0)) for r in REGIONS})
-                    for env, sizes in sorted(payload["envs"].items())]
+        measured = sorted(payload["envs"].items())
     except (OSError, ValueError, TypeError) as exc:
         print(f"[size-trail] {pending} is not a usable capture ({exc}); "
               f"discarding it.", file=sys.stderr)
@@ -653,16 +654,16 @@ def cmd_backfill(args) -> int:
                 build_dir, tuple(linked),
                 warn=lambda m: print(f"[size-trail] {sha[:8]}: {m}", file=sys.stderr),
             ) if linked else {}
-            if found:
-                append_rows(trail, [TrailRow(sha=sha, date=date, env=env,
-                                             sizes=sizes, subject=subject)
-                                    for env, sizes in sorted(found.items())])
-                print(f"[size-trail] {sha[:8]} recorded {', '.join(sorted(found))}")
             if tracked_changes(worktree):
                 print(f"[size-trail] {sha[:8]}: tracked changes in {worktree}; "
                       "backfill stopped", file=sys.stderr)
                 status = 1
                 break
+            if found:
+                append_rows(trail, [TrailRow(sha=sha, date=date, env=env,
+                                             sizes=sizes, subject=subject)
+                                    for env, sizes in sorted(found.items())])
+                print(f"[size-trail] {sha[:8]} recorded {', '.join(sorted(found))}")
     finally:
         try:
             _git(["checkout", "--no-overwrite-ignore", *restore], worktree)

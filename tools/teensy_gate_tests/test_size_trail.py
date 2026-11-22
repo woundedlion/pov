@@ -396,7 +396,10 @@ class BackfillSafety(unittest.TestCase):
                         if cmd[0] == "pio":
                             builds.append(cmd)
                             tracked.write_text("built", encoding="utf-8")
-                            return subprocess.CompletedProcess(cmd, 1)
+                            elf = args.build_dir / "holosphere" / "firmware.elf"
+                            elf.parent.mkdir(parents=True)
+                            elf.write_bytes(make_elf({".text.itcm": 123}))
+                            return subprocess.CompletedProcess(cmd, 0)
                         return original(cmd, **kwargs)
 
                     with mock.patch.object(tst.subprocess, "run", side_effect=dirtying_pio):
@@ -405,6 +408,7 @@ class BackfillSafety(unittest.TestCase):
                     self.assertEqual(len(builds), 1)
                     self.assertIn("tracked changes", errors.getvalue())
                     self.assertEqual(tracked.read_text(encoding="utf-8"), "built")
+                    self.assertFalse(args.trail.exists())
                     if rev_range == "HEAD":
                         self.assertEqual(tst.head_stamp(root)[0], first)
                         self.assertNotEqual(tst.head_position(root), restore)
@@ -502,13 +506,27 @@ class PendingCapture(unittest.TestCase):
         self.dir = Path(temporary.name)
         self.pending = self.dir / "pending.json"
         self.trail = self.dir / "trail.tsv"
+        self.sizes = {**dict.fromkeys(tst.REGIONS, 0), "itcm": 1}
 
     def commit(self):
         return tst.main(["commit", "--pending", str(self.pending),
                          "--trail", str(self.trail), "--repo", str(self.dir)])
 
+    def test_incomplete_or_invalid_sizes_do_not_publish_measurements(self):
+        for sizes in ({"itcm": 1}, {**self.sizes, "itcm": -1},
+                      {**self.sizes, "itcm": True}, {**self.sizes, "itcm": 1.5},
+                      {**self.sizes, "itcm": "1"}):
+            with self.subTest(sizes=sizes):
+                self.pending.write_text(json.dumps({
+                    "tree": "built", "envs": {"phantasm": sizes}}), encoding="utf-8")
+                with contextlib.redirect_stderr(io.StringIO()) as errors:
+                    self.assertEqual(self.commit(), 1)
+                self.assertIn("complete nonnegative integer size map", errors.getvalue())
+                self.assertFalse(self.trail.exists())
+                self.assertFalse(self.pending.exists())
+
     def test_a_failed_stamp_keeps_the_capture_for_a_retry(self):
-        self.pending.write_text(json.dumps({"tree": "built", "envs": {"phantasm": {"itcm": 1}}}),
+        self.pending.write_text(json.dumps({"tree": "built", "envs": {"phantasm": self.sizes}}),
                                 encoding="utf-8")
         with mock.patch.object(tst, "head_stamp",
                                side_effect=tst.GitError("no commit")):
@@ -520,7 +538,7 @@ class PendingCapture(unittest.TestCase):
             with self.subTest(matches=matches):
                 self.pending.write_text(json.dumps({
                     "tree": "built",
-                    "envs": {"phantasm": {"itcm": 1}}}), encoding="utf-8")
+                    "envs": {"phantasm": self.sizes}}), encoding="utf-8")
                 with mock.patch.object(tst, "head_stamp",
                                        return_value=(SHA, "2026-08-03", "s")), \
                      mock.patch.object(tst, "_git",
@@ -558,7 +576,7 @@ class PendingCapture(unittest.TestCase):
         tree = tst.working_tree(self.dir)
         self.assertEqual(tree, tst._git(["rev-parse", "HEAD^{tree}"], self.dir))
         self.pending.write_text(json.dumps({"tree": tree,
-            "envs": {"phantasm": {"itcm": 1}}}), encoding="utf-8")
+            "envs": {"phantasm": self.sizes}}), encoding="utf-8")
         self.assertEqual(self.commit(), 0)
         (self.dir / "platformio.ini").write_text("[env:changed]\n", encoding="utf-8")
         self.assertNotEqual(tst.working_tree(self.dir), tree)

@@ -369,6 +369,12 @@ class TestColdCaptureAudit(unittest.TestCase):
         log = self._log(("holosphere", "phantasm", "profile"), self.TUS)
         self.assertEqual(_run_warning_gate(log), 0)
 
+    def test_empty_expected_environment_cannot_pass_a_cold_capture(self):
+        log = self._log(("holosphere",), self.TUS) + _banner("phantasm") + "\n"
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(_run_warning_gate(log, quiet=False), 1)
+        self.assertIn("no declared first-party translation units for phantasm", output.getvalue())
+
     def test_short_count_from_the_object_cache_fails(self):
         # Cached shared core TUs do not satisfy the per-environment cold-build gate.
         log = self._log(("holosphere", "phantasm", "profile"),

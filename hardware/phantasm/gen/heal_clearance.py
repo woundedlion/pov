@@ -35,11 +35,15 @@ def project_files(paths=()):
     return sorted(p for p in candidates if not is_manifested(p))
 
 
-def minimums_for(project=None):
+def minimums_for(project):
     """The (rule, Default net class) floors the parsed project document must be
     restored to; unplaced projects get the wider Quilter floors."""
-    layout = (project or {}).get("text_variables", {}).get("PHANTASM_LAYOUT")
-    if layout == "unplaced":
+    if not isinstance(project, dict):
+        raise ValueError("project must be a JSON object")
+    text_variables = project.get("text_variables", {})
+    if not isinstance(text_variables, dict):
+        raise ValueError("text_variables must be a JSON object")
+    if text_variables.get("PHANTASM_LAYOUT") == "unplaced":
         return UNPLACED_RULES, UNPLACED_DEFAULT_CLASS
     return RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS
 

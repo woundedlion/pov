@@ -30,9 +30,9 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
         return hot_layout.Toolchain.beside(env.subst("$CC"), env["ENV"].get("PATH"))
 
     def _final_map(env):
-        for flag in env.subst("$LINKFLAGS").split():
-            if flag.startswith("-Wl,-Map,"):
-                return flag[len("-Wl,-Map,"):]
+        map_path = env.get("HS_FIRMWARE_MAP_PATH")
+        if map_path:
+            return map_path
         raise hot_layout.LayoutError("the final link writes no -Wl,-Map")
 
     def _sketch(source):

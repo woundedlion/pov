@@ -71,6 +71,17 @@ class MainTests(unittest.TestCase):
                     self.assertEqual(heal_clearance.main([]), 1)
         self.assertIn(f"cannot process {Path('1.2') / 'phantasm.kicad_pro'}", stderr.getvalue())
 
+    def test_wrong_project_shapes_fail_cleanly(self):
+        for text, field in (("[1]", "project"), ("null", "project"),
+                            ('{"text_variables": null}', "text_variables")):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as directory:
+                board = self.write_project(Path(directory) / "1.2", text)
+                with mock.patch.object(heal_clearance, "OUT", directory), \
+                        contextlib.redirect_stderr(io.StringIO()) as errors:
+                    self.assertEqual(heal_clearance.main([]), 1)
+                self.assertIn(f"cannot process {board.relative_to(directory)}: "
+                              f"{field} must be a JSON object", errors.getvalue())
+
     def test_missing_default_net_class_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             self.write_project(Path(temp_dir) / "1.2", "{}")

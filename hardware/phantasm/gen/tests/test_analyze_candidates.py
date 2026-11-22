@@ -34,6 +34,16 @@ class CandidateBoardTests(unittest.TestCase):
             self.assertEqual(
                 analyze_candidates.candidate_board(directory), str(board))
 
+    def test_cli_rejects_empty_or_multi_document_boards(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board = Path(directory) / "board.kicad_pcb"
+            for content, count in (("", 0), ("(kicad_pcb) (kicad_pcb)", 2)):
+                with self.subTest(count=count), contextlib.redirect_stderr(io.StringIO()) as errors:
+                    board.write_text(content, encoding="utf-8")
+                    self.assertEqual(analyze_candidates.main([str(board)]), 1)
+                    self.assertIn(f"{board}: expected one document, found {count}",
+                                  errors.getvalue())
+
     def test_rejects_missing_board(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, "0 found"):

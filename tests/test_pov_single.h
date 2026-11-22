@@ -148,9 +148,15 @@ inline void test_column_interval() {
  */
 inline void test_transfer_bound() {
   HS_EXPECT_EQ(pov::fastled_show_us(40, pov::FASTLED_CLOCK_MHZ), 1181UL);
-  HS_EXPECT_TRUE(
-      column_interval_us(480ul * 96ul) >
-      dma::transfer_us(HD107SFrame<40>::COMPOSITE_SIZE, dma::DEFAULT_CLOCK_HZ));
+  using Frame = HD107SFrame<40>;
+  const auto single =
+      dma::transfer_len(Frame::BUFFER_SIZE, Frame::COMPOSITE_SIZE, false);
+  const auto strobed =
+      dma::transfer_len(Frame::BUFFER_SIZE, Frame::COMPOSITE_SIZE, true);
+  HS_EXPECT_GT(200ul, dma::transfer_us(single, dma::DEFAULT_CLOCK_HZ));
+  HS_EXPECT_LT(200ul, dma::transfer_us(strobed, dma::DEFAULT_CLOCK_HZ));
+  HS_EXPECT_GT(column_interval_us(480ul * 96ul),
+               dma::transfer_us(strobed, dma::DEFAULT_CLOCK_HZ));
   HS_EXPECT_GT(column_interval_us(480ul * 96ul),
                pov::fastled_show_us(40, pov::FASTLED_CLOCK_MHZ));
   HS_EXPECT_LE(column_interval_us(480ul * 96ul),

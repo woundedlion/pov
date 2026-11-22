@@ -155,6 +155,31 @@ class CacheKey(FirmwareCacheFixture):
                       / "package.json", "1.150202.0")
         self.assertNotEqual(self.key(PLATFORMIO_BUILD_FLAGS="-D A -D B"), base)
 
+    def test_whitespace_inside_quotes_changes_the_key_and_build_directory(self):
+        first = '-I "include one"'
+        second = '-I "include  one"'
+        equivalent = '  -I\t"include  one"  '
+        self.assertNotEqual(self.key(PLATFORMIO_BUILD_FLAGS=first),
+                            self.key(PLATFORMIO_BUILD_FLAGS=second))
+        self.assertEqual(self.key(PLATFORMIO_BUILD_FLAGS=second),
+                         self.key(PLATFORMIO_BUILD_FLAGS=equivalent))
+        directories = [self.fw("hs_fw_build_dir", PLATFORMIO_BUILD_FLAGS=flags).stdout
+                       for flags in (first, second, equivalent)]
+        self.assertNotEqual(directories[0], directories[1])
+        self.assertEqual(directories[1], directories[2])
+
+    def test_distinct_platformio_list_values_change_the_key_and_build_directory(self):
+        for variable, first, second in (
+            ("PLATFORMIO_EXTRA_SCRIPTS", "pre:tools/script one.py", "pre:tools/script  one.py"),
+            ("PLATFORMIO_BUILD_SRC_FILTER", "+<dir one/*.cpp>", "+<dir  one/*.cpp>"),
+            ("PLATFORMIO_BUILD_FLAGS", "-I\ninclude", "-I include"),
+        ):
+            with self.subTest(variable=variable):
+                a, b = ({variable: value} for value in (first, second))
+                self.assertNotEqual(self.key(**a), self.key(**b))
+                self.assertNotEqual(self.fw("hs_fw_build_dir", **a).stdout,
+                                    self.fw("hs_fw_build_dir", **b).stdout)
+
     def test_a_new_tree_changes_the_key_and_an_empty_commit_does_not(self):
         base = self.key()
         self.git("commit", "--quiet", "--allow-empty", "-m", "empty")

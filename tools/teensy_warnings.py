@@ -386,6 +386,11 @@ def main(argv: list[str] | None = None) -> int:
               f"them), so their warnings are absent and the remaining "
               f"environment(s) cannot vouch for them.")
         return 1
+    empty = [a.name for a in audit.envs if a.name in expected and not a.declared]
+    if empty:
+        print(f"{prefix}[teensy-warnings] FAIL - no declared first-party "
+              f"translation units for {', '.join(empty)} in {args.build_log}.")
+        return 1
     if audit.missing:
         print(f"{prefix}[teensy-warnings] FAIL - the capture is not cold: "
               f"{audit.missing_count} of {audit.declared} first-party "

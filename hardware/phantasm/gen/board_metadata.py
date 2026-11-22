@@ -179,11 +179,20 @@ def copper_stackup(stackup):
 
 
 def dielectric_stackup(stackup):
-    return [[str(layer[1]), str(sexp.val(layer, "type")[0]),
-             str((sexp.val(layer, "thickness") or [None])[0]),
-             str((sexp.val(layer, "material") or [None])[0])]
-            for layer in F(stackup, "layer")
-            if sexp.val(layer, "type") in (["core"], ["prepreg"])]
+    layers = []
+    for layer in F(stackup, "layer"):
+        layer_type = sexp.val(layer, "type")
+        if layer_type not in (["core"], ["prepreg"]):
+            continue
+        thickness = _decimal(_one_value(layer, "thickness"), "dielectric thickness")
+        if not thickness.is_finite():
+            raise MetadataError("dielectric thickness must be finite")
+        thickness_mm = format(thickness, "f")
+        if "." in thickness_mm:
+            thickness_mm = thickness_mm.rstrip("0").rstrip(".")
+        material = sexp.val(layer, "material") or [None]
+        layers.append([str(layer[1]), str(layer_type[0]), thickness_mm, str(material[0])])
+    return layers
 
 
 def parse_board(text):

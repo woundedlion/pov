@@ -457,6 +457,15 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "stackup"):
             release.fabrication_options(self.project, "1.2")
 
+    def test_equivalent_dielectric_thickness_spelling_is_accepted(self):
+        board = self.fabrication_board()
+        source = board.read_text(encoding="utf-8")
+        equivalent = source.replace("(thickness 1.065)", "(thickness 1.0650)")
+        self.assertNotEqual(equivalent, source)
+        board.write_text(equivalent, encoding="utf-8")
+        options = release.fabrication_options(self.project, "1.2")
+        self.assertEqual(options["dielectric_stackup_mm"], release.GENERATOR_DIELECTRICS)
+
     def test_rejects_wrong_dielectric(self):
         board = self.fabrication_board()
         board.write_text(board.read_text(encoding="utf-8").replace('(thickness 0.2104)', '(thickness 0.2105)', 1),

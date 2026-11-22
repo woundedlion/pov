@@ -76,13 +76,6 @@ private:
   static constexpr uint32_t SPI_CLOCK_HZ =
       DMALEDController<S>::DEFAULT_CLOCK_HZ;
 
-  /**
-   * @brief Worst-case duration of one column's LED transfer, in µs.
-   * @details Image frame plus the trailing strobe black frame, at
-   * SPI_CLOCK_HZ.
-   */
-  static constexpr unsigned long COLUMN_TRANSFER_US =
-      dma::transfer_us(HD107SFrame<S>::COMPOSITE_SIZE, SPI_CLOCK_HZ);
 #else
   // FastLED's WS2801Controller waits up to 1000 us before each transmission.
   static constexpr unsigned long FASTLED_SHOW_US =
@@ -121,7 +114,11 @@ private:
     HS_CHECK(interval_us >= 1,
              "column interval below 1 µs (RPM/width too high)");
 #if defined(USE_DMA_LEDS)
-    HS_CHECK(interval_us > COLUMN_TRANSFER_US,
+    const auto transfer_bytes = dma::transfer_len(
+        HD107SFrame<S>::BUFFER_SIZE, HD107SFrame<S>::COMPOSITE_SIZE,
+        effect->strobe_columns());
+    // no death case: Arduino-only display startup.
+    HS_CHECK(interval_us > dma::transfer_us(transfer_bytes, SPI_CLOCK_HZ),
              "LED transfer outlasts the column period (S, RPM and canvas width "
              "would overrun the DMA every column)");
 #else
