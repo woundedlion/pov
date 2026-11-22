@@ -417,6 +417,11 @@ inline void test_world_orient_sample_cache() {
       compare(A, 0.13f);
       if (frame == 0) {
         history.collapse();
+        const auto *poses = cached.pose_table(canvas);
+        HS_EXPECT_TRUE(poses->stationary());
+        HS_EXPECT_NEAR(math::distance_between(poses->rotate(B, 0.13f),
+                                              math::rotate(B, history.get())),
+                       0.0f, 1e-6f);
         compare(B, 0.13f);
         history = spin_history(0.4f, 0.2f, 3);
         compare(A, 0.13f);

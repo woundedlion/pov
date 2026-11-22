@@ -162,7 +162,8 @@ public:
    *         sub-frame history; a single-pose history rebuilds it on each
    *         call, as its pose can change within the frame. */
   HS_HOT_FLASH_MEMBER const Spacetime::PoseTable *pose_table(const Canvas &cv) {
-    if (!poses_ready || pose_frame != cv.frame_number()) {
+    if (!poses_ready || pose_frame != cv.frame_number() ||
+        orientation.length() == 1) {
       poses.build(orientation);
       pose_frame = cv.frame_number();
       poses_ready = orientation.length() != 1;
