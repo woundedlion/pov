@@ -188,7 +188,8 @@ if [ "$report" = 1 ]; then
     }
     END { for (key in base) print key, "removed" }
   ' "$scratch/base.rows" "$scratch/tip.rows" | sort -k1,1 -k3,3 -k2,2n > "$scratch/delta"
-  total="$(wc -l < "$scratch/tip.rows" | tr -d ' ')"
+  total="$(cut -d' ' -f1,2 "$scratch/base.rows" "$scratch/tip.rows" |
+    sort -u | wc -l | tr -d ' ')"
   if [ ! -s "$scratch/delta" ]; then
     echo "render_diff: no pixel changes across $total renders."
     exit 0

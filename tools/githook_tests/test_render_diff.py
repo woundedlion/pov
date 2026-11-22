@@ -51,6 +51,9 @@ if [ "$1" = --list ]; then
 else
   if [ "$1" = effects ]; then exit 0; fi
   echo "render-hash fixture p0=$(cut -d' ' -f1 "$(dirname "$0")/../source-id")"
+  if [ "${REMOVED_PRESETS:-}" = 1 ] && [[ "$0" == */base/* ]]; then
+    printf 'render-hash fixture p1=1\nrender-hash fixture p2=2\n'
+  fi
   if [ "${FAIL_RENDER:-}" = 1 ] || { [ "${FAIL_RENDER:-}" = tip ] && [[ "$0" != */base/* ]]; }; then
     exit 7
   fi
@@ -119,6 +122,13 @@ fi
         self.assertEqual(report.returncode, 0, report.stdout + report.stderr)
         self.assertIn("1 of 1 renders differ", report.stdout)
         self.assertIn("  fixture p0", report.stdout)
+
+    def test_removed_presets_count_toward_the_total(self):
+        self.env["REMOVED_PRESETS"] = "1"
+        result = self.compare("--report")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("2 of 3 renders differ", result.stdout)
+        self.assertIn("fixture p1-p2 (removed)", result.stdout)
 
     def test_partial_hash_output_from_a_failed_run_is_rejected(self):
         for failed in ("1", "tip"):
