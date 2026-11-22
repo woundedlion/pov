@@ -552,6 +552,12 @@ inline void test_shader_chain_snapshot_roundtrip() {
     effect.setAnimationsPaused(true);
     saved = effect.snapshot();
     HS_EXPECT_TRUE(GeneratedPaletteBank::valid_snapshot(*saved.palette_bank));
+    auto clocks = *saved.palette_bank;
+    clocks.cycles[1].display_dirty = !clocks.cycles[0].display_dirty;
+    HS_EXPECT_TRUE(GeneratedPaletteBank::valid_snapshot(clocks));
+    clocks.cycles[1].frame =
+        clocks.cycles[0].frame == 0 ? 1 : clocks.cycles[0].frame - 1;
+    HS_EXPECT_FALSE(GeneratedPaletteBank::valid_snapshot(clocks));
     for (size_t index = 0; index < program.ops().size(); ++index) {
       const auto &op = program.ops()[index];
       auto storage = erased_block(op.op->runtime.state.size);

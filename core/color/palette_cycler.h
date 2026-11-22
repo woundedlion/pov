@@ -595,18 +595,22 @@ public:
   /**
    * @brief Whether @p snapshot is a state this bank can reach.
    * @param snapshot Snapshot to check.
-   * @return True when chroma is in [0, 1] and each clock is valid and agrees
-   * with its hue.
+   * @return True when chroma is in [0, 1] and the clocks agree with each other
+   * and with their hues.
    */
   static bool valid_snapshot(const Snapshot &snapshot) {
     if (!std::isfinite(snapshot.chroma) || snapshot.chroma < 0.0f ||
         snapshot.chroma > 1.0f)
       return false;
+    const auto &first = snapshot.cycles.front();
+    if (!PaletteCycler::valid_generated_clock(first, DWELL_FRAMES, FADE_FRAMES))
+      return false;
+    const uint32_t hue = (first.next_sequence - 1) * HUE_STEP;
     for (size_t index = 0; index < snapshot.cycles.size(); ++index) {
       const auto &clock = snapshot.cycles[index];
-      if (!PaletteCycler::valid_generated_clock(clock, DWELL_FRAMES,
-                                                FADE_FRAMES) ||
-          snapshot.hues[index] != (clock.next_sequence - 1) * HUE_STEP)
+      if (clock.frame != first.frame ||
+          clock.next_sequence != first.next_sequence ||
+          clock.fade_active != first.fade_active || snapshot.hues[index] != hue)
         return false;
     }
     return true;
