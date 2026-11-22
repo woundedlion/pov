@@ -36,6 +36,7 @@ inline int run_scan_tests() {
   HS_RUN(test_replicated_clip_matches_full_frame);
   HS_RUN(test_scalar_ring_draw_options);
   HS_RUN(test_four_stroke_fragment_registers);
+  HS_RUN(test_four_stroke_line_cap_material_across_seam);
   HS_RUN(test_four_stroke_disabled_star);
   HS_RUN(test_four_stroke_star_contour_error);
   HS_RUN(test_four_stroke_prepared_star);

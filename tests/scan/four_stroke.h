@@ -83,6 +83,31 @@ inline void test_four_stroke_fragment_registers() {
   }
 }
 
+/** @brief A geodesic's end cap keeps its endpoint material across the angle seam. */
+inline void test_four_stroke_line_cap_material_across_seam() {
+  constexpr int W = 96, H = 48;
+  constexpr float DEG = math::PI_F / 180.0f;
+  StubEffect effect(W, H);
+  Canvas canvas(effect);
+  Pipeline<W, H> pipeline;
+  Fragment start, end;
+  start.pos = math::X_AXIS;
+  end.pos = {cosf(175.0f * DEG), 0.0f, sinf(175.0f * DEG)};
+  start.color = Color4(Pixel(65535, 0, 0), 1.0f);
+  end.color = Color4(Pixel(0, 0, 65535), 1.0f);
+  int sampled = 0;
+  const auto base = [&](const math::Vector &p, Fragment &f) {
+    if (p.x < -0.98f && p.z < -0.06f && fabsf(p.y) < 0.1f) {
+      ++sampled;
+      HS_EXPECT_EQ(f.v0, 1.0f);
+      HS_EXPECT_EQ(f.color.color.b, 65535);
+    }
+  };
+  Plot::Line::draw<W, H>(pipeline, canvas, start, end, 15.0f * DEG,
+                         Scan::FourStrokeMaterial{{.strength = 0.0f}, base});
+  HS_EXPECT_GT(sampled, 0);
+}
+
 /** @brief Disabled four-stroke stars render the ordinary scan bit for bit. */
 inline void test_four_stroke_disabled_star() {
   constexpr int W = 96, H = 20;

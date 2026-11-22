@@ -239,11 +239,13 @@ struct Line {
     const auto tangent = math::cross(span.axis, f1.pos);
     const auto base = material.base;
     const auto paint = [&](const math::Vector &p, Fragment &f) {
-      const float arc = span.have_axis
-                            ? std::clamp(std::atan2(math::dot(p, tangent),
-                                                    math::dot(p, f1.pos)),
-                                         0.0f, span.total)
-                            : 0.0f;
+      float arc = 0.0f;
+      if (span.have_axis) {
+        const float start_dot = math::dot(p, f1.pos);
+        arc = std::atan2(math::dot(p, tangent), start_dot);
+        if (arc < 0.0f || arc > span.total)
+          arc = math::dot(p, f2.pos) > start_dot ? span.total : 0.0f;
+      }
       const float u = span.have_axis ? arc / span.total : 0.0f;
       f = Fragment::lerp(f1, f2, u);
       f.pos = p;
