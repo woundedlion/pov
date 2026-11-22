@@ -16,22 +16,26 @@ namespace hs_test::color_tests {
 /** @brief Each beat selects its three sRGB roles at the exact timestamp. */
 inline void test_four_stroke_clock() {
   using namespace FourStroke;
-  constexpr uint32_t PAIRS[][2] = {{0x24b5b8, 0x5a78e6},
-                                   {0x5a78e6, 0xe06858},
-                                   {0xe06858, 0xd4a838},
-                                   {0xd4a838, 0x24b5b8}};
+  constexpr uint32_t FILLS[] = {0x24b5b8, 0x5a78e6, 0xe06858, 0xd4a838,
+                                0x24b5b8, 0xd4a838, 0xe06858, 0x5a78e6};
   for (int i = 0; i < 16; ++i) {
     const auto &beat = colors(i * 62500);
-    const auto &[a, b] = PAIRS[i / 4];
-    const uint32_t expected[][3] = {{a, 0x222222, 0xe6e6e6},
-                                    {0x333b42, a, b},
-                                    {b, 0xe6e6e6, 0x222222},
-                                    {0xd6d9dc, b, a}};
+    const uint32_t fill = FILLS[i / 2];
+    const uint32_t incoming = FILLS[(i / 2 + 1) % std::size(FILLS)];
+    const uint32_t expected[][3] = {{fill, 0x222222, 0xe6e6e6},
+                                    {0x333b42, fill, incoming},
+                                    {fill, 0xe6e6e6, 0x222222},
+                                    {0xd6d9dc, fill, incoming}};
     const Pixel actual[] = {beat.fill, beat.leading, beat.trailing};
     for (int j = 0; j < 3; ++j) {
       const uint32_t hex = expected[i % 4][j];
       HS_EXPECT_TRUE(actual[j] == Pixel(CRGB((hex >> 16) & 255,
                                              (hex >> 8) & 255, hex & 255)));
+    }
+    if (i % 2 == 1) {
+      HS_EXPECT_TRUE(beat.leading == colors((i - 1) * 62500).fill);
+      HS_EXPECT_TRUE(beat.trailing == colors((i + 1) * 62500).fill);
+      HS_EXPECT_TRUE(!(beat.leading == beat.trailing));
     }
     HS_EXPECT_TRUE(&beat == &colors((i + 1) * 62500 - 1));
     HS_EXPECT_TRUE(&beat == &colors(i * 62500 + 1000000));

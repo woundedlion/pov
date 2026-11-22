@@ -182,19 +182,21 @@ inline constexpr Pixel GRAY = linear_rgb(0x808080);
  * @return The active beat's palette. */
 inline const Colors &colors(uint64_t elapsed_us) {
   static constexpr auto BEATS = [] {
-    constexpr uint32_t HUES[] = {0x24b5b8, 0x5a78e6, 0xe06858, 0xd4a838};
-    std::array<Colors, 16> beats{};
-    for (int pair = 0; pair < 4; ++pair) {
-      const Pixel a = linear_rgb(HUES[pair]),
-                  b = linear_rgb(HUES[(pair + 1) % std::size(HUES)]);
-      beats[pair * 4] = {a, linear_rgb(0x222222), linear_rgb(0xe6e6e6)};
-      beats[pair * 4 + 1] = {linear_rgb(0x333b42), a, b};
-      beats[pair * 4 + 2] = {b, linear_rgb(0xe6e6e6), linear_rgb(0x222222)};
-      beats[pair * 4 + 3] = {linear_rgb(0xd6d9dc), b, a};
+    constexpr uint32_t FILLS[] = {0x24b5b8, 0x5a78e6, 0xe06858, 0xd4a838,
+                                  0x24b5b8, 0xd4a838, 0xe06858, 0x5a78e6};
+    std::array<Colors, 2 * std::size(FILLS)> beats{};
+    for (size_t i = 0; i < std::size(FILLS); ++i) {
+      const Pixel fill = linear_rgb(FILLS[i]);
+      const Pixel incoming = linear_rgb(FILLS[(i + 1) % std::size(FILLS)]);
+      const bool light_leading = i % 2 != 0;
+      beats[i * 2] = {fill, linear_rgb(light_leading ? 0xe6e6e6 : 0x222222),
+                      linear_rgb(light_leading ? 0x222222 : 0xe6e6e6)};
+      beats[i * 2 + 1] = {linear_rgb(light_leading ? 0xd6d9dc : 0x333b42), fill,
+                          incoming};
     }
     return beats;
   }();
-  return BEATS[(elapsed_us / 62500) % 16];
+  return BEATS[(elapsed_us / 62500) % BEATS.size()];
 }
 
 /** @brief Applies a four-stroke beat to straight material RGB.
