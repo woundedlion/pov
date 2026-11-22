@@ -328,7 +328,7 @@ HS_HOT_INLINE inline Result grouped(const math::Vector &input,
 }
 
 /** @brief Samples neighboring nodes from two radial-transfer curves.
- * @tparam Samples Number of radial nodes per curve.
+ * @tparam Samples Number of radial nodes per curve, at least two.
  * @param previous Previous endpoint curve.
  * @param current Current endpoint curve.
  * @param distance Source distance in radians.
@@ -338,6 +338,7 @@ HS_HOT_INLINE inline Result grouped(const math::Vector &input,
  * @param valid_cells Optional Samples-1 validity bytes matching finalized curves.
  * @return Whether the distance and neighboring nodes are valid. */
 template <size_t Samples>
+  requires(Samples >= 2)
 HS_HOT_INLINE inline bool
 sample_transfer(const std::array<RadialTransfer, Samples> &previous,
                 const std::array<RadialTransfer, Samples> &current,

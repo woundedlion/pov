@@ -246,6 +246,17 @@ inline void test_ripple_kernel_angle_at_distance() {
   HS_EXPECT_EQ(angle_at_distance(a, 1.25f, 1.0f), 0.0f);
 }
 
+template <size_t Samples>
+concept RippleTransferTable =
+    requires(const std::array<RippleKernel::RadialTransfer, Samples> &nodes,
+             RippleKernel::RadialTransfer &output) {
+      RippleKernel::sample_transfer(nodes, nodes, 0.0f, 0.0f, false, output);
+    };
+
+static_assert(!RippleTransferTable<0>);
+static_assert(!RippleTransferTable<1>);
+static_assert(RippleTransferTable<2>);
+
 /** @brief Transfer sampling accepts covered paths and rejects invalid nodes. */
 inline void test_ripple_kernel_sample_transfer() {
   using namespace RippleKernel;
