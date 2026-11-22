@@ -58,21 +58,15 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
    *  @return Gradient of field() in world units. */
   math::Vector gradient(const math::Vector &p) const {
     const float k = math::TWO_PI_F / period;
-    const math::Vector q = (p - origin) * k;
-    if constexpr (Kind == PeriodicSurfaceKind::COSINE)
-      return math::Vector(-sinf(q.x), -sinf(q.y), -sinf(q.z)) * k;
-    else
-      return math::Vector(cosf(q.x) * cosf(q.y) - sinf(q.z) * sinf(q.x),
-                          cosf(q.y) * cosf(q.z) - sinf(q.x) * sinf(q.y),
-                          cosf(q.z) * cosf(q.x) - sinf(q.y) * sinf(q.z)) *
-             k;
+    return phase_gradient((p - origin) * k) * k;
   }
 
   /** @brief Unit outward normal.
    *  @param p World point.
    *  @return Normalized gradient(), or zero where the gradient vanishes. */
   math::Vector normal(const math::Vector &p) const {
-    const math::Vector g = gradient(p);
+    const math::Vector g =
+        phase_gradient((p - origin) * (math::TWO_PI_F / period));
     const float length = g.magnitude();
     return length > 0.0f ? g * (1.0f / length) : math::Vector{};
   }
@@ -89,6 +83,16 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
   Raycast::QuerySample sample(const math::Vector &p) const {
     const float value = distance(p);
     return {value, fabsf(value), value == 0.0f, 0, 0};
+  }
+
+private:
+  static math::Vector phase_gradient(const math::Vector &q) {
+    if constexpr (Kind == PeriodicSurfaceKind::COSINE)
+      return {-sinf(q.x), -sinf(q.y), -sinf(q.z)};
+    else
+      return {cosf(q.x) * cosf(q.y) - sinf(q.z) * sinf(q.x),
+              cosf(q.y) * cosf(q.z) - sinf(q.x) * sinf(q.y),
+              cosf(q.z) * cosf(q.x) - sinf(q.y) * sinf(q.z)};
   }
 };
 

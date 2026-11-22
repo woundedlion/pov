@@ -943,6 +943,12 @@ inline void test_periodic_surface_bounds_and_gradients() {
                  gyroid.lipschitz(), 1e-5f);
   HS_EXPECT_EQ(gyroid.field({0.0f, 0.0f, 0.0f}), 0.0f);
   HS_EXPECT_TRUE(gyroid.sample({0.0f, 0.0f, 0.0f}).boundary);
+  const auto unit_normal = gyroid.normal({});
+  gyroid.period = 1e-20f;
+  HS_EXPECT_TRUE(gyroid.valid());
+  HS_EXPECT_NEAR(gyroid.normal({}).magnitude(), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(math::distance_between(gyroid.normal({}), unit_normal), 0.0f,
+                 1e-6f);
 }
 
 /** @brief Runs sdf pattern tests. */
