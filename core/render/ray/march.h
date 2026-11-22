@@ -272,7 +272,7 @@ HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,
     if (!evaluate(probe_t, probe))
       return false;
     if (probe.boundary || ((probe.field < 0.0f) != inside))
-      return emit((t + probe_t) * 0.5f, probe);
+      return emit(t + (probe_t - t) * 0.5f, probe);
     t = probe_t;
     sample = probe;
     sample_ready = true;

@@ -364,6 +364,24 @@ inline void test_closest_approach_near_interval_end() {
   HS_EXPECT_NEAR(hit.z, -0.85f, 0.001f);
 }
 
+/** @brief A verified boundary remains inside a high finite ray interval. */
+inline void test_boundary_midpoint_at_large_parameter() {
+  constexpr float NEAR = 0x1p127f;
+  constexpr float WIDTH = 0x1p107f;
+  struct Query : ConstantQuery {
+    Raycast::QuerySample sample(const math::Vector &p) const {
+      return {p.x > NEAR ? -1.0f : 1.0f, 0.0f, false};
+    }
+  };
+  const Raycast::Ray ray{{}, math::X_AXIS, {NEAR, NEAR + WIDTH}};
+  Raycast::TraceLimits limits;
+  limits.position_tolerance = WIDTH;
+  const auto result = Raycast::surface_search(Query{}, ray, {}, limits);
+  HS_EXPECT_EQ(result.status, Raycast::TraceStatus::SURFACE);
+  HS_EXPECT_TRUE(result.contribution.t >= ray.interval.near &&
+                 result.contribution.t <= ray.interval.far);
+}
+
 inline int run_ray_tests() {
   hs_test::ModuleFixture fixture("ray");
   HS_RUN(test_camera);
@@ -376,6 +394,7 @@ inline int run_ray_tests() {
   HS_RUN(test_nested_query_validation_once);
   HS_RUN(test_limits_and_nonfinite);
   HS_RUN(test_first_boundary_and_tolerances);
+  HS_RUN(test_boundary_midpoint_at_large_parameter);
   HS_RUN(test_uncertain_clearance_progress);
   return fixture.result();
 }
