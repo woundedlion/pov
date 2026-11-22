@@ -367,6 +367,16 @@ inline Complex csqrt(const Complex &z) {
   const float radius = hypotf(z.re, z.im);
   if (radius == 0.0f)
     return Complex(0.0f, z.im);
+  if (radius < 0x1p-125f || radius > std::numeric_limits<float>::max())
+      [[unlikely]] {
+    const double real = z.re, imaginary = z.im;
+    const double major =
+        std::sqrt(0.5 * (std::hypot(real, imaginary) + std::abs(real)));
+    const float minor = static_cast<float>(imaginary / (2.0 * major));
+    if (z.re >= 0.0f)
+      return {static_cast<float>(major), minor};
+    return {fabsf(minor), copysignf(static_cast<float>(major), z.im)};
+  }
   const float major = sqrtf(0.5f * radius + 0.5f * fabsf(z.re));
   if (z.re >= 0.0f)
     return Complex(major, z.im / (2.0f * major));

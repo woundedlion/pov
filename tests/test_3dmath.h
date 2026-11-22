@@ -5,6 +5,7 @@
  * Math vectors, matrices, lenses, complex projections, wrapping, hashing, and noise.
  */
 #pragma once
+#include <complex>
 
 #include "core/math/scalar_noise.h"
 #include "core/math/scalar_kernels.h"
@@ -1517,6 +1518,26 @@ inline void test_complex_arithmetic() {
   HS_EXPECT_COMPLEX(a * math::Complex(1, 0), a, 1e-6f);
 }
 
+/** @brief The principal square root handles finite float extremes. */
+inline void test_complex_principal_root_extremes() {
+  constexpr float LARGE = std::numeric_limits<float>::max();
+  constexpr float SMALL = std::numeric_limits<float>::denorm_min();
+  for (const math::Complex &z :
+       {math::Complex(LARGE, LARGE), math::Complex(-LARGE, -LARGE),
+        math::Complex(SMALL, 0.0f)}) {
+#if defined(HS_TEST_FAST_MATH)
+    if (z.re == SMALL)
+      continue;
+#endif
+    const auto expected = std::sqrt(std::complex<double>(z.re, z.im));
+    const auto result = math::csqrt(z);
+    HS_EXPECT_NEAR(result.re, expected.real(),
+                   std::abs(expected.real()) * 1e-6);
+    HS_EXPECT_NEAR(result.im, expected.imag(),
+                   std::abs(expected.imag()) * 1e-6);
+  }
+}
+
 /** @brief Projection division preserves finite ratios and singular directions. */
 inline void test_project_div_conventions() {
   const math::Complex A(1, 2), B(3, 4);
@@ -2530,6 +2551,7 @@ inline int run_3dmath_tests() {
 
   HS_RUN(test_stereo_roundtrip);
   HS_RUN(test_complex_arithmetic);
+  HS_RUN(test_complex_principal_root_extremes);
   HS_RUN(test_project_div_conventions);
   HS_RUN(test_mobius_params_accessors);
   HS_RUN(test_mobius_transform);
