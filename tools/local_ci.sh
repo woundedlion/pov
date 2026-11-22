@@ -66,11 +66,19 @@ PYTHON_INPUTS='[.]py$|^tools/|^hardware/|^[.]githooks/|^[.]github/|^requirements
 job_lint() { just lint; }
 job_clang_format() { just clang-format; }
 job_license_headers() { python tools/license_check.py; }
+checkout_path() {
+  local path=$1
+  [ -n "$path" ] || return 1
+  if command -v cygpath >/dev/null 2>&1; then
+    path="$(cygpath -au -- "$path")" || return 1
+  fi
+  realpath -m -- "$path"
+}
 prepare_checkout() {
   local repo=$1 target revision=$3 owner=$4 admin common root entry registered=0
-  target="$(realpath -m "$2")"
-  common="$(realpath "$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir)")"
-  root="$(realpath "$(git -C "$repo" rev-parse --show-toplevel)")"
+  target="$(checkout_path "$2")" || return 1
+  common="$(checkout_path "$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir)")" || return 1
+  root="$(checkout_path "$(git -C "$repo" rev-parse --show-toplevel)")" || return 1
   if [ ! -e "$target" ] && [ ! -L "$target" ]; then
     git -C "$repo" worktree add --quiet --detach "$target" "$revision" || return 1
     admin="$(git -C "$target" rev-parse --absolute-git-dir)" || return 1
@@ -78,16 +86,16 @@ prepare_checkout() {
     return
   fi
   while IFS= read -r -d '' entry; do
-    if [[ "$entry" == 'worktree '* ]] && [ "$(realpath -m "${entry#worktree }")" = "$target" ]; then
+    if [[ "$entry" == 'worktree '* ]] && [ "$(checkout_path "${entry#worktree }")" = "$target" ]; then
       registered=1
     fi
   done < <(git -C "$repo" worktree list --porcelain -z)
   if [ "$registered" != 1 ] || [[ "$root/" == "$target/"* ]] ||
      [ "$target" = "$(dirname "$common")" ] ||
      ! admin="$(git -C "$target" rev-parse --absolute-git-dir)" ||
-     [ "$(realpath "$(dirname "$admin")")" != "$common/worktrees" ] ||
-     [ ! -f "$admin/gitdir" ] || [ "$(realpath "$(cat "$admin/gitdir")")" != "$target/.git" ] ||
-     [ ! -f "$admin/$owner" ] || [ "$(cat "$admin/$owner")" != "$target" ]; then
+     [ "$(checkout_path "$(dirname "$admin")")" != "$common/worktrees" ] ||
+     [ ! -f "$admin/gitdir" ] || [ "$(checkout_path "$(cat "$admin/gitdir")")" != "$target/.git" ] ||
+     [ ! -f "$admin/$owner" ] || [ "$(checkout_path "$(cat "$admin/$owner")")" != "$target" ]; then
     echo "local_ci: refusing to reuse unowned checkout $target" >&2
     return 1
   fi
