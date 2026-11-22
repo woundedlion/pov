@@ -709,6 +709,12 @@ struct DriftedVisibleSegue : Segue::Base {
   float visible(float phase) const { return phase; }
 };
 
+struct IntegerPhaseSegue : Segue::Base {
+  bool visible(int phase) const { return phase > 0; }
+};
+
+static_assert(!Segue::HasPhaseHooks<IntegerPhaseSegue>);
+
 /** @brief A policy taking fill()'s edge distance by value instead of a mutable
  * reference. */
 struct DriftedFillSegue : Segue::Base {

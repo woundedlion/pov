@@ -284,10 +284,15 @@ struct HookSignature<R (C::*)(A...) const> {
  * on a hook shadowed at a drifted signature (e.g. a `fill` taking its edge
  * distance by value, which still compiles at the call site). */
 template <typename S>
-concept HasPhaseHooks = requires(const S &s) {
-  { s.visible(0.5f) } -> std::same_as<bool>;
-  { s.opacity(0.5f) } -> std::same_as<float>;
-  { s.face_fade_frac(0) } -> std::same_as<float>;
+concept HasPhaseHooks = requires {
+  requires std::same_as<
+      typename detail::HookSignature<decltype(&S::visible)>::type, bool(float)>;
+  requires std::same_as<
+      typename detail::HookSignature<decltype(&S::opacity)>::type,
+      float(float)>;
+  requires std::same_as<
+      typename detail::HookSignature<decltype(&S::face_fade_frac)>::type,
+      float(int)>;
   requires std::same_as<
       typename detail::HookSignature<decltype(&S::fill)>::type,
       float(float &, float)>;
