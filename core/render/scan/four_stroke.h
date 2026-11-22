@@ -235,21 +235,6 @@ void rasterize_four_stroke_sdf(
     const auto time =
         FourStroke::column_time(t0, t1, x, W, Spacetime::flat_surface());
     const auto &beat = FourStroke::colors(time);
-    if (strip_shift) {
-      const auto inside = [&](float sx, float sy) {
-        SDF::DistanceResult hit;
-        shape.template distance<false>(view(sx, sy, time), hit);
-        return hit.dist <= 0;
-      };
-      const auto query = [&](float dx, float dy, const auto &) {
-        return FourStroke::translated_strips(x + dx, y + dy, *strip_shift,
-                                             inside);
-      };
-      emit(x, y,
-           four_stroke_pixel(x, y, time, beat, controls, query, alignment,
-                             shade, boundary_shader));
-      return 1;
-    }
     float center[3][3];
     bool covered = false;
     for (int dy = -1; dy <= 1; ++dy)
@@ -272,6 +257,10 @@ void rasterize_four_stroke_sdf(
     const auto query = [&](float dx, float dy, auto align) {
       if (solid)
         return FourStroke::Boundary{true, INFINITY, 0};
+      if (strip_shift)
+        return FourStroke::translated_strips(
+            dx, dy, *strip_shift,
+            [&](float sx, float sy) { return tile.contains(sx, sy); });
       return tile.query(dx, dy, align);
     };
     emit(x, y,

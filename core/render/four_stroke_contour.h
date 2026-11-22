@@ -26,6 +26,7 @@ public:
   }
 
   /** @brief Classifies a subpixel against the reconstructed exposed segments.
+   * @tparam MembershipOnly Evaluate only the owner's coverage.
    * @tparam Align Normal-to-direction alignment query.
    * @tparam ValidCell Chart continuity predicate.
    * @param dx Pixel-relative column coordinate in [-0.5, 0.5].
@@ -33,14 +34,18 @@ public:
    * @param align Returns signed alignment for an outward unit normal.
    * @param valid_cell Accepts the integer origin of cells with valid interpolation.
    * @return Reconstructed membership and nearest exposed feature in the tile. */
-  template <typename Align, typename ValidCell>
+  template <bool MembershipOnly = false, typename Align, typename ValidCell>
   Boundary query(float dx, float dy, Align &&align,
                  ValidCell &&valid_cell) const {
     Boundary nearest;
     const int owner_x = static_cast<int>(std::floor(dx));
     const int owner_y = static_cast<int>(std::floor(dy));
-    for (int y = 0; y < 6; ++y) {
-      for (int x = 0; x < 6; ++x) {
+    const int x_start = MembershipOnly ? owner_x + 3 : 0;
+    const int y_start = MembershipOnly ? owner_y + 3 : 0;
+    const int x_end = MembershipOnly ? x_start + 1 : 6;
+    const int y_end = MembershipOnly ? y_start + 1 : 6;
+    for (int y = y_start; y < y_end; ++y) {
+      for (int x = x_start; x < x_end; ++x) {
         if (!valid_cell(x - 3, y - 3))
           continue;
         const float field[4] = {values[y][x], values[y][x + 1],
@@ -92,15 +97,17 @@ public:
           const bool half_plane =
               length_sq == 0 ? rx == 0 && ry == 0 : rx * vy - ry * vx <= 0;
           inside = connected ? inside && half_plane : inside || half_plane;
-          if (length_sq == 0)
-            continue;
-          const float t =
-              std::clamp((rx * vx + ry * vy) / length_sq, 0.0f, 1.0f);
-          const float ex = rx - t * vx, ey = ry - t * vy;
-          const float distance = std::sqrt(ex * ex + ey * ey);
-          if (distance <= nearest.depth) {
-            const float length = std::sqrt(length_sq);
-            consider(nearest, distance, align({vy / length, -vx / length}));
+          if constexpr (!MembershipOnly) {
+            if (length_sq == 0)
+              continue;
+            const float t =
+                std::clamp((rx * vx + ry * vy) / length_sq, 0.0f, 1.0f);
+            const float ex = rx - t * vx, ey = ry - t * vy;
+            const float distance = std::sqrt(ex * ex + ey * ey);
+            if (distance <= nearest.depth) {
+              const float length = std::sqrt(length_sq);
+              consider(nearest, distance, align({vy / length, -vx / length}));
+            }
           }
         }
         if (owner)
@@ -119,6 +126,18 @@ public:
   template <typename Align>
   Boundary query(float dx, float dy, Align &&align) const {
     return query(dx, dy, align, [](int, int) { return true; });
+  }
+
+  /** @brief Tests coverage within the reconstructed halo.
+   * @param dx,dy Pixel-relative coordinates.
+   * @return True inside the interpolated contour. */
+  bool contains(float dx, float dy) const {
+    if (dx < -3 || dx >= 3 || dy < -3 || dy >= 3)
+      return false;
+    return query<true>(
+               dx, dy, [](Direction) { return 0.f; },
+               [](int, int) { return true; })
+        .inside;
   }
 
 private:
