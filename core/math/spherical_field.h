@@ -102,8 +102,8 @@ public:
       : spacing(spacing), north_infill(north_infill),
         south_infill(south_infill), equator_samples(equator_samples) {
     HS_CHECK(spacing > 0, "SphericalFieldLayout: spacing must be > 0");
-    HS_CHECK(north_infill >= 0 && south_infill >= 0 &&
-                 north_infill + south_infill <= H,
+    HS_CHECK(north_infill >= 0 && south_infill >= 0 && north_infill <= H &&
+                 south_infill <= H - north_infill,
              "SphericalFieldLayout: infills %d + %d must be non-negative and "
              "fit within H = %d",
              north_infill, south_infill, H);

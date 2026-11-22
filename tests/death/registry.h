@@ -958,8 +958,8 @@ inline const Case *all_cases(int &n) {
               {"spherical_field_infill_over_domain",
                case_spherical_field_infill_over_domain,
                "core/math/spherical_field.h",
-               "(north_infill >= 0 && south_infill >= 0 && north_infill + south_infill "
-               "<= H) SphericalFieldLayout: infills 0 + 17 must be non-negative and "
+               "(north_infill >= 0 && south_infill >= 0 && north_infill <= H && "
+               "south_infill <= H - north_infill) SphericalFieldLayout: infills 2147483647 + 1 must be non-negative and "
                "fit within H = 16"},
               {"spherical_field_negative_equator_samples",
                case_spherical_field_negative_equator_samples,

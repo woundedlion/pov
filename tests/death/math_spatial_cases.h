@@ -427,7 +427,8 @@ inline void case_spherical_harmonic_decode_negative_index() {
  * @details The inflated sample_count() would overflow the arena elsewhere.
  */
 inline void case_spherical_field_infill_over_domain() {
-  hs::SphericalFieldLayout<32, 16, 0> layout(4, 0, opaque(17));
+  hs::SphericalFieldLayout<32, 16, 0> layout(
+      4, opaque(std::numeric_limits<int>::max()), 1);
   (void)layout.sample_count();
 }
 
