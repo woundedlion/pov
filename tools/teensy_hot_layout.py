@@ -46,6 +46,8 @@ if os.path.basename(env.subst("$LDSCRIPT_PATH")) == "phantasm.ld":
         sketch = _sketch(source)
         if sketch == "Phantasm":
             return hot_layout.phantasm_playlist(_ROOT)
+        if sketch == "Bench":
+            return ["BenchPattern"]
         if sketch == "Profile":
             for define in env.get("CPPDEFINES", []):
                 if isinstance(define, (list, tuple)) and define[0] == "HS_PROFILE_TARGET":

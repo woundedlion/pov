@@ -570,7 +570,9 @@ class TestHotLayoutLink(unittest.TestCase):
                 self.assertEqual(hook._expected(env, sources("Profile")), ["HopfFibration"])
         self.assertEqual(hook._expected(env, sources("Phantasm")),
                          hook.hot_layout.phantasm_playlist(str(REPO)))
-        self.assertEqual(hook._expected(env, sources("Bench")), [])
+        bench_effects = hook._expected(env, sources("Bench"))
+        self.assertEqual(bench_effects, ["BenchPattern"])
+        self.assertIn(bench_effects[0], hook.hot_layout.roster(str(REPO)))
         default = re.search(r"(?m)^#define HS_PROFILE_TARGET (\w+)$",
                             (REPO / "targets/Profile/Profile.ino").read_text(encoding="utf-8"))
         self.assertIsNotNone(default)

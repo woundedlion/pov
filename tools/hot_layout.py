@@ -993,9 +993,9 @@ def check(tools: Toolchain, elf: str, map_path: str, effects: list[str],
 
 
 def roster(root: str) -> list[str]:
-    """Every effect class in core/platform/effect_identity.h."""
+    """Registered effect classes and the stationary bench pattern."""
     text = Path(root, "core/platform/effect_identity.h").read_text(encoding="utf-8")
-    return parse_effect_list(text, "HS_EFFECT_IDENTITY_LIST")
+    return [*parse_effect_list(text, "HS_EFFECT_IDENTITY_LIST"), "BenchPattern"]
 
 
 def phantasm_playlist(root: str) -> list[str]:
