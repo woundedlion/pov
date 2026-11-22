@@ -1598,7 +1598,8 @@ inline void test_mobius_params_accessors() {
  *        and the inverting c != 0 branch including its pole.
  */
 inline void test_mobius_transform() {
-  for (float scale : {1e-8f, 1e-30f}) {
+  for (float scale :
+       {1e-8f, 1e-30f, 1e20f, std::numeric_limits<float>::max()}) {
     const math::MobiusParams identity(scale, 0, 0, 0, 0, 0, scale, 0);
     for (const auto &point :
          {math::X_AXIS, math::Y_AXIS, -math::Y_AXIS, math::Z_AXIS})

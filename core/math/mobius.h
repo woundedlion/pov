@@ -231,6 +231,19 @@ inline math::Vector mobius_transform(const math::Vector &v,
   float n2 = n_re * n_re + n_im * n_im;
   float m2 = m_re * m_re + m_im * m_im;
   float den = n2 + m2;
+  if (!std::isfinite(den)) [[unlikely]] {
+    const double x = px, z = pz, w = s;
+    const double nr = params.a.re * x - params.a.im * z + params.b.re * w;
+    const double ni = params.a.re * z + params.a.im * x + params.b.im * w;
+    const double mr = params.c.re * x - params.c.im * z + params.d.re * w;
+    const double mi = params.c.re * z + params.c.im * x + params.d.im * w;
+    const double n = nr * nr + ni * ni;
+    const double m = mr * mr + mi * mi;
+    const double inv = 1.0 / (n + m);
+    return {static_cast<float>(2.0 * (nr * mr + ni * mi) * inv),
+            static_cast<float>((n - m) * inv),
+            static_cast<float>(2.0 * (ni * mr - nr * mi) * inv)};
+  }
   if (den < MOBIUS_POLE_EPS) {
     const float peak =
         fmaxf(fmaxf(fabsf(n_re), fabsf(n_im)), fmaxf(fabsf(m_re), fabsf(m_im)));
