@@ -22,15 +22,19 @@
 
 namespace Pullback::Interp::Op {
 
+/// Shared immutable geometry for the two most recently selected distinct solids.
 struct SphericalTilingGeometryCache {
-  std::array<std::shared_ptr<const Source::SphereTilingGeometry>, 2> geometry{};
-  std::array<uint8_t, 2> solids{};
+  std::array<std::shared_ptr<const Source::SphereTilingGeometry>, 2>
+      geometry{}; ///< Projected geometry; null until populated.
+  std::array<uint8_t, 2>
+      solids{}; ///< Registry solid ordinal for each populated slot.
 };
 
 /** @brief Projected geometry for both endpoints of a source morph. */
 struct SphericalTilingState {
-  mutable std::shared_ptr<const SphericalTilingGeometryCache> cache;
-  mutable uint8_t active = 0;
+  mutable std::shared_ptr<const SphericalTilingGeometryCache>
+      cache; ///< Shared geometry snapshot; replaced on a cache miss.
+  mutable uint8_t active = 0; ///< Most recently selected cache slot.
 };
 
 /** @brief Sphere-to-field crossing for tile fills and seams. */

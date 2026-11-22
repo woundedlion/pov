@@ -11,10 +11,14 @@
 
 namespace hs_test::scan_tests {
 
+/** @brief Checks whether an arrow can bind to the tangent-direction adapter.
+ * @tparam Arrow Candidate callable type, including its reference qualification.
+ */
 template <typename Arrow>
 concept BindableFourStrokeArrow = requires(Arrow &&arrow) {
   Scan::four_stroke_tangent_direction<96, 20>(std::forward<Arrow>(arrow));
 };
+/** @brief Test callable returning the constant world-space X direction. */
 using FourStrokeTestArrow =
     decltype([](const math::Vector &, uint64_t) { return math::X_AXIS; });
 static_assert(BindableFourStrokeArrow<FourStrokeTestArrow &>);
@@ -241,7 +245,14 @@ inline void test_four_stroke_prepared_star() {
 /** @brief Counts SDF probes in the sampled fallback. */
 struct CountedStrokeStar : SDF::Star {
   using SDF::Star::Star;
-  mutable int probes = 0;
+  mutable int probes = 0; ///< Number of distance-only evaluations.
+
+  /**
+   * @brief Evaluates the star distance and records distance-only probes.
+   * @tparam UV Whether to compute the normalized azimuth.
+   * @param at Unit sphere direction to sample.
+   * @param hit Destination for the distance result.
+   */
   template <bool UV>
   void distance(const math::Vector &at, SDF::DistanceResult &hit) const {
     if constexpr (!UV)
@@ -253,6 +264,11 @@ struct CountedStrokeStar : SDF::Star {
 struct UnboundedStrokeStar : CountedStrokeStar {
   using CountedStrokeStar::CountedStrokeStar;
   void swept(float) const = delete;
+  /**
+   * @brief Extends the star's bounds to every display row.
+   * @tparam H Display height in rows.
+   * @return Bounds with inclusive row limits from 0 through H - 1.
+   */
   template <int H> auto get_vertical_bounds() const {
     auto bounds = SDF::Star::get_vertical_bounds<H>();
     bounds.y_min = 0;

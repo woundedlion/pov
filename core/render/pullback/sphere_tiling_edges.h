@@ -49,15 +49,25 @@ struct SphereTilingEdgeBand {
 
 namespace tiling_edges_detail {
 
+/** @brief Converts unit-sphere angular separation to squared chord distance.
+ * @param angle Central angle in radians.
+ * @return Squared Euclidean distance between the directions. */
 inline float chord_squared(float angle) {
   const float half = sinf(0.5f * angle);
   return 4.0f * half * half;
 }
 
+/** @brief Converts squared chord distance to unit-sphere angular separation.
+ * @param distance_squared Nonnegative squared Euclidean distance, capped at 4.
+ * @return Central angle in radians. */
 inline float chord_angle(float distance_squared) {
   return 2.0f * asinf(0.5f * sqrtf(std::min(4.0f, distance_squared)));
 }
 
+/** @brief Finds the grid cell containing a dominant cube-face projection.
+ * @param point Dominant face and its projected coordinates.
+ * @param steps Positive cell count along one face axis.
+ * @return Flattened cell index in face, row, column order. */
 inline int cell_at(const math::CubeFaceProjection &point, int steps) {
   const auto [face, u, v, major] = point;
   const float half_steps = 0.5f * steps;
@@ -69,16 +79,29 @@ inline int cell_at(const math::CubeFaceProjection &point, int steps) {
   return (face * steps + y) * steps + x;
 }
 
+/** @brief Projects a direction and finds its cubemap cell.
+ * @param direction Nonzero query direction.
+ * @param steps Positive cell count along one face axis.
+ * @return Flattened cell index in face, row, column order. */
 inline int cell_at(const math::Vector &direction, int steps) {
   return cell_at(math::project_cube_face(direction), steps);
 }
 
+/** @brief Tests whether the projected direction lies between the arc endpoints.
+ * @param edge Oriented finite arc.
+ * @param direction Unit query direction.
+ * @return True if the arc has positive length and contains the projected foot. */
 inline bool projects_to_arc(const SphereTilingEdge &edge,
                             const math::Vector &direction) {
   return edge.inv_length > 0.0f && math::dot(edge.from_a, direction) >= 0.0f &&
          math::dot(edge.from_b, direction) >= 0.0f;
 }
 
+/** @brief Measures distance to the nearer arc endpoint.
+ * @param edge Arc with vertex indices into @p vertices.
+ * @param direction Unit query direction.
+ * @param vertices Unit vertex directions.
+ * @return Squared chord distance to the nearer endpoint. */
 inline float endpoint_chord_squared(const SphereTilingEdge &edge,
                                     const math::Vector &direction,
                                     std::span<const math::Vector> vertices) {
@@ -86,6 +109,11 @@ inline float endpoint_chord_squared(const SphereTilingEdge &edge,
                   math::distance_squared(direction, vertices[edge.b]));
 }
 
+/** @brief Measures distance to the nearest point on a finite arc.
+ * @param edge Arc with vertex indices into @p vertices.
+ * @param direction Unit query direction.
+ * @param vertices Unit vertex directions.
+ * @return Squared chord distance to the projected foot or the closer endpoint. */
 inline float edge_chord_squared(const SphereTilingEdge &edge,
                                 const math::Vector &direction,
                                 std::span<const math::Vector> vertices) {
@@ -97,6 +125,13 @@ inline float edge_chord_squared(const SphereTilingEdge &edge,
   return endpoint_chord_squared(edge, direction, vertices);
 }
 
+/** @brief Finds the palette coordinate along an oriented arc.
+ * @param edge Arc with vertex indices into @p vertices.
+ * @param direction Unit query direction.
+ * @param vertices Unit vertex directions.
+ * @param narrow Permits a small-angle approximation for the projected arc position.
+ * @param interior Whether the far endpoint test is already satisfied.
+ * @return Arc fraction in [0, 1], using the nearer end outside the arc and zero for point edges. */
 inline float edge_position(const SphereTilingEdge &edge,
                            const math::Vector &direction,
                            std::span<const math::Vector> vertices,
@@ -145,6 +180,9 @@ struct SphereTilingNarrowIndex {
   std::span<const uint16_t> cells; ///< Empty, single candidate, or list index.
   std::span<const uint16_t> candidates; ///< Multi-edge lists with flagged IDs.
 
+  /** @brief Looks up the grid cell for the narrow-band index.
+   * @param projection Dominant cube face and projected coordinates.
+   * @return Flattened cell index in the narrow-band cubemap. */
   static int cell_for(const math::CubeFaceProjection &projection) {
     return tiling_edges_detail::cell_at(projection, STEPS);
   }

@@ -43,6 +43,9 @@ inline constexpr size_t MAX_FIELD_ID = 31;
 inline constexpr size_t PER_PARAM_NAME_BYTES =
     MAX_INSTANCE_ID + 1 + MAX_FIELD_ID + 1;
 
+/** @brief Checks whether a chain operator can blend source endpoints.
+ * @param op Registered operator descriptor.
+ * @return True for an operator exposing source sampling or the spherical tiling operator. */
 inline constexpr bool supports_source_morph(const OperatorDescriptor &op) {
   return op.runtime.sample_source ||
          std::string_view(op.operator_id) == Op::SampleSphericalTiling::ID;

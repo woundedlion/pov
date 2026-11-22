@@ -246,6 +246,9 @@ inline void test_ripple_kernel_angle_at_distance() {
   HS_EXPECT_EQ(angle_at_distance(a, 1.25f, 1.0f), 0.0f);
 }
 
+/** @brief Checks whether the ripple sampler accepts a table size.
+ * @tparam Samples Number of radial transfer knots per table.
+ */
 template <size_t Samples>
 concept RippleTransferTable =
     requires(const std::array<RippleKernel::RadialTransfer, Samples> &nodes,

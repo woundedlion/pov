@@ -17,12 +17,18 @@
 
 /** @brief Authored stages for Filigree. */
 struct FiligreeSpec : Pullback::Spec {
+  /// Uses the authored node identities.
   static constexpr bool AUTHORED_TOPOLOGY = true;
+  /// Blends the incoming and outgoing spherical tiling fields.
   static constexpr bool SOURCE_MORPH = true;
+  /// Factors the leading sphere rotation into column bases.
   static constexpr bool FACTORED_SPHERE_COLUMNS = true;
+  /// Bakes the hue table only when a live modulation rotates hue.
   static constexpr bool LAZY_HUE_ROTATION_LUT = true;
   static constexpr auto TEMPORAL = Pullback::TemporalPolicy::phase();
 
+  /** @brief Rotates, displaces, and shades the spherical tiling.
+   * @tparam B Resource binding for the effect. */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::RotationProvider<B, "rotate">>,
@@ -43,6 +49,7 @@ struct FiligreeSpec : Pullback::Spec {
               Pattern::Evaluation::BAKED_CUBE, true>>>>;
 };
 
+/// Authored controls for the Filigree pipeline.
 using FiligreeParams = Pullback::ParamsFor<FiligreeSpec>;
 
 /** @brief Animated spherical tilings in jade and embers.
@@ -53,6 +60,7 @@ template <int W, int H>
 class Filigree
     : public Pullback::ComposedEffect<W, H, Filigree<W, H>, FiligreeSpec> {
 public:
+  /// Parameter state stored by the effect.
   using Params = FiligreeParams;
 
   // Generated identity: scripts/generate_composed_presets.mjs
@@ -82,6 +90,7 @@ public:
   }
   // clang-format on
   // End generated identity.
+  /// Snapshot schema version for the current parameter layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
   // Generated params: scripts/generate_composed_presets.mjs
@@ -233,7 +242,8 @@ public:
   // clang-format on
   // End generated params.
 
-  /** @brief Binds the authored preset bank. */
+  /** @brief Binds the authored preset bank.
+   * @return Type-only hook list for preset initialization and lookup. */
   static consteval auto choreography_hooks() {
     return Pullback::ComposedEffect<W, H, Filigree<W, H>,
                                     FiligreeSpec>::choreography_hooks()

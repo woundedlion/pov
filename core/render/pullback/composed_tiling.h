@@ -16,6 +16,9 @@ namespace Pullback {
 
 namespace Source {
 
+/** @brief Checks parameters for the compiled edge-only source.
+ * @param params Candidate tiling parameters.
+ * @return True if the fields are valid, edge output is selected, and the solid has baked geometry. */
 inline bool valid(const SphericalTilingSourceParams &params) {
   return Fields::valid(params) &&
          params.output == static_cast<uint8_t>(TilingOutput::EDGES) &&
@@ -26,34 +29,47 @@ inline bool valid(const SphericalTilingSourceParams &params) {
  * @tparam State Provider of tiling parameters.
  */
 template <typename State> struct BakedTilingEdges : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding =
+      typename State::Binding; ///< Pipeline binding supplied by the provider.
+  using FrameState =
+      typename State::FrameState; ///< Frame state read by the provider.
 
+  /// Edge geometry and coverage controls for one endpoint.
   struct Endpoint {
-    SphereTilingEdgeView edges;
-    SphereTilingEdgeBand band{0.0f, 0.05f};
+    SphereTilingEdgeView edges; ///< View into static baked edge tables.
+    SphereTilingEdgeBand band{0.0f,
+                              0.05f}; ///< Angular stroke and fringe limits.
   };
 
+  /// Incoming endpoint and weight for an active edge crossfade.
   struct Morph {
-    Endpoint incoming;
-    float mix = 0.0f;
+    Endpoint incoming; ///< Destination geometry and band.
+    float mix =
+        0.0f; ///< Incoming weight in [0, 1]; zero selects the primary endpoint.
   };
 
+  /// Empty state for a frame binding without source morphs.
   struct NoMorph {};
 
+  /// Whether the frame supplies source morph endpoints.
   static constexpr bool MORPHS =
       requires(const FrameState &frame) { frame.source_morph; };
 
+  /// Resolved edge endpoints for sampling one frame.
   struct Prepared {
-    Endpoint first;
+    Endpoint first; ///< Sole endpoint or outgoing side of a crossfade.
 #if defined(_MSC_VER)
     [[msvc::no_unique_address]]
 #else
     [[no_unique_address]]
 #endif
-    std::conditional_t<MORPHS, Morph, NoMorph> morph{};
+    std::conditional_t<MORPHS, Morph, NoMorph>
+        morph{}; ///< Optional crossfade state.
   };
 
+  /** @brief Resolves the baked geometry and band for each sampled endpoint.
+   * @param frame Current parameter and morph state.
+   * @return One active endpoint, or both endpoints and their mix during a crossfade. */
   static Prepared prepare(const FrameState &frame) {
     if constexpr (MORPHS) {
       const auto &morph = frame.source_morph;
@@ -70,6 +86,10 @@ template <typename State> struct BakedTilingEdges : ApproximationDefaults {
     return {prepare_endpoint(State::params(frame))};
   }
 
+  /** @brief Samples the nearest baked edges in the input direction.
+   * @param input Sphere direction and carried path length.
+   * @param source Prepared edge geometry, bands, and morph state.
+   * @return Arc fraction and coverage, including any endpoint blend, with the input direction and path length. */
   static HS_HOT_INLINE FieldSample sample(const SphereSample &input,
                                           const FrameState &,
                                           const Prepared &source) {

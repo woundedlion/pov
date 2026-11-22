@@ -16,7 +16,11 @@ namespace Pullback::Source {
 /** @brief Scalar output of a spherical tiling. */
 enum class TilingOutput : uint8_t { EDGES, FACES };
 
-/// Blends coverage and its contribution to the palette coordinate.
+/** @brief Blends coverage and weights the arc fraction by its covered contribution.
+ * @param from Outgoing edge sample.
+ * @param to Incoming edge sample.
+ * @param mix Incoming weight, clamped to [0, 1].
+ * @return Interpolated coverage and the coverage-weighted arc fraction. */
 HS_HOT_INLINE inline SphereTilingEdgeValue
 blend_tiling_edges(SphereTilingEdgeValue from, SphereTilingEdgeValue to,
                    float mix) {
