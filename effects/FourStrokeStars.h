@@ -61,10 +61,12 @@ public:
     constexpr float LONGITUDE_STEP = math::TWO_PI_F / W;
     const float row_step = math::DisplayGeometry<H>::RADIANS_PER_ROW;
     const float pixel_angle = std::max(LONGITUDE_STEP, row_step);
+    const Pixel background =
+        params.black_background ? Pixel(0, 0, 0) : FourStroke::GRAY;
     const auto &clip = canvas.clip();
     for (int y = clip.y_start; y < clip.y_end; ++y)
       std::fill_n(canvas.data() + y * W + clip.x_start,
-                  clip.x_end - clip.x_start, FourStroke::GRAY);
+                  clip.x_end - clip.x_start, background);
     for (int i = 0; i < STAR_COUNT; ++i) {
       const SDF::Star shape(bases[i], RADIUS, 5, 0, false);
       constexpr float REFERENCE_TILE_PIXELS = 64;
@@ -90,7 +92,7 @@ public:
   }
 
 private:
-  static constexpr int STAR_COUNT = 12; ///< Number of Fibonacci sites.
+  static constexpr int STAR_COUNT = 18; ///< Number of Fibonacci sites.
   static constexpr float RADIUS =
       0.20f; ///< Star radius in hemisphere fractions.
   using Contour =
@@ -125,11 +127,12 @@ private:
   }
 
   struct Params {
-    float strength = 1;    ///< Linear RGB mix.
-    int width = 1;         ///< Inner band width in output pixels.
-    bool reference = true; ///< Use the demo's opposing strips.
-    bool reverse = false;  ///< Negate the common world-space direction.
-  } params;                ///< Live material controls.
+    float strength = 1;            ///< Linear RGB mix.
+    int width = 1;                 ///< Inner band width in output pixels.
+    bool reference = true;         ///< Use the demo's opposing strips.
+    bool reverse = false;          ///< Negate the common world-space direction.
+    bool black_background = false; ///< Use a black backdrop.
+  } params;                        ///< Live material controls.
   /** @brief Describes the exposed material controls.
    * @return Parameter field descriptors in display order. */
   static constexpr auto parameter_fields() {
@@ -149,6 +152,10 @@ private:
         Control::Field<Params, bool>{.id = "reverse",
                                      .member = &Params::reverse,
                                      .name = "Reverse Direction",
+                                     .spec = {}},
+        Control::Field<Params, bool>{.id = "black_background",
+                                     .member = &Params::black_background,
+                                     .name = "Black Background",
                                      .spec = {}}};
   }
   std::array<math::Basis, STAR_COUNT>

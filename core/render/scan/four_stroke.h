@@ -250,11 +250,14 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
       basis && basis->birth > 0.f
           ? Spacetime::SamplingSurface<W>::first_column_at(basis->birth)
           : 0;
-  const int radius =
-      strip_shift
-          ? std::min(3, 1 + int(0.375f + std::max(std::abs(strip_shift->x),
-                                                  std::abs(strip_shift->y))))
-          : 3;
+  const float contrast_reach = std::max(0.f, controls.width) + 0.125f;
+  const float sample_reach =
+      strip_shift ? std::max(std::abs(strip_shift->x), std::abs(strip_shift->y))
+      : boundary_shader ? 3.f
+                        : contrast_reach;
+  const int radius = sample_reach < 1.f - FourStroke::OFFSETS[3]   ? 1
+                     : sample_reach < 2.f - FourStroke::OFFSETS[3] ? 2
+                                                                   : 3;
   const auto sample_pixel = [&](int x, int y, const math::Vector &, int) {
     if (x % (W / 2) < birth_column)
       return 1;
@@ -290,7 +293,12 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
         return FourStroke::translated_strips(
             dx, dy, *strip_shift,
             [&](float sx, float sy) { return tile.contains(sx, sy); });
-      return tile.query(dx, dy, align);
+      if (boundary_shader)
+        return tile.query(dx, dy, align);
+      return tile.query(dx, dy, align, [&](int x0, int y0) {
+        return dx >= x0 - contrast_reach && dx <= x0 + 1 + contrast_reach &&
+               dy >= y0 - contrast_reach && dy <= y0 + 1 + contrast_reach;
+      });
     };
     emit(x, y,
          four_stroke_pixel(x, y, time, beat, controls, query, alignment, shade,

@@ -18,7 +18,7 @@ inline void test_four_stroke_stars_fixed_geometry() {
   constexpr int W = 96, H = 20;
   using Frame = std::array<Pixel, W * H>;
   const auto render = [](float strength, bool reverse, uint64_t final_time,
-                         int width = 1) {
+                         int width = 1, bool black_background = false) {
     reset_globals();
     FourStrokeStars<W, H> effect;
     effect.init();
@@ -28,6 +28,9 @@ inline void test_four_stroke_stars_fixed_geometry() {
                  ParamSetResult::APPLIED);
     if (reverse)
       HS_EXPECT_EQ(effect.updateParameter("Reverse Direction", true),
+                   ParamSetResult::APPLIED);
+    if (black_background)
+      HS_EXPECT_EQ(effect.updateParameter("Black Background", true),
                    ParamSetResult::APPLIED);
     std::array<Frame, 7> frames;
     for (size_t i = 0; i < frames.size(); ++i) {
@@ -57,8 +60,11 @@ inline void test_four_stroke_stars_fixed_geometry() {
   HS_EXPECT_TRUE(reverse.back() != beat.back());
   const auto wide = render(1.0f, true, 62500, 2);
   HS_EXPECT_TRUE(wide.back() != beat.back());
+  const auto black = render(1.0f, true, 62500, 1, true);
+  HS_EXPECT_TRUE(black.front() != black.back());
   const Pixel first_fill = FourStroke::colors(0).fill;
   const Pixel second_fill = FourStroke::colors(62500).fill;
+  const Pixel black_background(0, 0, 0);
   int center_pixels = 0;
   for (size_t i = 0; i < forward.back().size(); ++i) {
     if (forward.back()[i] == first_fill && reverse.back()[i] == first_fill &&
@@ -67,6 +73,10 @@ inline void test_four_stroke_stars_fixed_geometry() {
   }
   HS_EXPECT_GT(center_pixels, 10);
   for (size_t i = 0; i < forward.front().size(); ++i) {
+    if (beat.back()[i] == second_fill)
+      HS_EXPECT_TRUE(black.back()[i] == second_fill);
+    if (beat.back()[i] == FourStroke::GRAY)
+      HS_EXPECT_TRUE(black.back()[i] == black_background);
     if (forward.front()[i] == FourStroke::GRAY) {
       HS_EXPECT_TRUE(forward[1][i] == FourStroke::GRAY);
       HS_EXPECT_TRUE(reverse.back()[i] == FourStroke::GRAY);
