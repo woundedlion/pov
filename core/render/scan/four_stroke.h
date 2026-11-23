@@ -130,15 +130,19 @@ auto four_stroke_tangent_direction(Arrow &arrow) {
  * @param controls Four-stroke material controls.
  * @param t0,t1 Integer presentation endpoints.
  * @param strip_shift Optional silhouette displacement in output pixels.
+ * @param constant_base Optional opaque material with no producer-dependent inputs.
  * @param boundary_shader Optional replacement consuming the same contour registers. */
 template <int W, int H, typename Shape, typename Shader, typename ColumnFn>
-void rasterize_four_stroke_sdf(
-    auto &pipeline, Canvas &canvas, const Shape &shape, const Shader &shader,
-    const auto &view, const auto &alignment,
-    const FourStroke::Controls &controls, uint64_t t0, uint64_t t1,
-    FragmentShaderRef boundary_shader, const ColumnFn &select_column,
-    const ProjectedStar<W, H> *prepared,
-    std::optional<FourStroke::Direction> strip_shift) {
+void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
+                               const Shape &shape, const Shader &shader,
+                               const auto &view, const auto &alignment,
+                               const FourStroke::Controls &controls,
+                               uint64_t t0, uint64_t t1,
+                               FragmentShaderRef boundary_shader,
+                               const ColumnFn &select_column,
+                               const ProjectedStar<W, H> *prepared,
+                               std::optional<FourStroke::Direction> strip_shift,
+                               std::optional<Pixel> constant_base) {
   if (controls.strength == 0) {
     rasterize<W, H>(pipeline, canvas, shape, shader);
     return;
@@ -150,6 +154,10 @@ void rasterize_four_stroke_sdf(
     return hit.dist;
   };
   const auto shade = [&](float x, float y, uint64_t time, Fragment &f) {
+    if (constant_base && !boundary_shader) {
+      f.color = Color4(*constant_base, 1);
+      return;
+    }
     const auto p = view(x, y, time);
     SDF::DistanceResult hit;
     shape.template distance<true>(p, hit);
@@ -179,6 +187,19 @@ void rasterize_four_stroke_sdf(
         const auto &clip = source_clip<W, H>(pipeline, canvas);
         const int y0 = std::max(clip.render_y_start(), contour.begin_row());
         const int y1 = std::min(clip.render_y_end(), contour.end_row());
+        if (y0 >= y1)
+          return;
+        using RowEdges = typename ProjectedStar<W, H>::RowEdges;
+        RowEdges *rows = nullptr;
+        if (!boundary_shader || strip_shift) {
+          rows = scratch_arena_b.allocate_n<RowEdges>(y1 - y0);
+          const float reach = strip_shift ? std::abs(strip_shift->y)
+                                          : std::max(0.f, controls.width) + 1.f;
+          for (int y = y0; y < y1; ++y)
+            rows[y - y0] =
+                contour.row_edges((y + FourStroke::OFFSETS[0]) - reach,
+                                  (y + FourStroke::OFFSETS[3]) + reach);
+        }
         const auto pieces =
             window_pieces<W>(clip.x_clip(), canvas.time_window());
         const auto draw_column = [&](int x) {
@@ -192,11 +213,12 @@ void rasterize_four_stroke_sdf(
               if (strip_shift)
                 return FourStroke::translated_strips(
                     ux + dx, y + dy, *strip_shift, [&](float sx, float sy) {
-                      return contour.contains(sx, sy);
+                      return contour.contains(sx, sy, rows[y - y0]);
                     });
               return contour.query(ux + dx, y + dy, align,
                                    boundary_shader ? INFINITY
-                                                   : float(controls.width));
+                                                   : float(controls.width),
+                                   rows ? &rows[y - y0] : nullptr);
             };
             emit(x, y,
                  four_stroke_pixel(x, y, time, beat, controls, query, alignment,
@@ -228,6 +250,11 @@ void rasterize_four_stroke_sdf(
       basis && basis->birth > 0.f
           ? Spacetime::SamplingSurface<W>::first_column_at(basis->birth)
           : 0;
+  const int radius =
+      strip_shift
+          ? std::min(3, 1 + int(0.375f + std::max(std::abs(strip_shift->x),
+                                                  std::abs(strip_shift->y))))
+          : 3;
   const auto sample_pixel = [&](int x, int y, const math::Vector &, int) {
     if (x % (W / 2) < birth_column)
       return 1;
@@ -247,13 +274,15 @@ void rasterize_four_stroke_sdf(
       return 1;
     FourStroke::ContourTile tile;
     bool solid = true;
-    tile.prepare([&](int dx, int dy) {
-      const float f = std::abs(dx) <= 1 && std::abs(dy) <= 1
-                          ? center[dy + 1][dx + 1]
-                          : field(math::wrap(x + dx, W), y + dy, time);
-      solid &= f <= 0;
-      return f;
-    });
+    tile.prepare(
+        [&](int dx, int dy) {
+          const float f = std::abs(dx) <= 1 && std::abs(dy) <= 1
+                              ? center[dy + 1][dx + 1]
+                              : field(math::wrap(x + dx, W), y + dy, time);
+          solid &= f <= 0;
+          return f;
+        },
+        radius);
     const auto query = [&](float dx, float dy, auto align) {
       if (solid)
         return FourStroke::Boundary{true, INFINITY, 0};
@@ -299,6 +328,8 @@ struct FourStrokeMaterial {
       arrow{}; ///< Physical direction in the view frame.
   std::optional<FourStroke::Direction>
       strip_direction{}; ///< Silhouette displacement per band pixel.
+  std::optional<Pixel>
+      constant_base{}; ///< Opaque producer-independent material.
 };
 
 /** @brief Rasterizes an SDF with a boundary-aware fragment material.
@@ -353,10 +384,10 @@ void rasterize(auto &pipeline, Canvas &canvas, const Shape &shape,
     strip_shift->x *= material.controls.width;
     strip_shift->y *= material.controls.width;
   }
-  rasterize_four_stroke_sdf<W, H>(pipeline, canvas, shape, material.base, view,
-                                  alignment, material.controls, interval.t0,
-                                  interval.t1, material.boundary, save_column,
-                                  prepared, strip_shift);
+  rasterize_four_stroke_sdf<W, H>(
+      pipeline, canvas, shape, material.base, view, alignment,
+      material.controls, interval.t0, interval.t1, material.boundary,
+      save_column, prepared, strip_shift, material.constant_base);
 }
 
 } // namespace Scan

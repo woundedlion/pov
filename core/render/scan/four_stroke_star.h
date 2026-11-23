@@ -137,15 +137,39 @@ public:
    * @return Exclusive row limit. */
   int end_row() const { return static_cast<int>(std::floor(y_max + 0.5f)) + 1; }
 
-  /** @brief Tests coverage without resolving contour distance or direction.
-   * @param x,y Sample coordinates in the contour's unwrapped chart.
-   * @return True inside or on the exposed outline. */
-  bool contains(float x, float y) const {
-    bool inside = false;
+  /** @brief Ordered edge indices for the samples in one raster row. */
+  struct RowEdges {
+    std::array<uint8_t, CAPACITY>
+        indices;  ///< Contour indices in winding order.
+    uint8_t size; ///< Number of indices in the row's vertical band.
+  };
+
+  /** @brief Selects the edges that meet a vertical sample band.
+   * @param top,bottom Inclusive row coordinates of the band.
+   * @return Ordered candidates for coverage or local contour distance. */
+  RowEdges row_edges(float top, float bottom) const {
+    RowEdges result{};
     for (int i = 0; i < count; ++i) {
       const auto &edge = edges[i];
+      if (std::max(edge.a.y, edge.b.y) >= top &&
+          std::min(edge.a.y, edge.b.y) <= bottom)
+        result.indices[result.size++] = static_cast<uint8_t>(i);
+    }
+    return result;
+  }
+
+  /** @brief Tests coverage without resolving contour distance or direction.
+   * @param x,y Sample coordinates in the contour's unwrapped chart.
+   * @param row Candidates spanning the sample's row.
+   * @return True inside or on the exposed outline. */
+  bool contains(float x, float y, const RowEdges &row) const {
+    bool inside = false;
+    for (int i = 0; i < row.size; ++i) {
+      const auto &edge = edges[row.indices[i]];
       const float dx = edge.b.x - edge.a.x, dy = edge.b.y - edge.a.y;
       const float px = x - edge.a.x, py = y - edge.a.y;
+      if (y < std::min(edge.a.y, edge.b.y) || y > std::max(edge.a.y, edge.b.y))
+        continue;
       const float cross = px * dy - py * dx;
       if (cross == 0 && px * dx + py * dy >= 0 &&
           (x - edge.b.x) * dx + (y - edge.b.y) * dy <= 0)
@@ -160,15 +184,19 @@ public:
    * @param x,y Unwrapped sample coordinates.
    * @param align Alignment of the physical or output heading with a unit normal.
    * @param alignment_width Maximum depth that needs directional alignment.
+   * @param row Optional candidates covering the sample and alignment width.
    * @return Membership and closest exposed contour in output pixels. */
   FourStroke::Boundary query(float x, float y, const auto &align,
-                             float alignment_width = INFINITY) const {
+                             float alignment_width = INFINITY,
+                             const RowEdges *row = nullptr) const {
     FourStroke::Boundary result;
     float nearest = INFINITY;
     const float limit = alignment_width * alignment_width;
     int winner = 0;
     bool tied = false;
-    for (int i = 0; i < count; ++i) {
+    const int row_size = row ? row->size : count;
+    for (int offset = 0; offset < row_size; ++offset) {
+      const int i = row ? row->indices[offset] : offset;
       const auto &e = edges[i];
       const float dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
       if ((e.a.y > y) != (e.b.y > y) && x < e.a.x + (y - e.a.y) * dx / dy)

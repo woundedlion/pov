@@ -52,8 +52,9 @@ public:
     timeline.step(canvas);
     if (north != math::DISPLAY_NORTH_PHI || south != math::DISPLAY_SOUTH_PHI)
       prepare_contours();
+    static constexpr Pixel BASE_COLOR = FourStroke::linear_rgb(0xb5b5b5);
     const auto base = [](const math::Vector &, Fragment &fragment) {
-      fragment.color = Color4(FourStroke::linear_rgb(0xb5b5b5), 1);
+      fragment.color = Color4(BASE_COLOR, 1);
     };
     const auto walk_arrow = direction.orient(math::Y_AXIS);
     const auto arrow = params.reverse ? -walk_arrow : walk_arrow;
@@ -82,7 +83,8 @@ public:
           .strip_direction =
               params.reference
                   ? std::optional{screen_direction(bases[i].v, arrow, row_step)}
-                  : std::nullopt};
+                  : std::nullopt,
+          .constant_base = BASE_COLOR};
       Scan::Star::draw<W, H>(pipeline, canvas, shape, (*contours)[i], material);
     }
   }

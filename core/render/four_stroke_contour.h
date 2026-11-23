@@ -18,10 +18,11 @@ public:
   /** @brief Samples the signed field on the output-pixel lattice.
    * @tparam Field Signed scalar or signed binary occupancy query.
    * @param field Callable taking integer column and row offsets from the center.
-   *              Nonpositive values are inside. A nonfinite value marks a missing sample. */
-  template <typename Field> void prepare(Field &&field) {
-    for (int y = -3; y <= 3; ++y)
-      for (int x = -3; x <= 3; ++x)
+   *              Nonpositive values are inside. A nonfinite value marks a missing sample.
+   * @param radius Lattice radius, from 1 to 3. Queries must stay in these cells. */
+  template <typename Field> void prepare(Field &&field, int radius = 3) {
+    for (int y = -radius; y <= radius; ++y)
+      for (int x = -radius; x <= radius; ++x)
         values[y + 3][x + 3] = field(x, y);
   }
 
