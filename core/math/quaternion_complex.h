@@ -420,9 +420,7 @@ inline Complex ccosh(const Complex &z) { return ccosh_csinh(z).first; }
 /** @brief Complex hyperbolic sine.
  * @param z Argument.
  * @return Hyperbolic sine. */
-inline Complex csinh(const Complex &z) {
-  return Complex(sinhf(z.re) * cosf(z.im), coshf(z.re) * sinf(z.im));
-}
+inline Complex csinh(const Complex &z) { return ccosh_csinh(z).second; }
 
 /** @brief Principal inverse complex hyperbolic cosine.
  * @param z Argument.
