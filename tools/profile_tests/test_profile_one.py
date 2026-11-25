@@ -83,12 +83,18 @@ class ProfileSweepTests(unittest.TestCase):
 
     def test_roster_tool_failures_cannot_report_success(self):
         sweep = (REPO / "tools" / "profile_sweep.sh").as_posix()
-        for tool in ("comm", "sort", "python"):
+        failing = '{ [ "$1" = --version ] || return 3; }'
+        stubs = {
+            "comm": "comm() { return 3; }; export -f comm; ",
+            "sort": "sort() { return 3; }; export -f sort; ",
+            "python": f"python3() {failing}; python() {failing}; export -f python3 python; ",
+        }
+        env = {key: value for key, value in os.environ.items() if key != "HS_PYTHON"}
+        for tool, stub in stubs.items():
             with self.subTest(tool=tool):
                 result = subprocess.run(
-                    ["bash", "-c", f'{tool}() {{ return 3; }}; export -f {tool}; '
-                     'bash "$1" check', "sweep-test", sweep],
-                    capture_output=True, text=True)
+                    ["bash", "-c", stub + 'bash "$1" check', "sweep-test", sweep],
+                    capture_output=True, text=True, env=env)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("profile_sweep: cannot", result.stderr)
                 self.assertNotIn("effect(s) match", result.stdout)
