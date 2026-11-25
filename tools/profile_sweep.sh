@@ -5,6 +5,8 @@
 # the run exits non-zero listing the failures. The groups' union is checked
 # against the playlist's show rows first; `check` runs only that (no board).
 set -uo pipefail
+# shellcheck source=tools/find_python.sh
+. "$(dirname "$0")/find_python.sh"
 P="$(dirname "$0")/profile_one.sh"
 PLAYLIST_DEF="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.def"
 FAILED=()
@@ -22,7 +24,12 @@ check|g[1-6]_ship) ;;
 esac
 
 playlist_roster() {
-  python "$(dirname "$0")/cpp_roster.py" "$PLAYLIST_DEF"
+  local python
+  if ! python="$(hs_find_python)"; then
+    echo "profile_sweep: no working Python found (set HS_PYTHON)" >&2
+    return 1
+  fi
+  "$python" "$(dirname "$0")/cpp_roster.py" "$PLAYLIST_DEF"
 }
 
 # Enumerate the reachable groups without flashing a board.
