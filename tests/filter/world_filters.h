@@ -9,6 +9,7 @@
 
 #include "core/math/scalar_kernels.h"
 #include "tests/filter/context.h"
+#include <numbers>
 
 namespace hs_test::filter_tests {
 
@@ -191,7 +192,7 @@ inline void test_world_hole_angular_reference() {
                          2.0f * math::PI_F}) {
       Filter::World::Hole hole(center * 3.0f, radius);
       for (int i = 0; i <= 360; ++i) {
-        const double angle = 3.14159265358979323846 * i / 360.0;
+        const double angle = std::numbers::pi * i / 360.0;
         for (float scale : {0.998f, 1.0f - 2e-7f, 1.0f, 1.0f + 2e-7f, 1.002f}) {
           const math::Vector point =
               (center * math::fast_cosf(static_cast<float>(angle)) +

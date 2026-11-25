@@ -7,6 +7,7 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import sexp  # noqa: E402
+from committed_boards import committed_project  # noqa: E402
 from kicad_common import F  # noqa: E402
 
 REVISIONS = ("1.1", "1.2", "1.3")
@@ -48,7 +49,7 @@ class RevisionTests(unittest.TestCase):
     def test_revision_labels(self):
         for revision in REVISIONS:
             with self.subTest(revision=revision):
-                project = GEN.parent / revision
+                project = committed_project(revision)
                 board = project / "phantasm.kicad_pcb"
                 self.assertEqual(silk_revisions(board), [revision])
                 self.assertEqual(title_block_rev(board), revision)

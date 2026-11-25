@@ -141,14 +141,7 @@ inline void test_four_stroke_disabled_star() {
         });
   };
   const auto expected = draw(false), actual = draw(true);
-  bool lit = false;
-  for (size_t i = 0; i < expected.size(); ++i) {
-    lit |= expected[i].r != 0;
-    HS_EXPECT_EQ(expected[i].r, actual[i].r);
-    HS_EXPECT_EQ(expected[i].g, actual[i].g);
-    HS_EXPECT_EQ(expected[i].b, actual[i].b);
-  }
-  HS_EXPECT_TRUE(lit);
+  HS_EXPECT_GT(expect_frames_within("disabled star", actual, expected, 0), 0);
 }
 /** @brief Projected chords track the exact curved star perimeter in output pixels. */
 inline void test_four_stroke_star_contour_error() {
@@ -235,11 +228,7 @@ inline void test_four_stroke_prepared_star() {
     calls = 0;
     const auto fresh = draw(*shape, false);
     HS_EXPECT_EQ(cached_calls, calls);
-    for (size_t i = 0; i < fresh.size(); ++i) {
-      HS_EXPECT_EQ(fresh[i].r, cached[i].r);
-      HS_EXPECT_EQ(fresh[i].g, cached[i].g);
-      HS_EXPECT_EQ(fresh[i].b, cached[i].b);
-    }
+    HS_EXPECT_GT(expect_frames_within("prepared star", cached, fresh, 0), 0);
   }
 }
 /** @brief Counts SDF probes in the sampled fallback. */
@@ -298,11 +287,8 @@ inline void test_four_stroke_sampled_bounds() {
     std::printf("  sampled star probes %d bounded / %d full\n", bounded.probes,
                 brute.probes);
     HS_EXPECT_TRUE(bounded.probes > 0 && bounded.probes < brute.probes);
-    for (size_t i = 0; i < actual.size(); ++i) {
-      HS_EXPECT_EQ(expected[i].r, actual[i].r);
-      HS_EXPECT_EQ(expected[i].g, actual[i].g);
-      HS_EXPECT_EQ(expected[i].b, actual[i].b);
-    }
+    HS_EXPECT_GT(expect_frames_within("sampled bounds", actual, expected, 0),
+                 0);
   }
 }
 } // namespace hs_test::scan_tests

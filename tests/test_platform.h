@@ -20,6 +20,7 @@
 #include <limits>
 #include <string_view>
 #include <vector>
+#include <numbers>
 
 namespace hs_test {
 namespace platform_tests {
@@ -27,7 +28,7 @@ namespace platform_tests {
 static_assert(hs::clamp(-1, 2, 0) == 2, "inverted int bounds resolve to lo");
 static_assert(hs::clamp(3, 2, 0) == 2, "inverted int bounds resolve to lo");
 
-inline constexpr double TWO_PI = 6.283185307179586;
+inline constexpr double TWO_PI = 2.0 * std::numbers::pi;
 
 /**
  * @brief Pins sin8's FastLED cardinal anchors and true-sine error below 4 LSB.

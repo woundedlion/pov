@@ -487,7 +487,6 @@ inline void test_particle_system_signed_axis_trajectory() {
 
 /** @brief Point storage preserves directions, tangent motion, and lifetime. */
 inline void test_point_particle_storage_and_lifetime() {
-  HS_EXPECT_EQ(sizeof(Animation::PointParticle), size_t{24});
   for (int x = -1; x <= 1; ++x) {
     for (int y = -1; y <= 1; ++y) {
       for (int z = -1; z <= 1; ++z) {

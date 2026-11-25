@@ -20,21 +20,6 @@ namespace hs_test::conway_morph_tests {
 // Hankin-sweep displacement and face-normal bounds.
 // ---------------------------------------------------------------------------
 
-using MeshOps::HankinSolve;
-
-/** Solves each dynamic vertex and retains its branch diagnostics. */
-inline void hankin_solve(const CompiledHankin &compiled, float angle,
-                         std::vector<HankinSolve> &out) {
-  const bool is_flat = std::abs(angle) < math::TOLERANCE;
-  const float cos_ha = cosf(angle * 0.5f);
-  const float sin_ha = sinf(angle * 0.5f);
-  out.clear();
-  out.reserve(compiled.dynamic_instructions.size());
-  for (const auto &instr : compiled.dynamic_instructions)
-    out.push_back(
-        MeshOps::solve_hankin_vertex(compiled, instr, is_flat, cos_ha, sin_ha));
-}
-
 /**
  * @brief Newell normals of every compiled hankin face for a solved star set.
  * @param compiled Baked hankin topology.
@@ -42,11 +27,11 @@ inline void hankin_solve(const CompiledHankin &compiled, float angle,
  * @param out Filled with one unnormalized Newell normal per face.
  */
 inline void hankin_face_normals(const CompiledHankin &compiled,
-                                const std::vector<HankinSolve> &dyn,
+                                const std::vector<math::Vector> &dyn,
                                 std::vector<math::Vector> &out) {
   auto vertex_at = [&](uint16_t idx) {
     return idx < compiled.static_offset ? compiled.static_vertices[idx]
-                                        : dyn[idx - compiled.static_offset].pos;
+                                        : dyn[idx - compiled.static_offset];
   };
   out.assign(compiled.face_counts.size(), math::Vector());
   size_t base = 0;
@@ -83,17 +68,16 @@ struct HankinStepStats {
  * @param stats Metrics to fill.
  */
 inline void hankin_step_stats(const CompiledHankin &compiled,
-                              const std::vector<HankinSolve> &prev,
+                              const std::vector<math::Vector> &prev,
                               const std::vector<math::Vector> &prev_normals,
-                              const std::vector<HankinSolve> &curr,
+                              const std::vector<math::Vector> &curr,
                               const std::vector<math::Vector> &curr_normals,
                               HankinStepStats &stats) {
   for (size_t i = 0; i < curr.size(); ++i) {
     const math::Vector cn = math::normalized_or(
-        compiled.corner(compiled.dynamic_instructions[i].v_corner),
-        curr[i].pos);
-    stats.max_corner_chord = hs_test::fold_worst(
-        stats.max_corner_chord, (curr[i].pos - cn).magnitude());
+        compiled.corner(compiled.dynamic_instructions[i].v_corner), curr[i]);
+    stats.max_corner_chord =
+        hs_test::fold_worst(stats.max_corner_chord, (curr[i] - cn).magnitude());
   }
   for (const math::Vector &n : curr_normals)
     if (n.magnitude() < HANKIN_FLAT_FACE)
@@ -102,7 +86,7 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
     return;
   double sum = 0;
   for (size_t i = 0; i < curr.size(); ++i) {
-    const float d = (curr[i].pos - prev[i].pos).magnitude();
+    const float d = (curr[i] - prev[i]).magnitude();
     sum += d;
     stats.max_disp = hs_test::fold_worst(stats.max_disp, d);
   }
@@ -175,8 +159,9 @@ inline void test_hankin_sweep_vertex_stability() {
     CompiledHankin compiled;
     MeshOps::compile_hankin(seed, compiled, a, b);
 
-    std::vector<HankinSolve> arrival;
-    hankin_solve(compiled, site.theta_star, arrival);
+    PolyMesh arrival;
+    MeshOps::update_hankin(compiled, arrival, b, site.theta_star);
+    const size_t static_count = compiled.static_vertices.size();
 
     Arena leg_arena(morph_aux_buf, sizeof(morph_aux_buf));
     Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -215,16 +200,11 @@ inline void test_hankin_sweep_vertex_stability() {
     HS_EXPECT_SIZE_OR_RETURN(drawn_frames, static_cast<size_t>(SAMPLES));
 
     std::vector<HankinStepStats> table;
-    std::vector<HankinSolve> prev, curr;
-    std::vector<math::Vector> prev_normals, curr_normals;
+    std::vector<math::Vector> prev, curr, prev_normals, curr_normals;
     for (int sample = 0; sample < SAMPLES; ++sample) {
-      HS_EXPECT_SIZE_OR_RETURN(drawn_frames[sample],
-                               compiled.static_vertices.size() +
-                                   arrival.size());
-      curr.assign(arrival.size(), HankinSolve{});
-      for (size_t i = 0; i < arrival.size(); ++i)
-        curr[i] = {drawn_frames[sample][compiled.static_vertices.size() + i],
-                   arrival[i].branch, 0.0f};
+      HS_EXPECT_SIZE_OR_RETURN(drawn_frames[sample], arrival.vertices.size());
+      curr.assign(drawn_frames[sample].begin() + static_count,
+                  drawn_frames[sample].end());
       hankin_face_normals(compiled, curr, curr_normals);
       HankinStepStats row;
       hankin_step_stats(compiled, prev, prev_normals, curr, curr_normals, row);
@@ -247,10 +227,8 @@ inline void test_hankin_sweep_vertex_stability() {
       for (size_t vertex = 0; vertex < bookend.vertices.size(); ++vertex)
         HS_EXPECT_VEC(drawn_frames.back()[vertex], bookend.vertices[vertex],
                       1e-6f);
-    for (size_t i = 0; i < arrival.size(); ++i)
-      HS_EXPECT_LE((drawn_frames.back()[compiled.static_vertices.size() + i] -
-                    arrival[i].pos)
-                       .magnitude(),
+    for (size_t i = static_count; i < arrival.vertices.size(); ++i)
+      HS_EXPECT_LE((drawn_frames.back()[i] - arrival.vertices[i]).magnitude(),
                    3e-5f);
   }
 }

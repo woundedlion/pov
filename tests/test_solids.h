@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <numbers>
 #include "core/mesh/mesh.h"
 #include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
@@ -94,28 +95,16 @@ inline uint8_t solids_scratch_b[4 * 1024 * 1024];
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Asserts every vertex coordinate is finite (no NaN/Inf from the
- *        generators).
- * @param m Mesh whose vertex coordinates are checked.
- */
-inline void check_all_finite(const PolyMesh &m) {
-  for (size_t i = 0; i < m.vertices.size(); ++i) {
-    const math::Vector &v = m.vertices[i];
-    HS_EXPECT_TRUE(finite_vec(v));
-  }
-}
-
-/**
  * @brief Structural validity bundle applied to every registered solid.
  * @param m Mesh to validate.
  * @details Asserts non-empty, consistent face_counts/faces, in-range face
- *          indices, and finite coordinates.
+ *          indices, and finite unit-sphere vertices within 1e-3.
  */
 inline void check_basic(const PolyMesh &m) {
   check_nonempty(m);
   check_face_counts_consistent(m);
   check_indices_in_range(m);
-  check_all_finite(m);
+  check_all_unit_vertices(m, 1e-3f);
 }
 
 /**
@@ -145,7 +134,6 @@ inline void test_simple_registry_solids_are_spherical_and_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(i, geom);
     check_basic(m);
-    check_all_unit_vertices(m, 1e-3f);
   }
 }
 
@@ -161,7 +149,6 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(base + k, geom);
     check_basic(m);
-    check_all_unit_vertices(m, 1e-3f);
   }
 }
 
@@ -181,7 +168,6 @@ inline void test_islamic_registry_solids_are_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(base + k, geom);
     check_basic(m);
-    check_all_unit_vertices(m, 1e-3f);
   }
 }
 
@@ -221,7 +207,6 @@ inline constexpr float TOPOLOGY_ANGLE_MARGIN_DEG = 5e-4f;
  */
 inline double classifier_angle_deg_ref(const PolyMesh &m, const uint16_t *idx,
                                        int count, int k) {
-  constexpr double PI_D = 3.14159265358979323846;
   const int prev_k = k == 0 ? count - 1 : k - 1;
   const int next_k = k + 1 == count ? 0 : k + 1;
   const math::Vector &prev = m.vertices[idx[prev_k]];
@@ -239,7 +224,7 @@ inline double classifier_angle_deg_ref(const PolyMesh &m, const uint16_t *idx,
     return 0.0;
   double d = (e1x * e2x + e1y * e2y + e1z * e2z) / std::sqrt(m1 * m2);
   d = d < -1.0 ? -1.0 : (d > 1.0 ? 1.0 : d);
-  return std::acos(d) * 180.0 / PI_D;
+  return std::acos(d) * 180.0 / std::numbers::pi;
 }
 
 /**
@@ -408,7 +393,6 @@ inline void test_get_by_name_known_returns_that_solid() {
   Arena b(solids_scratch_b, sizeof(solids_scratch_b));
   PolyMesh m = Solids::get_by_name(geom, a, b, "octahedron");
   check_basic(m);
-  check_all_unit_vertices(m, 1e-3f);
   HS_EXPECT_EQ(m.vertices.size(), (size_t)6);
   HS_EXPECT_EQ(m.face_counts.size(), (size_t)8);
 }

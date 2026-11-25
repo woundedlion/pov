@@ -988,7 +988,6 @@ inline void test_clip_content_key_is_exact() {
                             .h = 288};
   constexpr auto WIDE_KEY = WIDE.content_key<576, 288>();
   static_assert(WIDE_KEY.words[1] != 0);
-  HS_EXPECT_NE(WIDE_KEY.words[1], uint64_t{0});
   for (const auto field : FIELDS) {
     ClipRegion changed = WIDE;
     --(changed.*field);

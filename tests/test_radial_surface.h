@@ -14,6 +14,7 @@
 #include <cfloat>
 #include <cmath>
 #include <vector>
+#include <numbers>
 #include "core/render/scan/radial_surface.h"
 #include "core/render/scan/radial_surface_edge_aa.h"
 #include "core/render/scan/radial_surface_math.h"
@@ -87,7 +88,7 @@ inline double area_reference(const Surface &surface, Surface::Point p,
 inline double reference_hit(ReferencePoint p,
                             std::span<const Surface::Knot> knots, int sides,
                             double ratio) {
-  constexpr double TAU = 6.28318530717958647692;
+  constexpr double TAU = 2.0 * std::numbers::pi;
   for (size_t i = 0; i + 1 < knots.size(); ++i) {
     double earliest = 2.0;
     for (int edge = 0; edge < 2 * sides; ++edge) {

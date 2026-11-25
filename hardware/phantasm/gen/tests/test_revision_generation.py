@@ -25,6 +25,7 @@ import pcb_footprints  # noqa: E402
 import sexp  # noqa: E402
 import shorts  # noqa: E402
 from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
+from committed_boards import committed_board, committed_project  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from pin_landing import dangling_pins  # noqa: E402
 from kicad_env import (  # noqa: E402
@@ -32,7 +33,7 @@ from kicad_env import (  # noqa: E402
     footprint_pose, footprints_by_ref, generate, pad_position, zone_polygon,
 )
 
-PROTOTYPE = GEN.parent / "1.3"
+PROTOTYPE = committed_project("1.3")
 GENERATED_PROJECT_FILES = (
     "fp-lib-table",
     "phantasm.kicad_pcb",
@@ -155,7 +156,7 @@ class PrototypeContractTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "does not match requested 1.3"):
                 check.main(["--revision", "1.3", "rev_12.kicad_sch"])
         with contextlib.redirect_stderr(io.StringIO()):
-            result = shorts.main(["--revision", "1.3", str(GEN.parent / "1.2" / "phantasm.kicad_sch")])
+            result = shorts.main(["--revision", "1.3", str(committed_project("1.2") / "phantasm.kicad_sch")])
         self.assertEqual(result, 2)
 
     def test_committed_board_matches_differential_electrical_partition(self):
@@ -227,12 +228,12 @@ class PrototypeContractTests(unittest.TestCase):
         jumper = footprints_by_ref(self.board)["JP_TERM"]
         self.assertEqual(sexp.val(mark, "layer"), ["B.SilkS"])
         self.assertEqual(sexp.val(mark, "at")[0], sexp.val(jumper, "at")[0])
-        legacy = sexp.parse_one((GEN.parent / "1.2" / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
+        legacy = sexp.parse_one(committed_board("1.2").read_text(encoding="utf-8"))
         self.assertNotIn("TERM=CABLE ENDS", [text[1] for text in F(legacy, "gr_text")])
         self.assertNotIn("TERM", [text[1] for text in F(legacy, "gr_text")])
 
     def test_usb_keepout_label_tracks_the_teensy(self):
-        legacy = sexp.parse_one((GEN.parent / "1.2" / "phantasm.kicad_pcb").read_text(encoding="utf-8"))
+        legacy = sexp.parse_one(committed_board("1.2").read_text(encoding="utf-8"))
         for revision, root in (("1.2", legacy), ("1.3", self.board)):
             with self.subTest(revision=revision):
                 label, = [text for text in F(root, "gr_text") if text[1] == "USB PLUG KEEP-OUT"]
@@ -390,7 +391,7 @@ class RevisionGenerationTests(unittest.TestCase):
         for revision in ("1.2", "1.3"):
             with self.subTest(revision=revision), tempfile.TemporaryDirectory() as directory:
                 project = Path(directory) / revision
-                shutil.copytree(GEN.parent / revision, project,
+                shutil.copytree(committed_project(revision), project,
                                 ignore=shutil.ignore_patterns("routed", "candidates"))
                 report = str(Path(directory) / "erc.json")
                 context = replace(fab.default_context(), sch=str(project / "phantasm.kicad_sch"))
@@ -420,7 +421,7 @@ class RevisionGenerationTests(unittest.TestCase):
         for path in GENERATED_PROJECT_FILES:
             actual = (self.rev_12 / path).read_bytes()
             self.assertEqual(actual, self.before[path], path)
-            self.assertEqual(actual, (GEN.parent / "1.2" / path).read_bytes(), path)
+            self.assertEqual(actual, (committed_project("1.2") / path).read_bytes(), path)
 
     def test_prototype_schematic_exports_expected_pin_partition(self):
         root = export_netlist(kicad_cli(), str(self.prototype / "phantasm.kicad_sch"))

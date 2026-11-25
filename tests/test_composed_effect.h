@@ -24,6 +24,8 @@
 #include "tests/composed_effect/authored_policies.h"
 #include "tests/composed_effect/base_cases.h"
 #include "tests/composed_effect/planar_source.h"
+#include "tests/composed_effect/catalog_policies.h"
+#include "tests/composed_effect/keyed_rotations.h"
 
 namespace hs_test::composed_effect_tests {
 

@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <numbers>
 
 #include "core/math/interpolate.h"
 #include "tests/test_fixture.h"
@@ -82,7 +83,7 @@ inline void test_log_positive() {
 
 /** @brief Periodic interpolation takes the shortest arc with a negative half-period tie. */
 inline void test_shortest_periodic() {
-  constexpr float TAU = 6.28318530717958647692f;
+  constexpr float TAU = 2.0f * std::numbers::pi_v<float>;
 
   HS_EXPECT_EQ(interp::shortest_periodic(0.25f, 0.75f, 0.0f, 1.0f), 0.25f);
   HS_EXPECT_EQ(interp::shortest_periodic(0.25f, 0.75f, 1.0f, 1.0f), 0.75f);

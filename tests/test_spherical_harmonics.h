@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cmath>
+#include <numbers>
 
 #include "core/math/spherical_harmonics.h"
 #include "tests/test_fixture.h"
@@ -15,8 +16,6 @@
 
 namespace hs_test {
 namespace spherical_harmonics_tests {
-
-constexpr double PI_D = 3.14159265358979323846;
 
 /**
  * @brief Factorial in double, the reference SHMath::factorial approximates.
@@ -73,7 +72,7 @@ inline double legendre_reference(int l, int m, double x) {
 inline double harmonic_reference(int l, int m, const math::Vector &p) {
   const int abs_m = std::abs(m);
   double norm = std::sqrt(
-      ((2.0 * l + 1.0) / (4.0 * PI_D)) *
+      ((2.0 * l + 1.0) / (4.0 * std::numbers::pi)) *
       (factorial_reference(l - abs_m) / factorial_reference(l + abs_m)));
   if (m != 0)
     norm *= std::sqrt(2.0);
@@ -192,8 +191,9 @@ inline void test_spherical_harmonic_matches_the_angular_reference() {
       const float scale = SHMath::harmonic_scale(l, m);
       for (int phi_step = 1; phi_step < 12; ++phi_step)
         for (int theta_step = 0; theta_step < 16; ++theta_step) {
-          const double phi = phi_step * (PI_D / 12.0);
-          const double theta = theta_step * (2.0 * PI_D / 16.0) - PI_D;
+          const double phi = phi_step * (std::numbers::pi / 12.0);
+          const double theta =
+              theta_step * (2.0 * std::numbers::pi / 16.0) - std::numbers::pi;
           const math::Vector p = spherical_direction(phi, theta);
           HS_EXPECT_NEAR(
               static_cast<double>(SHMath::spherical_harmonic(l, m, p, scale)),
@@ -233,15 +233,15 @@ inline void test_spherical_harmonics_are_orthonormal() {
     scale[idx] = SHMath::harmonic_scale(lm.first, lm.second);
   }
   std::array<std::array<double, MODES>, MODES> gram{};
-  const double D_PHI = PI_D / PHI_STEPS;
-  const double D_THETA = 2.0 * PI_D / THETA_STEPS;
+  const double D_PHI = std::numbers::pi / PHI_STEPS;
+  const double D_THETA = 2.0 * std::numbers::pi / THETA_STEPS;
   std::array<double, MODES> value{};
   for (int phi_step = 0; phi_step < PHI_STEPS; ++phi_step) {
     const double phi = (phi_step + 0.5) * D_PHI;
     const double weight = std::sin(phi) * D_PHI * D_THETA;
     for (int theta_step = 0; theta_step < THETA_STEPS; ++theta_step) {
       const math::Vector p =
-          spherical_direction(phi, theta_step * D_THETA - PI_D);
+          spherical_direction(phi, theta_step * D_THETA - std::numbers::pi);
       for (int idx = 0; idx < MODES; ++idx) {
         const std::pair<int, int> lm = SHMath::decode_lm(idx);
         value[idx] =

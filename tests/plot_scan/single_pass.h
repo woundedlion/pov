@@ -136,15 +136,12 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 4);
 
   math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
-  Fragment a, b;
-  a.pos = disk_point(basis, 0.3f, 0.0f);
-  b.pos = disk_point(basis, 1.3f, 1.0f);
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {disk_point(basis, 0.3f, 0.0f),
+                               disk_point(basis, 1.3f, 1.0f)};
+  bind_trail(points, ends);
 
   CapturePipeline single, cached;
   {
@@ -169,9 +166,9 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   if (single.plotted.empty())
     return;
-  HS_EXPECT_NEAR(math::angle_between(single.plotted.front(), a.pos), 0.0f,
+  HS_EXPECT_NEAR(math::angle_between(single.plotted.front(), ends[0]), 0.0f,
                  1e-2f);
-  HS_EXPECT_NEAR(math::angle_between(single.plotted.back(), b.pos), 0.0f,
+  HS_EXPECT_NEAR(math::angle_between(single.plotted.back(), ends[1]), 0.0f,
                  1e-2f);
 
   // Same curve: every sample lies within a dot of the other path's.
@@ -289,14 +286,11 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
   constexpr size_t BUDGET = 16;
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 2);
 
   // Equatorial quarter turn: well past the lowered budget.
-  Fragment a, b;
-  a.pos = math::Vector(1.0f, 0.0f, 0.0f);
-  b.pos = math::Vector(0.0f, 0.0f, 1.0f);
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {math::Vector(1.0f, 0.0f, 0.0f),
+                               math::Vector(0.0f, 0.0f, 1.0f)};
+  bind_trail(points, ends);
 
   struct Capture {
     std::vector<math::Vector> plotted;
@@ -331,9 +325,9 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
     HS_EXPECT_GT(capture->plotted.size(), size_t{0});
     if (capture->plotted.empty())
       return;
-    HS_EXPECT_NEAR(math::angle_between(capture->plotted.front(), a.pos), 0.0f,
+    HS_EXPECT_NEAR(math::angle_between(capture->plotted.front(), ends[0]), 0.0f,
                    1e-3f);
-    HS_EXPECT_NEAR(math::angle_between(capture->plotted.back(), b.pos), 0.0f,
+    HS_EXPECT_NEAR(math::angle_between(capture->plotted.back(), ends[1]), 0.0f,
                    1e-3f);
     HS_EXPECT_LE(capture->plotted.size(), 2 * BUDGET);
     HS_EXPECT_LE(max_consecutive_gap(capture->plotted, /*wrap=*/false),
@@ -437,12 +431,8 @@ inline void test_rasterize_balanced_sampling_scope() {
   auto compare = [&](const math::Vector &start, const math::Vector &end) {
     ScratchScope sc(plot_arena());
     Fragments points;
-    points.bind(plot_arena(), 2);
-    Fragment a, b;
-    a.pos = start;
-    b.pos = end;
-    points.push_back(a);
-    points.push_back(b);
+    const math::Vector ends[] = {start, end};
+    bind_trail(points, ends);
     const AlphaCapturePipeline standard =
         capture_planar_alpha_policy<W, H, Plot::RasterSamplingPolicy::DEFAULT>(
             points, basis);
@@ -474,12 +464,9 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
       math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 2);
-  Fragment a, b;
-  a.pos = disk_point(basis, 0.35f, -0.2f);
-  b.pos = disk_point(basis, 1.4f, 1.1f);
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {disk_point(basis, 0.35f, -0.2f),
+                               disk_point(basis, 1.4f, 1.1f)};
+  bind_trail(points, ends);
 
   const AlphaCapturePipeline standard =
       capture_planar_alpha_policy<W, H, Plot::RasterSamplingPolicy::DEFAULT>(
@@ -491,7 +478,8 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
   HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
   HS_EXPECT_LE((max_projected_gap<W, H>(balanced.plotted)), 1.3f);
-  const Plot::PlanarEdgeSampler sampler = planar_sampler(a.pos, b.pos, basis);
+  const Plot::PlanarEdgeSampler sampler =
+      planar_sampler(ends[0], ends[1], basis);
   const Plot::SamplePT first = sampler.one_pass(0.0f);
   const float default_step =
       Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP<W>);
@@ -519,12 +507,8 @@ inline void test_rasterize_balanced_pole_guard() {
   };
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 2);
-  Fragment a, b;
-  a.pos = near_pole(-2.4f);
-  b.pos = near_pole(2.4f);
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {near_pole(-2.4f), near_pole(2.4f)};
+  bind_trail(points, ends);
 
   constexpr float POLICY_TOL = 1e-4f;
   auto shader = white_shader(0.4f);
@@ -566,12 +550,10 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   constexpr float POLICY_TOL = 1e-4f;
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 2);
-  Fragment a, b;
-  a.pos = math::Vector(0.8f, 0.3f, 0.5196152f).normalized();
-  b.pos = math::Vector(-0.2f, -0.7f, 0.6855655f).normalized();
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {
+      math::Vector(0.8f, 0.3f, 0.5196152f).normalized(),
+      math::Vector(-0.2f, -0.7f, 0.6855655f).normalized()};
+  bind_trail(points, ends);
 
   auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
     Plot::g_planar_full_samples = 0;
@@ -601,9 +583,10 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
   HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
   HS_EXPECT_LE((max_projected_gap<W, H>(balanced.plotted)), 1.3f);
-  const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
-  const Plot::GeodesicEdgeSampler sampler{a.pos, math::cross(es.axis, a.pos),
-                                          es.total};
+  const Plot::GeodesicEdgeSpan es =
+      Plot::make_geodesic_edge_span(ends[0], ends[1]);
+  const Plot::GeodesicEdgeSampler sampler{
+      ends[0], math::cross(es.axis, ends[0]), es.total};
   const Plot::SamplePT first = sampler(0.0f);
   const float default_step =
       Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP<W>);
@@ -642,12 +625,9 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
   constexpr float ALPHA = 0.95f;
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 2);
-  Fragment a, b;
-  a.pos = math::Vector::from_spherical(-0.5f, 0.35f);
-  b.pos = math::Vector::from_spherical(0.5f, 0.35f);
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {math::Vector::from_spherical(-0.5f, 0.35f),
+                               math::Vector::from_spherical(0.5f, 0.35f)};
+  bind_trail(points, ends);
 
   auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
     auto shader = white_shader(ALPHA);
@@ -666,9 +646,10 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
   const AlphaCapturePipeline balanced =
       capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
 
-  const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
-  const Plot::GeodesicEdgeSampler sampler{a.pos, math::cross(es.axis, a.pos),
-                                          es.total};
+  const Plot::GeodesicEdgeSpan es =
+      Plot::make_geodesic_edge_span(ends[0], ends[1]);
+  const Plot::GeodesicEdgeSampler sampler{
+      ends[0], math::cross(es.axis, ends[0]), es.total};
   const Plot::SamplePT first = sampler(0.0f);
   const float default_step =
       Plot::screen_step<W, H>(first.pos, first.tan, BASE_STEP<W>);
@@ -842,13 +823,11 @@ inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
   constexpr int W = 128, H = 64;
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 2);
 
-  Fragment a, b;
-  a.pos = math::Vector(0.8f, 0.3f, 0.5196152f).normalized();
-  b.pos = math::Vector(-0.2f, -0.7f, 0.6855655f).normalized();
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {
+      math::Vector(0.8f, 0.3f, 0.5196152f).normalized(),
+      math::Vector(-0.2f, -0.7f, 0.6855655f).normalized()};
+  bind_trail(points, ends);
 
   auto draw = [&](bool omit_end) {
     hs_test::StubEffect fx(W, H);
@@ -863,8 +842,8 @@ inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
 
   HS_EXPECT_GT(omitted.size(), size_t{2});
   HS_EXPECT_SIZE_OR_RETURN(complete, omitted.size() + 1);
-  HS_EXPECT_NEAR(math::angle_between(complete.front(), a.pos), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(math::angle_between(complete.back(), b.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(complete.front(), ends[0]), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(complete.back(), ends[1]), 0.0f, 1e-3f);
   for (size_t i = 0; i < omitted.size(); ++i)
     HS_EXPECT_NEAR(math::angle_between(complete[i], omitted[i]), 0.0f, 1e-3f);
 }
@@ -890,12 +869,8 @@ inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
     hs_test::StubEffect fx(W, H);
     ScratchScope sc(plot_arena());
     Fragments points;
-    points.bind(plot_arena(), 2);
-    Fragment a, b;
-    a.pos = start;
-    b.pos = end;
-    points.push_back(a);
-    points.push_back(b);
+    const math::Vector ends[] = {start, end};
+    bind_trail(points, ends);
 
     CapturePipeline pipeline;
     Canvas canvas(fx);

@@ -33,8 +33,6 @@
 #include "tests/composed_effect/float_bits.h"
 #include "tests/pixel_test_util.h"
 #include "tests/test_harness.h"
-#include "tests/composed_effect/catalog_policies.h"
-#include "tests/composed_effect/keyed_rotations.h"
 #include "tests/json_test_util.h"
 #include "tests/shader_chain_fixture.h"
 #include "tests/vec_test_util.h"

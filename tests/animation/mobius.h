@@ -14,6 +14,7 @@
 #include <array>
 #include <cstring>
 #include <limits>
+#include <numbers>
 
 namespace hs_test::animation_tests {
 
@@ -28,7 +29,7 @@ namespace hs_test::animation_tests {
 constexpr const auto &MOBIUS_FREQUENCIES =
     Animation::MobiusWarpEvolving::FREQUENCIES;
 /// Period of each independently wrapped channel clock.
-constexpr double MOBIUS_PERIOD = 6.283185307179586476925286766559;
+constexpr double MOBIUS_PERIOD = 2.0 * std::numbers::pi;
 
 /** @brief Reference value of one modulated complex coefficient.
  * @param baseline Original coefficient channels.

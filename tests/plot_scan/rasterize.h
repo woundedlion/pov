@@ -27,14 +27,11 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 4);
 
-  Fragment a, b;
-  a.pos = math::Vector(1, 0, 0);
   // ~0.02 rad apart, well under base_step (2*pi/W = ~0.049 rad).
-  b.pos = math::Vector(1.0f, 0.02f, 0.0f).normalized();
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {math::Vector(1, 0, 0),
+                               math::Vector(1.0f, 0.02f, 0.0f).normalized()};
+  bind_trail(points, ends);
 
   CapturePipeline pipe;
   {
@@ -46,8 +43,8 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
   HS_EXPECT_SIZE_OR_RETURN(pipe.plotted, (size_t)2);
   // Chord, not angle_between: near |dot| = 1 the acos angle quantizes coarser
   // than this tolerance.
-  HS_EXPECT_NEAR((pipe.plotted.front() - a.pos).length(), 0.0f, 1e-4f);
-  HS_EXPECT_NEAR((pipe.plotted.back() - b.pos).length(), 0.0f, 1e-4f);
+  HS_EXPECT_NEAR((pipe.plotted.front() - ends[0]).length(), 0.0f, 1e-4f);
+  HS_EXPECT_NEAR((pipe.plotted.back() - ends[1]).length(), 0.0f, 1e-4f);
   for (const math::Vector &p : pipe.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
 }
@@ -62,13 +59,9 @@ inline void test_rasterize_open_segment_gap_free() {
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 4);
 
-  Fragment a, b;
-  a.pos = math::Vector(1, 0, 0);
-  b.pos = math::Vector(0, 1, 0);
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {math::Vector(1, 0, 0), math::Vector(0, 1, 0)};
+  bind_trail(points, ends);
 
   CapturePipeline pipe;
   {
@@ -84,8 +77,10 @@ inline void test_rasterize_open_segment_gap_free() {
   HS_EXPECT_TRUE(!pipe.plotted.empty());
   if (pipe.plotted.empty())
     return;
-  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), ends[0]), 0.0f,
+                 1e-3f);
+  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), ends[1]), 0.0f,
+                 1e-3f);
   for (const math::Vector &p : pipe.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
 }
@@ -100,16 +95,11 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 4);
 
   // A spherical triangle with well-separated vertices.
-  Fragment v0, v1, v2;
-  v0.pos = math::Vector(1, 0, 0);
-  v1.pos = math::Vector(0, 1, 0);
-  v2.pos = math::Vector(0, 0, 1);
-  points.push_back(v0);
-  points.push_back(v1);
-  points.push_back(v2);
+  const math::Vector corners[] = {math::Vector(1, 0, 0), math::Vector(0, 1, 0),
+                                  math::Vector(0, 0, 1)};
+  bind_trail(points, corners);
 
   CapturePipeline pipe;
   {
@@ -141,18 +131,15 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 4);
 
   // planar basis centered on +Z; the second endpoint sits within the antipodal
   // margin of -Z, tripping the seam guard.
   math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0, 0, 1));
-  Fragment a, b;
-  a.pos = math::Vector(1, 0, 0);
-  b.pos = math::Vector(0.02f, 0.0f, -1.0f).normalized();
-  HS_EXPECT_TRUE(Plot::at_planar_antipode(b.pos, basis));
-  points.push_back(a);
-  points.push_back(b);
+  const math::Vector ends[] = {math::Vector(1, 0, 0),
+                               math::Vector(0.02f, 0.0f, -1.0f).normalized()};
+  HS_EXPECT_TRUE(Plot::at_planar_antipode(ends[1], basis));
+  bind_trail(points, ends);
 
   CapturePipeline planar_pipe, geo_pipe;
   {
@@ -184,19 +171,16 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 4);
 
   // Endpoints span differing azimuthal stretch (r / sin r).
   math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
-  Fragment a, b;
-  a.pos = disk_point(basis, 0.3f, 0.0f);
-  b.pos = disk_point(basis, 1.3f, 1.0f);
+  const math::Vector ends[] = {disk_point(basis, 0.3f, 0.0f),
+                               disk_point(basis, 1.3f, 1.0f)};
   // Stays out of the antipodal-seam fallback so the planar strategy is used.
-  HS_EXPECT_FALSE(Plot::at_planar_antipode(a.pos, basis));
-  HS_EXPECT_FALSE(Plot::at_planar_antipode(b.pos, basis));
-  points.push_back(a);
-  points.push_back(b);
+  HS_EXPECT_FALSE(Plot::at_planar_antipode(ends[0], basis));
+  HS_EXPECT_FALSE(Plot::at_planar_antipode(ends[1], basis));
+  bind_trail(points, ends);
 
   CapturePipeline pipe;
   {
@@ -213,8 +197,10 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
                1.5f * BASE_STEP<W>);
   // Endpoints land within PlanarEdgeSampler's project/unproject round-trip error.
-  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-2f);
-  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.front(), ends[0]), 0.0f,
+                 1e-2f);
+  HS_EXPECT_NEAR(math::angle_between(pipe.plotted.back(), ends[1]), 0.0f,
+                 1e-2f);
   for (const math::Vector &p : pipe.plotted)
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
 }
@@ -230,20 +216,17 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   hs_test::StubEffect fx(W, H);
   ScratchScope sc(plot_arena());
   Fragments points;
-  points.bind(plot_arena(), 4);
 
   // Non-seam planar disk edge: colatitude 0.3 -> 1.3 across azimuths, so the
   // rendered edge bows well clear of its chord.
   math::Basis basis =
       math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
-  Fragment a, b;
-  a.pos = disk_point(basis, 0.3f, 0.0f);
-  b.pos = disk_point(basis, 1.3f, 1.0f);
-  HS_EXPECT_FALSE(Plot::at_planar_antipode(a.pos, basis));
-  HS_EXPECT_FALSE(Plot::at_planar_antipode(b.pos, basis));
+  const math::Vector ends[] = {disk_point(basis, 0.3f, 0.0f),
+                               disk_point(basis, 1.3f, 1.0f)};
+  HS_EXPECT_FALSE(Plot::at_planar_antipode(ends[0], basis));
+  HS_EXPECT_FALSE(Plot::at_planar_antipode(ends[1], basis));
   // Bare control points default v0/v1 to 0.
-  points.push_back(a);
-  points.push_back(b);
+  bind_trail(points, ends);
 
   CapturePipeline pipe;
   std::vector<float> v0s, v1s;
@@ -266,9 +249,9 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
     HS_EXPECT_GE(v0s[i], v0s[i - 1] - 1e-6f);
   }
 
-  const float planar = Plot::planar_arc_length(a.pos, b.pos, basis);
+  const float planar = Plot::planar_arc_length(ends[0], ends[1], basis);
   const Plot::PlanarEdgeSampler sampler =
-      Plot::make_planar_edge_sampler(a.pos, b.pos, basis);
+      Plot::make_planar_edge_sampler(ends[0], ends[1], basis);
   float rendered = 0.0f;
   double independent_rendered = 0.0;
   math::Vector previous = sampler.unproject(0.0f);
@@ -762,13 +745,10 @@ inline void test_rasterize_cull_follows_filter_orientation() {
     {
       ScratchScope sc(plot_arena());
       Fragments pts;
-      pts.bind(plot_arena(), 4);
-      Fragment a, b;
-      a.pos = math::Vector(1, 0, 0); // equator (+X)
-      b.pos = math::Vector(
-          0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
-      pts.push_back(a);
-      pts.push_back(b);
+      // Equator +X, and equator +Z, which 90° about X sends to the -Y pole.
+      const math::Vector ends[] = {math::Vector(1, 0, 0),
+                                   math::Vector(0, 0, 1)};
+      bind_trail(pts, ends);
       Canvas c(fx);
       Plot::rasterize<W, H>(filters, c, pts, shade);
     }

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <numbers>
 
 #include "core/color/color.h"
 #include "core/color/palettes.h"
@@ -124,7 +125,7 @@ inline void test_procedural_palette_matches_cosine_oracle() {
   constexpr double COS_ERROR = 1.7e-3 + 1e-4;
   // srgb_to_linear_interp's LUT and secant slack, in codes.
   constexpr double LUT_SLACK = 2.0;
-  constexpr double TWO_PI = 6.283185307179586;
+  constexpr double TWO_PI = 2.0 * std::numbers::pi;
   const auto linear = [](double s) {
     return 65535.0 *
            srgb_to_linear_float(static_cast<float>(std::clamp(s, 0.0, 1.0)));

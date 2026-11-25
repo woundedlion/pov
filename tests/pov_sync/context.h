@@ -75,6 +75,7 @@ inline Config shipping_config(int effects = 4) {
 
 constexpr uint32_t PERIOD = 37500000u; /**< Cycles per half-rev at full rate. */
 constexpr uint32_t COL = PERIOD / 144u; /**< Cycles per column at full rate. */
+constexpr uint64_t REV = 2ull * PERIOD; /**< Cycles per rev at full rate. */
 
 /**
  * @brief Feeds a five-digit beacon train into a board, spaced exactly as

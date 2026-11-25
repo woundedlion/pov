@@ -64,25 +64,21 @@ template <int W, int H, typename DrawFn>
 inline std::vector<Pixel>
 render_column_basis(const BasisMotion &motion, DrawFn &&draw,
                     const BasisClip &clip = {}, bool state_moves = false) {
-  hs_test::StubEffect fx(W, H);
-  if (clip.x1 > 0)
-    fx.set_clip(0, H, clip.x0, clip.x1);
-  if (clip.margin >= 0)
-    fx.set_margin(clip.margin);
   auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
   const Scan::ColumnBasis time =
       basis->prepare(motion.previous, motion.current, state_moves);
   HS_EXPECT_TRUE(time.azimuth != nullptr);
-  Pipeline<W, H> pipeline;
-  {
-    Canvas canvas(fx);
-    Scan::ColumnBasisScope scope(canvas, time);
-    draw(pipeline, canvas, motion.current);
-  }
-  fx.advance_display();
-  std::vector<Pixel> out;
-  capture_frame<W, H>(fx, out);
-  return out;
+  return render_stub_frame<W, H>(
+      [&](hs_test::StubEffect &fx) {
+        if (clip.x1 > 0)
+          fx.set_clip(0, H, clip.x0, clip.x1);
+        if (clip.margin >= 0)
+          fx.set_margin(clip.margin);
+      },
+      [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+        Scan::ColumnBasisScope scope(canvas, time);
+        draw(pipeline, canvas, motion.current);
+      });
 }
 
 /**

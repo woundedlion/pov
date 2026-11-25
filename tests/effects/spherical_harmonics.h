@@ -8,6 +8,7 @@
 
 #include "effects/SphericalHarmonics.h"
 #include "tests/effects/fixture.h"
+#include <numbers>
 
 namespace hs_test::effects_tests {
 
@@ -608,7 +609,7 @@ struct ShTimeEvaluator {
     using WB = SphericalHarmonicsWhiteBox;
     const math::Vector axis = WB::spin_axis().normalized();
     const double rate =
-        2.0 * 3.14159265358979323846 * WB::spin_turns() / WB::spin_frames();
+        2.0 * std::numbers::pi * WB::spin_turns() / WB::spin_frames();
     return math::make_rotation(axis, static_cast<float>(rate * time));
   }
 

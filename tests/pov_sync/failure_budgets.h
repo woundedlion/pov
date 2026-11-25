@@ -42,7 +42,6 @@ inline void test_budget_spurious_epoch() {
   const int32_t PPM[4] = {0, 0, 0, 0};
   Sim sim(cfg, 4, PPM);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
-  const uint64_t REV = 2ull * PERIOD;
   const uint64_t boundary = (sim.g / REV + 2) * REV;
   sim.inject_emi(boundary + COL, 2);
   sim.inject_emi(boundary + 3ull * COL, 2);
@@ -352,7 +351,7 @@ inline void test_budget_wire_dead() {
   const Config cfg = test_config();
   const int32_t PPM[3] = {0, 40, -25};
   // Local clocks start below the 32-bit wrap so the wrap lands in the coast.
-  Sim sim(cfg, 3, PPM, 0xFFFFFFFFull - 30ull * 2 * PERIOD + 999);
+  Sim sim(cfg, 3, PPM, 0xFFFFFFFFull - 30 * REV + 999);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
   // Cut the wire mid-half so no burst is in flight.

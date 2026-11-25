@@ -15,6 +15,7 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import fab  # noqa: E402
+from committed_boards import committed_project  # noqa: E402
 from constraints import ZONE_DEFAULTS, ZONE_FAB_MINIMUMS  # noqa: E402
 import heal_clearance  # noqa: E402
 import sexp  # noqa: E402
@@ -929,7 +930,7 @@ class PartCatalogTests(unittest.TestCase):
             self.assertEqual(normalized(value), Decimal(expected))
         expected_refs = {ref for ref in fab.LCSC_BY_REF if ref.startswith(("R", "C"))}
         for revision in ("1.1", "1.2"):
-            schematic = GEN.parent / revision / "phantasm.kicad_sch"
+            schematic = committed_project(revision) / "phantasm.kicad_sch"
             root = sexp.parse_one(schematic.read_text(encoding="utf-8"))
             checked = set()
             for symbol in F(root, "symbol"):

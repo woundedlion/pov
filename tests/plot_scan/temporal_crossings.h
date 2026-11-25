@@ -8,6 +8,7 @@
  */
 
 #include "tests/plot_scan/fixture.h"
+#include <numbers>
 
 namespace hs_test {
 namespace plot_scan_tests {
@@ -248,7 +249,7 @@ inline bool check_track_passes(const std::function<math::Vector(double)> &exact,
   for (int i = 0; i <= 8192; ++i) {
     const math::Vector p = exact(t0 + (t1 - t0) * i / 8192.0);
     double x = std::atan2(static_cast<double>(p.z), static_cast<double>(p.x)) *
-               (W / (2.0 * 3.14159265358979323846));
+               (W / (2.0 * std::numbers::pi));
     x += W * std::round((last - x) / W);
     samples.push_back(x);
     last = x;

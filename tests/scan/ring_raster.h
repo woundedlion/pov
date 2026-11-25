@@ -8,6 +8,7 @@
  * @brief Ring raster test cases and fixtures. */
 
 #include "tests/scan/context.h"
+#include <numbers>
 
 namespace hs_test::scan_tests {
 
@@ -126,7 +127,7 @@ inline void test_ring_long_radius_azimuth_unflipped() {
           const double w = static_cast<double>(p.x) * basis.w.x +
                            static_cast<double>(p.y) * basis.w.y +
                            static_cast<double>(p.z) * basis.w.z;
-          const double turn = std::atan2(w, u) / (2.0 * 3.14159265358979323846);
+          const double turn = std::atan2(w, u) / (2.0 * std::numbers::pi);
           HS_EXPECT_GE(f.v0, 0.0f);
           HS_EXPECT_LT(f.v0, 1.0f);
           const double delta = std::fabs(std::remainder(f.v0 - turn, 1.0));

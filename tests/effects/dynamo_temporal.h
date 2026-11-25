@@ -131,8 +131,7 @@ struct DynamoTemporalOracle {
     effect.init();
     effect.baked_palettes[0].rebake(WhitePalette{});
     if (clipped) {
-      const auto map = pov::segment_map(1, H * 2, 4);
-      const auto clip = pov::segment_clip(map, true, H * 2, 4, W);
+      const auto clip = device_segment_clip<W, H>(1);
       effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
     }
     const auto axis = math::Vector(0.15f, 1.0f, 0.1f).normalized();

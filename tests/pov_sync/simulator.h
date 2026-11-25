@@ -540,7 +540,7 @@ inline void test_sim_boot_and_phase() {
   const Config cfg = test_config();
   const int32_t PPM[4] = {0, 20, -20, 40};
   // Local clocks start below the 32-bit wrap so CYCCNT wraps mid-run (§12).
-  Sim sim(cfg, 4, PPM, 0xFFFFFFFFull - 10ull * 2 * PERIOD + 12345);
+  Sim sim(cfg, 4, PPM, 0xFFFFFFFFull - 10 * REV + 12345);
 
   // Birth phase, before a single symbol: every downstream board is tens of
   // columns from the master, beyond what a LOCKED snap could close.
@@ -826,7 +826,6 @@ inline void test_sim_commit_beacon_gap() {
         return false;
       },
       double(effect_revolutions[0] + effect_revolutions[1]) + 12);
-  const uint64_t REV = 2ull * PERIOD;
   const uint64_t expected = cfg.commit_beacon_gap_revs(0);
   HS_EXPECT_EQ(expected, 22u);
   HS_EXPECT_EQ(cfg.commit_beacon_gap_revs(1), 7u);
@@ -856,7 +855,6 @@ inline void test_sim_rejoin_worst_case() {
   b1.reboot(Sim::local_now(b1, sim.g));
   HS_EXPECT_TRUE(sim.run_until([](Sim &s) { return s.boards[1].live; },
                                double(cfg.rejoin_bound_revs())));
-  const uint64_t REV = 2ull * PERIOD;
   HS_EXPECT_LE(sim.g - reboot_at, uint64_t(cfg.rejoin_bound_revs()) * REV);
   HS_EXPECT_GE(sim.g - reboot_at, uint64_t(cfg.rejoin_bound_revs() - 3) * REV);
   HS_EXPECT_EQ(b1.live_index, 1);
@@ -872,8 +870,7 @@ inline void test_sim_commit_deadline_trap() {
   const Config cfg = test_config();
   const int32_t PPM[4] = {0, 0, 0, 0};
   Sim sim(cfg, 4, PPM);
-  sim.boards[2].init_delay =
-      static_cast<uint64_t>(3) * 2 * PERIOD; // 3 revs > K
+  sim.boards[2].init_delay = 3 * REV; // 3 revs > K
   // Boot joins are not deadline-bound: board 2 goes live at a later join-grid
   // boundary without trapping.
   sim.run_revs(double(cfg.join_grid_revs) * 3);
@@ -919,7 +916,6 @@ inline void test_sim_masked_windows() {
   // acquisition is clean. Board 1's narrow masks delay burst edges without
   // truncating the count; board 2's wide masks swallow wakes and merge burst
   // edges, so its decoder sees truncated counts.
-  const uint64_t REV = 2ull * PERIOD;
   for (int k = 8; k < 28; ++k) {
     const uint64_t b0 = k * REV; // master ZERO crossings ≈ k·rev (ppm 0)
     sim.boards[1].masks.push_back({b0 - COL / 4, b0 + COL / 4});
@@ -975,7 +971,6 @@ inline void test_sim_emi() {
   const Config cfg = test_config();
   const int32_t PPM[4] = {0, 20, -30, 5};
   Sim sim(cfg, 4, PPM);
-  const uint64_t REV = 2ull * PERIOD;
 
   // Isolated spurious edges on board 1, away from boundaries: each is a valid
   // HALF symbol the LOCKED gate must reject.
@@ -1021,7 +1016,6 @@ inline void test_sim_drops_and_missed_epoch() {
   const Config cfg = test_config();
   const int32_t PPM[4] = {0, 35, -35, 20};
   Sim sim(cfg, 4, PPM);
-  const uint64_t REV = 2ull * PERIOD;
 
   HS_EXPECT_TRUE(boot_join(sim, cfg));
 
@@ -1110,8 +1104,7 @@ inline void test_sim_reboot(const Config &cfg) {
       sim.run_until([](Sim &s) { return s.boards[2].live; },
                     double(cfg.beacon_period_revs + cfg.join_grid_revs) + 4));
   HS_EXPECT_LE(sim.g - reboot_at,
-               uint64_t(cfg.beacon_period_revs + cfg.join_grid_revs + 1) * 2 *
-                   PERIOD);
+               uint64_t(cfg.beacon_period_revs + cfg.join_grid_revs + 1) * REV);
   HS_EXPECT_EQ(b2.live_index, sim.boards[0].live_index);
   HS_EXPECT_TRUE(run_to_master_column(sim, 72));
   HS_EXPECT_LE(sim.max_phase_err(), RECOVERY_PHASE_ERROR);
@@ -1131,7 +1124,6 @@ inline void test_sim_forged_burst() {
   const int32_t PPM[2] = {0, 10};
   Sim sim(cfg, 2, PPM);
   sim.run_revs(10.0);
-  const uint64_t REV = 2ull * PERIOD;
 
   // An isolated valid-count (HALF) burst 30 columns past a real ZERO boundary,
   // clear of the gap-timeout window and the quiet-before guard (§5.3).
@@ -1179,7 +1171,6 @@ inline void expect_refractory_ignored(Sim &sim, int deaf) {
  */
 inline void test_sim_epoch_repeat_lockstep() {
   const Config cfg = test_config();
-  const uint64_t REV = 2ull * PERIOD;
 
   const double commit_revs_max =
       double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8;
@@ -1228,7 +1219,6 @@ inline void test_sim_rev_resync() {
   const Config cfg = test_config();
   const int32_t PPM[4] = {0, 20, -20, 10};
   Sim sim(cfg, 4, PPM);
-  const uint64_t REV = 2ull * PERIOD;
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Settle past the boot beacons, then slip board 3's counter by +2: left
   // uncorrected it would commit 2 revolutions early.

@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include "core/math/scalar_noise.h"
 #include "effects/GSReactionDiffusion.h"
 #include "tests/effects/fixture.h"
 #include "tests/effects/reaction_diffusion_gs_whitebox.h"

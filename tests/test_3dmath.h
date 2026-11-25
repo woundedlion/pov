@@ -24,6 +24,7 @@
 #include <bit>
 #include <limits>
 #include <vector>
+#include <numbers>
 
 namespace hs_test {
 namespace math3d_tests {
@@ -294,7 +295,8 @@ inline void test_precise_atan2() {
   HS_EXPECT_EQ(math::precise_atan2(0.0f, 0.0f), 0.0f);
   float worst = 0.0f;
   for (int i = 0; i < 4096; ++i) {
-    const double angle = -3.14159265358979 + i * (6.28318530717958 / 4096.0);
+    const double angle =
+        -std::numbers::pi + i * (2.0 * std::numbers::pi / 4096.0);
     for (float radius : {1e-3f, 1.0f, 250.0f}) {
       const float x = static_cast<float>(std::cos(angle)) * radius;
       const float y = static_cast<float>(std::sin(angle)) * radius;

@@ -8,6 +8,7 @@
  * @brief Temporal capture test cases and fixtures. */
 
 #include "tests/filter/context.h"
+#include <numbers>
 
 namespace hs_test::filter_tests {
 
@@ -289,7 +290,6 @@ inline bool history_edge_lights_clip(const ClipRegion &clip,
                                      const math::Orientation<> &history,
                                      const math::Vector &a,
                                      const math::Vector &b) {
-  constexpr double PI_VALUE = 3.14159265358979323846;
   for (int time = 0; time <= 144; ++time) {
     const auto pose = history.sample(static_cast<float>(time) / 144.0f);
     for (int sample = 0; sample <= 32; ++sample) {
@@ -299,8 +299,8 @@ inline bool history_edge_lights_clip(const ClipRegion &clip,
           std::sqrt(double(v.x) * v.x + double(v.y) * v.y + double(v.z) * v.z);
       double azimuth = std::atan2(double(v.z), double(v.x));
       if (azimuth < 0.0)
-        azimuth += 2.0 * PI_VALUE;
-      const double column = azimuth * 288.0 / (2.0 * PI_VALUE);
+        azimuth += 2.0 * std::numbers::pi;
+      const double column = azimuth * 288.0 / (2.0 * std::numbers::pi);
       const float row = math::phi_to_y<144>(
           static_cast<float>(std::acos(std::clamp(v.y / norm, -1.0, 1.0))));
       const int x = static_cast<int>(std::floor(column));

@@ -52,8 +52,9 @@ constexpr int SOAK_FRAME_CAP = SOAK_LEGS * 140;
 /** Per-leg minimum lit pixels in a sampled frame. */
 constexpr int SOAK_MIN_LIT_PIXELS = SOAK_W * SOAK_H * 3 / 4;
 
-/** Summed-channel floor per sampled frame (~1% of an all-white frame). */
-constexpr uint64_t SOAK_MIN_FRAME_ENERGY = 4000000ull;
+/** Summed-channel floor per sampled frame: 1% of an all-white frame. */
+constexpr uint64_t SOAK_MIN_FRAME_ENERGY =
+    uint64_t{SOAK_W} * SOAK_H * 3 * 65535 / 100;
 
 /**
  * @brief Runs the full-graph soak: real frame loop, every node visited, no

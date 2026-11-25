@@ -10,6 +10,7 @@
 #include "core/render/pullback.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
+#include <numbers>
 
 namespace hs_test::pullback_tests {
 
@@ -69,8 +70,6 @@ inline void test_pullback_square_cells_formula() {
 
 /** @brief Independent double-precision tessellation reference. */
 struct TessellationReference {
-  /** Half-turn angle, radians. */
-  static constexpr double HALF_TURN = 3.14159265358979323846;
   Pattern::TessellationKind kind;           /**< Cell geometry. */
   Pattern::TessellationFill fill;           /**< Cell or edge fill. */
   Pattern::TessellationSourceParams params; /**< Field parameters. */
@@ -84,7 +83,7 @@ struct TessellationReference {
    * @return Negative inside, positive outside. */
   static double polygon_distance(double x, double y, int sides, double angle,
                                  double radius) {
-    const double step = 2.0 * HALF_TURN / sides;
+    const double step = 2.0 * std::numbers::pi / sides;
     double inside = -1e30;
     for (int edge = 0; edge < sides; ++edge) {
       const double theta = angle + edge * step;
@@ -93,7 +92,7 @@ struct TessellationReference {
     }
     if (inside <= 0.0)
       return inside;
-    const double circumradius = radius / std::cos(HALF_TURN / sides);
+    const double circumradius = radius / std::cos(std::numbers::pi / sides);
     double outside = 1e30;
     for (int edge = 0; edge < sides; ++edge) {
       const double theta = angle + edge * step;
@@ -162,7 +161,8 @@ struct TessellationReference {
             const double cy = 0.5 * sqrt3 * (j + third);
             const double dx = sqrt3 * (u - cx);
             const double dy = sqrt3 * (v - cy);
-            const double facing = up ? -0.5 * HALF_TURN : 0.5 * HALF_TURN;
+            const double facing =
+                up ? -0.5 * std::numbers::pi : 0.5 * std::numbers::pi;
             const double depth = -polygon_distance(dx, dy, 3, facing, 0.5);
             if (depth > best) {
               best = depth;
@@ -170,7 +170,7 @@ struct TessellationReference {
               y = up ? dy : -dy;
             }
           }
-      angle = -0.5 * HALF_TURN;
+      angle = -0.5 * std::numbers::pi;
     }
     if (fill == Pattern::TessellationFill::EDGES) {
       const double distance = -polygon_distance(x, y, sides, angle, 0.5);

@@ -8,6 +8,7 @@
  */
 
 #include "tests/plot_scan/fixture.h"
+#include <numbers>
 
 namespace hs_test {
 namespace plot_scan_tests {
@@ -99,7 +100,6 @@ inline void test_cap_ring_arc_contains_cap_knots() {
 
 /** @brief Swept bump cap-ring arcs contain every sampled footprint knot. */
 inline void test_swept_bump_arc_contains_footprint_knots() {
-  constexpr double PI_EXACT = 3.14159265358979323846;
   constexpr int MAX_KNOTS = 288, TIME_STEPS = 128;
   using Point = std::array<double, 3>;
   const auto dot = [](const Point &a, const Point &b) {
@@ -140,11 +140,11 @@ inline void test_swept_bump_arc_contains_footprint_knots() {
     if (dot(tangent, tangent) < 1e-10)
       tangent = cross(from, Point{0.0, 1.0, 0.0});
     tangent = normalized(tangent);
-    double separation = PI_EXACT * unit();
+    double separation = std::numbers::pi * unit();
     if (trial == 0)
       separation = 0.0;
     else if (trial < 8)
-      separation = PI_EXACT - std::pow(10.0, -trial);
+      separation = std::numbers::pi - std::pow(10.0, -trial);
     Point to;
     for (int component = 0; component < 3; ++component)
       to[component] = from[component] * std::cos(separation) +
@@ -175,7 +175,7 @@ inline void test_swept_bump_arc_contains_footprint_knots() {
       const Point endpoint = normalized(ring == 1 ? first : last);
       float theta =
           ring == 0
-              ? float(PI_EXACT * unit())
+              ? float(std::numbers::pi * unit())
               : float(std::acos(std::clamp(dot(axis, endpoint), -1.0, 1.0)));
       if (ring == 0 && trial % 11 == 0)
         theta = trial % 2 ? 0.0f : math::PI_F;
@@ -187,7 +187,7 @@ inline void test_swept_bump_arc_contains_footprint_knots() {
       partial_arcs += !arc.empty && arc.count < n;
       std::array<Point, MAX_KNOTS> knots;
       for (int k = 0; k < n; ++k) {
-        const double a = 2.0 * PI_EXACT * k / n;
+        const double a = 2.0 * std::numbers::pi * k / n;
         Point p;
         for (int component = 0; component < 3; ++component)
           p[component] =

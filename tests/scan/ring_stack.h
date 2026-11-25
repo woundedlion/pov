@@ -9,6 +9,7 @@
  */
 
 #include "tests/scan/context.h"
+#include <numbers>
 
 namespace hs_test::scan_tests {
 
@@ -178,21 +179,12 @@ inline void test_swept_ring_stack_matches_independent_windows() {
     return result;
   };
   const auto expected = render(false), actual = render(true);
-  HS_EXPECT_EQ(actual.size(), expected.size());
-  int lit = 0;
-  for (size_t i = 0; i < expected.size(); ++i) {
-    lit += actual[i].r != 0 || actual[i].g != 0 || actual[i].b != 0;
-    HS_EXPECT_EQ(actual[i].r, expected[i].r);
-    HS_EXPECT_EQ(actual[i].g, expected[i].g);
-    HS_EXPECT_EQ(actual[i].b, expected[i].b);
-  }
-  HS_EXPECT_GT(lit, 0);
+  HS_EXPECT_GT(expect_frames_within("two-window scan", actual, expected, 0), 0);
 }
 
 /** @brief Boundary masks cover sampled displaced geometry and its supported azimuths. */
 inline void test_swept_ring_stack_boundary_is_conservative() {
   constexpr int W = 96, MAX_KNOTS = 96;
-  constexpr double PI_EXACT = 3.14159265358979323846;
   constexpr int POLAR_SAMPLES = 25, AZIMUTH_SAMPLES = 33;
   uint32_t seed = 0x5e27a19bu;
   auto unit = [&]() {
@@ -223,7 +215,7 @@ inline void test_swept_ring_stack_boundary_is_conservative() {
 
     const double low = std::max(0.0, double(theta) - displacement - thickness);
     const double high =
-        std::min(PI_EXACT, double(theta) + displacement + thickness);
+        std::min(std::numbers::pi, double(theta) + displacement + thickness);
     const double min_sine =
         std::max(std::sqrt(double(SDF::DistortedRing::POLE_SIN2_FLOOR)),
                  std::min(std::sin(low), std::sin(high)));
@@ -231,11 +223,11 @@ inline void test_swept_ring_stack_boundary_is_conservative() {
         std::min(SDF::DistortedRing::MAX_SEARCH_CELLS, n / 2 + 1) + 1;
     const double search = std::min(
         double(search_limit),
-        std::ceil(thickness / (min_sine * (2.0 * PI_EXACT / n))) + 1.0);
-    const double reach =
-        std::min(PI_EXACT, (search + support) * (2.0 * PI_EXACT / n));
-    const double epsilon =
-        std::sin(std::min(PI_EXACT / 2.0, motion + 2.0 * PI_EXACT / W));
+        std::ceil(thickness / (min_sine * (2.0 * std::numbers::pi / n))) + 1.0);
+    const double reach = std::min(
+        std::numbers::pi, (search + support) * (2.0 * std::numbers::pi / n));
+    const double epsilon = std::sin(
+        std::min(std::numbers::pi / 2.0, motion + 2.0 * std::numbers::pi / W));
     double polar_cos[POLAR_SAMPLES], polar_sin[POLAR_SAMPLES];
     for (int p = 0; p < POLAR_SAMPLES; ++p) {
       const double polar = low + (high - low) * p / (POLAR_SAMPLES - 1);
@@ -245,7 +237,7 @@ inline void test_swept_ring_stack_boundary_is_conservative() {
     for (int k = 0; k < n; ++k) {
       bool touches = false;
       for (int a = 0; a < AZIMUTH_SAMPLES && !touches; ++a) {
-        const double azimuth = 2.0 * PI_EXACT * k / n - reach +
+        const double azimuth = 2.0 * std::numbers::pi * k / n - reach +
                                2.0 * reach * a / (AZIMUTH_SAMPLES - 1);
         const double radial =
             basis.u.z * std::cos(azimuth) + basis.w.z * std::sin(azimuth);
@@ -270,15 +262,14 @@ inline void test_swept_ring_stack_boundary_is_conservative() {
 
 /** @brief Sweep times follow half-turn columns within each clamped window. */
 inline void test_sweep_fraction_matches_half_turn_windows() {
-  constexpr double PI_EXACT = 3.14159265358979323846;
   for (int k = 0; k < 1001; ++k) {
-    const double angle = 2.0 * PI_EXACT * (k + 0.173) / 1001;
+    const double angle = 2.0 * std::numbers::pi * (k + 0.173) / 1001;
     const math::Vector p(static_cast<float>(std::cos(angle)), 0.0f,
                          static_cast<float>(std::sin(angle)));
     for (float middle : {0.25f, 0.75f}) {
       double u =
           std::atan2(static_cast<double>(p.z), static_cast<double>(p.x)) /
-          PI_EXACT;
+          std::numbers::pi;
       u -= std::floor(u);
       if (std::fabs(std::fabs(u - middle) - 0.5) < 1.3e-3)
         continue;

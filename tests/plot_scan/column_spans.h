@@ -419,12 +419,10 @@ inline void test_rasterize_short_edge_windows() {
     for (float distance : {0.0f, 0.0001f, 0.02f}) {
       ScratchScope scope(plot_arena());
       Fragments points;
-      points.bind(plot_arena(), 2);
-      Fragment start, end;
-      start.pos = math::Vector(1, 0, 0);
-      end.pos = math::Vector(cosf(distance), 0, sinf(distance));
-      points.push_back(start);
-      points.push_back(end);
+      const math::Vector ends[] = {
+          math::Vector(1, 0, 0),
+          math::Vector(cosf(distance), 0, sinf(distance))};
+      bind_trail(points, ends);
       hs_test::StubEffect fx(W, H);
       Canvas canvas(fx);
       CapturePipeline sink;

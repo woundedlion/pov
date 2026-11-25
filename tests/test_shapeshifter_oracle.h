@@ -17,7 +17,6 @@ namespace hs_test::shapeshifter_oracle_tests {
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
   if (hs_test::env_var("HS_SURFACE_DARK_DIAGNOSTICS")) {
-    HS_RUN(test_contour_layout_storage_alignment);
     HS_RUN(test_surface_footprint_darkening);
     return fixture.result();
   }
@@ -41,6 +40,7 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_timed_flower_mid_arm_clip_preserves_motion);
   HS_RUN(test_timed_dense_star_clip_samples_polar_columns);
   HS_RUN(test_count_slider_matches_draw_limit);
+  HS_RUN(test_contour_layout_storage_alignment);
   HS_RUN(test_buffer_comparator_statistics);
   HS_RUN(test_reference_matrix_is_deterministic_and_nonblack);
   HS_RUN(test_candidate_matrix_stays_within_visual_budget);

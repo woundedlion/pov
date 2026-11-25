@@ -463,6 +463,46 @@ inline void test_shader_chain_spherical_tiling_morph() {
   }
 }
 
+/** @brief Restoring the retired tiling output option 2 selects Faces, and no
+ *         other out-of-range output value is admitted. */
+inline void test_shader_chain_spherical_tiling_legacy_output_restore() {
+  using WB = ShaderChainWhiteBox;
+  using Model = In::Op::SampleSphericalTiling;
+  using Output = PB::Source::TilingOutput;
+  constexpr float RETIRED_OUTPUT = 2.0f;
+  reset_globals();
+  auto effect = std::make_unique<WB::FX>();
+  effect->init();
+  const In::ChainEntryRequest chain[] = {
+      {"source", Model::ID},
+      {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID},
+  };
+  if (!expect_compiled(effect->set_chain(chain)))
+    return;
+  auto &program = WB::program(*effect);
+  const auto output = [&] {
+    return param_as<Model::Params>(program, 0).output;
+  };
+  HS_EXPECT_EQ(output(), static_cast<uint8_t>(Output::EDGES));
+  const ChainSnapshot saved = effect->snapshot();
+  const auto with_output = [&](float value) {
+    ChainSnapshot snapshot = saved;
+    bool found = false;
+    for (auto &parameter : snapshot.parameters)
+      if (parameter.name == "source.output") {
+        parameter.value = value;
+        found = true;
+      }
+    HS_EXPECT_TRUE(found);
+    return snapshot;
+  };
+  HS_EXPECT_EQ(effect->restore_snapshot(with_output(RETIRED_OUTPUT)),
+               ChainSnapshotRestoreResult::APPLIED);
+  HS_EXPECT_EQ(output(), static_cast<uint8_t>(Output::FACES));
+  HS_EXPECT_EQ(effect->restore_snapshot(with_output(RETIRED_OUTPUT + 1.0f)),
+               ChainSnapshotRestoreResult::INVALID_VALUE);
+}
+
 /** @brief A spherical source reaches cutout and palette without a projection. */
 inline void test_shader_chain_spherical_source_pipeline() {
   auto fixture = std::make_unique<ProgramFixture>();

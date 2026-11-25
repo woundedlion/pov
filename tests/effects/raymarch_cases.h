@@ -9,6 +9,7 @@
 #include "core/math/scalar_kernels.h"
 #include "effects/Raymarch.h"
 #include "tests/effects/fixture.h"
+#include <numbers>
 
 namespace hs_test::effects_tests {
 
@@ -460,7 +461,7 @@ inline void test_raymarch_constexpr_sqrt_converges() {
  */
 inline void test_raymarch_unit_bounds_contains_twisted_tube() {
   using WB = RaymarchWhiteBox;
-  constexpr double TWO_PI_DBL = 6.283185307179586;
+  constexpr double TWO_PI_DBL = 2.0 * std::numbers::pi;
   const double R = WB::MAJOR, MINOR_RADIUS = WB::MINOR, A = WB::TWIST;
   const double BOUND = WB::BOUNDS;
 

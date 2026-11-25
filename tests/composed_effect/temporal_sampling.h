@@ -10,6 +10,7 @@
 
 #include "tests/composed_effect/context.h"
 #include <algorithm>
+#include <numbers>
 
 namespace hs_test::composed_effect_tests {
 
@@ -913,7 +914,7 @@ inline void test_temporal_modulation_bake_generation() {
   const auto direct = cube.prepare(config, clock);
   HS_EXPECT_TRUE(!direct.cube.active);
   cube.prepare(config, clock);
-  HS_EXPECT_NEAR(clock.phase.phase_turns, 0.375f, 0.0f);
+  HS_EXPECT_NEAR(cube.prepared.state.phase.phase_turns, 0.375f, 0.0f);
 }
 
 /** @brief Factored meridians retain the canonical projection-local geometry. */
@@ -1227,7 +1228,7 @@ inline math::Complex mobius_grid_b_at(double time) {
   constexpr double PERIOD = MobiusGrid<SMALL_W, SMALL_H>::LENS_PERIOD_FRAMES;
   const double cycle = std::fmod(time, PERIOD) / PERIOD;
   const float angle =
-      static_cast<float>(2.0 * 3.14159265358979323846 *
+      static_cast<float>(2.0 * std::numbers::pi *
                          math::ease_in_out_sin(static_cast<float>(cycle)));
   return {std::cos(angle), -std::sin(angle)};
 }

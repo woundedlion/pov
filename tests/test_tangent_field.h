@@ -8,6 +8,7 @@
 
 #include <complex>
 #include <vector>
+#include <numbers>
 
 #include "core/math/tangent_field.h"
 #include "core/math/lenses.h"
@@ -418,7 +419,7 @@ inline void test_normalized_terms_have_tight_speed_bounds() {
       HS_EXPECT_LE(peak / correction, unsold);
       double reference_peak = 0.0;
       for (int index = 0; index <= 10000; ++index) {
-        const double latitude = index * (3.14159265358979323846 / 20000.0);
+        const double latitude = index * (std::numbers::pi / 20000.0);
         const double y = std::sin(latitude), radius = std::cos(latitude);
         const auto q = legendre_reference(term.l, term.m, y);
         const double power = std::pow(radius, std::max(0, int(term.m) - 1));

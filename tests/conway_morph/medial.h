@@ -14,6 +14,7 @@
 #include <bit>
 #include <cmath>
 #include <algorithm>
+#include <numbers>
 
 namespace hs_test::conway_morph_tests {
 
@@ -400,7 +401,7 @@ inline void test_medial_dual_bridge_wellformed() {
       total_inv += conway_tests::count_inward_winding(frame);
       worst_4pi =
           fold_worst(worst_4pi, std::abs(medial_total_solid_angle(frame) -
-                                         4.0 * 3.14159265358979323846));
+                                         4.0 * std::numbers::pi));
       if (s == 0 && site.opening_retraced_faces > 0) {
         size_t flat_faces = 0, offset = 0;
         for (const int corners : frame.face_counts) {

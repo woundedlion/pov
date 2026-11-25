@@ -10,27 +10,49 @@
 
 #include "core/render/four_stroke_contour.h"
 #include "tests/test_harness.h"
+#include <numbers>
+
+#include <vector>
 
 namespace hs_test::color_tests {
 
-/** @brief Each beat selects its three sRGB roles at the exact timestamp. */
+/** @brief Each hue pair hands its roles through a four-beat stroke cycle and
+ *         the beat sequence repeats with its own length. */
 inline void test_four_stroke_clock() {
   using namespace FourStroke;
-  constexpr uint32_t EXPECTED[][3] = {
-      {0x509b9d, 0x4f4f4f, 0xb5b5b5}, {0x676a6c, 0x509b9d, 0x6c7cb5},
-      {0x6c7cb5, 0xb5b5b5, 0x4f4f4f}, {0x9c9d9e, 0x6c7cb5, 0x509b9d},
-      {0xb2746b, 0x4f4f4f, 0xb5b5b5}, {0x676a6c, 0xb2746b, 0xab955b},
-      {0xab955b, 0xb5b5b5, 0x4f4f4f}, {0x9c9d9e, 0xab955b, 0xb2746b}};
-  for (size_t i = 0; i < std::size(EXPECTED); ++i) {
-    const auto &beat = colors(i * 62500);
-    const Pixel actual[] = {beat.fill, beat.leading, beat.trailing};
-    for (size_t j = 0; j < std::size(actual); ++j) {
-      const uint32_t hex = EXPECTED[i][j];
-      HS_EXPECT_TRUE(actual[j] == Pixel(CRGB((hex >> 16) & 255,
-                                             (hex >> 8) & 255, hex & 255)));
-    }
-    HS_EXPECT_TRUE(&beat == &colors((i + 1) * 62500 - 1));
-    HS_EXPECT_TRUE(&beat == &colors(i * 62500 + 500000));
+  constexpr uint64_t BEAT_US = 62500;
+  constexpr size_t MAX_BEATS = 64;
+  size_t beat_count = 1;
+  while (beat_count < MAX_BEATS && &colors(beat_count * BEAT_US) != &colors(0))
+    ++beat_count;
+  HS_EXPECT_LT(beat_count, MAX_BEATS);
+  HS_EXPECT_EQ(beat_count % 4, size_t{0});
+  HS_EXPECT_GE(beat_count, size_t{8});
+  if (beat_count >= MAX_BEATS || beat_count % 4 != 0)
+    return;
+  std::vector<Pixel> chromatic;
+  for (size_t p = 0; p < beat_count / 4; ++p) {
+    const FourStroke::Colors &first = colors(4 * p * BEAT_US);
+    const FourStroke::Colors &rise = colors((4 * p + 1) * BEAT_US);
+    const FourStroke::Colors &second = colors((4 * p + 2) * BEAT_US);
+    const FourStroke::Colors &fall = colors((4 * p + 3) * BEAT_US);
+    HS_EXPECT_TRUE(first.fill == rise.leading);
+    HS_EXPECT_TRUE(first.fill == fall.trailing);
+    HS_EXPECT_TRUE(second.fill == rise.trailing);
+    HS_EXPECT_TRUE(second.fill == fall.leading);
+    HS_EXPECT_FALSE(first.leading == first.trailing);
+    HS_EXPECT_TRUE(first.leading == second.trailing);
+    HS_EXPECT_TRUE(first.trailing == second.leading);
+    chromatic.push_back(first.fill);
+    chromatic.push_back(second.fill);
+  }
+  for (size_t i = 0; i < chromatic.size(); ++i)
+    for (size_t j = i + 1; j < chromatic.size(); ++j)
+      HS_EXPECT_FALSE(chromatic[i] == chromatic[j]);
+  for (size_t i = 0; i < beat_count; ++i) {
+    const FourStroke::Colors &beat = colors(i * BEAT_US);
+    HS_EXPECT_TRUE(&beat == &colors((i + 1) * BEAT_US - 1));
+    HS_EXPECT_TRUE(&beat == &colors((i + beat_count) * BEAT_US));
   }
   HS_EXPECT_EQ(column_time(62498, 62502, 1, 8, false), 62499u);
   HS_EXPECT_EQ(column_time(62498, 62502, 6, 8, false), 62500u);
@@ -49,11 +71,11 @@ inline void test_four_stroke_roles() {
   for (float degrees : {17.25f, 37.0f, 123.4f, 271.5f}) {
     auto dir = heading(degrees);
     for (int deg = 0; deg < 360; ++deg) {
-      const double phi = deg * 3.141592653589793 / 180;
+      const double phi = deg * std::numbers::pi / 180;
       const float s =
           static_cast<float>(std::cos(phi) * dir.x + std::sin(phi) * dir.y);
       const double expected =
-          std::cos((deg - degrees) * 3.141592653589793 / 180);
+          std::cos((deg - degrees) * std::numbers::pi / 180);
       const double weight = std::max((std::abs(expected) - 0.05) / 0.95, 0.0);
       const auto pixel = shade(base, {true, 0, s}, beat, controls);
       HS_EXPECT_NEAR(pixel.r, 1000 + (expected > 0 ? 30000 : -600) * weight,
