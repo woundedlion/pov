@@ -361,6 +361,15 @@ inline void case_opleg_zero_sweep_frames() {
       .op = ConwayGraph::MorphOp::TRUNCATE, .sweep_frames = opaque(0)});
 }
 
+/** @brief Death case: a parameter sweep with a NaN endpoint must trap. */
+inline void case_opleg_nonfinite_sweep_endpoint() {
+  death_construct_opleg(
+      Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                       .t_start = 0.3f,
+                                       .t_end = opaque(NAN),
+                                       .sweep_frames = 1});
+}
+
 /**
  * @brief Death case: a leg built without a palette handoff must trap.
  * @details OpLeg surface — the departed node's per-face palette keys every

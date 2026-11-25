@@ -71,6 +71,9 @@ OpLeg::OpLeg(SweepSeed source, const ParamSweepSpec &spec, Arena &arena,
              const BookendClasses &bookend, BlendWeightFn blend_fn,
              EasingFn easing_fn)
     : OpLeg(spec.sweep_frames, easing_fn, draw) {
+  HS_CHECK(std::isfinite(spec.t_start) && std::isfinite(spec.t_end) &&
+               std::isfinite(spec.twist_start) && std::isfinite(spec.twist_end),
+           "OpLeg: parameter sweep endpoints must be finite");
   HS_CHECK(spec.sweep_frames >= 1,
            "OpLeg: parameter sweep needs a positive sweep length");
   Transients &tr = init_transients(LegKind::CONWAY_SWEEP, spec.sweep_frames,

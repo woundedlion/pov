@@ -230,6 +230,12 @@ inline const Case *all_cases(int &n) {
               {"opleg_zero_sweep_frames", case_opleg_zero_sweep_frames,
                "core/animation/opleg/build.h",
                "(spec.sweep_frames >= 1) OpLeg: parameter sweep needs a positive sweep length"},
+              {"opleg_nonfinite_sweep_endpoint",
+               case_opleg_nonfinite_sweep_endpoint,
+               "core/animation/opleg/build.h",
+               "(std::isfinite(spec.t_start) && std::isfinite(spec.t_end) && "
+               "std::isfinite(spec.twist_start) && std::isfinite(spec.twist_end)) "
+               "OpLeg: parameter sweep endpoints must be finite"},
               {"opleg_incomplete_palette_handoff",
                case_opleg_incomplete_palette_handoff,
                "core/animation/opleg/sweep.h",
