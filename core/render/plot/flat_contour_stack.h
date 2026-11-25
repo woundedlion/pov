@@ -49,14 +49,10 @@ public:
       PlanarBandSplit<W, H>::max_points(2, FLOWER_PIECE_BUDGET);
   static_assert(CONTOUR_MAX_VERTICES <= 2 * FLOWER_PIECE_BUDGET);
 
-  /** @brief Raster configuration of every sampled contour. */
-  static constexpr RasterConfig SAMPLED_RASTER_CONFIG{
-      .single_pass = true,
-      .derive_planar_arc_registers = false,
-      .interpolate_registers = false,
-      .sampling_policy = RasterSamplingPolicy::SELECTABLE};
-  static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
-                !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
+  /** @brief Raster configuration of every sampled contour; the same
+   *  rasterizer instantiation as PlanarChords pole runs. */
+  static constexpr RasterConfig SAMPLED_RASTER_CONFIG =
+      PLANAR_CHORD_RASTER_CONFIG;
 
   /** @brief Arena bytes init_storage() takes.
    *  @return Byte count. */
