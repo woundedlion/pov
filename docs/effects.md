@@ -320,7 +320,7 @@ A dodecahedral poloidal potential flow folds an equirectangular grid beneath the
 
 ### River Stones
 
-Spherical ripple bursts distort a scrolling hexagonal lattice. The first preset opens the Phantasm show for 30 seconds and uses noise to drive its hue. River Stones 2 fits 30 hex cells around the longitude wrap, softens their edges, and rotates hue with the ripple displacement. Noise drives lightness and opacity in both presets.
+Spherical ripple bursts distort a scrolling hexagonal lattice. The first preset opens the Phantasm show, holding 600 frames before a 480-frame segue, and uses noise to drive its hue. River Stones 2 fits 30 hex cells around the longitude wrap, softens their edges, and rotates hue with the ripple displacement. Noise drives lightness and opacity in both presets.
 
 **Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, displace1.Ripple Duration, displace1.Ripple Strength, displace1.Ripple Decay, displace1.Ripple Thickness, displace1.Ripple Center Azimuth, displace1.Ripple Center Polar, displace1.Burst Rate, Planar Warp 1 Speed, Repeat Windings A, Repeat Windings B, Repeat Cells, path-length, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, modulate.Modulation Amount, modulate.Pattern Scale, modulate.Pattern Speed, modulate1.Modulation Amount, modulate1.Pattern Scale, modulate1.Pattern Speed, modulate2.Modulation Amount, modulate2.Pattern Scale, modulate2.Pattern Speed
 
@@ -610,9 +610,9 @@ A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic rando
 
 ### FourStrokeStars
 
-Twelve five-pointed stars stay fixed on a Fibonacci spiral against neutral gray. A spherical random walk supplies one direction to all twelve stars. Their fills and inner edges cycle through four hue pairs every second. Reverse Direction flips the cue on every star. Reference Polarity gives each leading or trailing edge full contrast. The default scales edge contrast with its alignment to the local direction.
+Eighteen five-pointed stars stay fixed on a Fibonacci spiral against neutral gray, or against black with Black Background. A spherical random walk supplies one direction to all eighteen stars. Their colors step through eight beats every half second over two hue pairs: each hue in turn fills the stars between dark and light edges, and between those beats the pair colors the leading and trailing edges around a neutral fill. Reverse Direction flips the cue on every star. Reference Polarity, on by default, paints full-contrast strips one edge width deep on the sides of each star that face toward and away from the direction. With it off, edge contrast scales with the edge's alignment to the local direction.
 
-**Parameters**: Strength, Edge Width, Reference Polarity, Reverse Direction
+**Parameters**: Strength, Edge Width, Reference Polarity, Reverse Direction, Black Background
 
 </td></tr></table>
 

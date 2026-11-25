@@ -1517,7 +1517,8 @@ inline void test_sync_pulse_widthed_by_render() {
 /**
  * @brief A pulse on a wake that renders nothing stays HIGH into the next wake.
  * @details The empty body would width the pulse to a few hundred ns, well under
- * a downstream board's glitch filter, so the drop is deferred instead.
+ * a downstream board's sync-node RC filter time constant, so the drop is
+ * deferred instead.
  */
 inline void test_sync_pulse_deferred_across_wake_boundary() {
   SyncPinTrace t;

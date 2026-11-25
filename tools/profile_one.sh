@@ -1,6 +1,6 @@
 #!/bin/bash
 # profile_one.sh [--dry-run|--build-only] [--elf <entry>/firmware.elf]
-#                <Effect-or-ID> <env:profile|profile_o3> <seconds> <window> [extra flags...]
+#                <Effect-or-ID> <profile|profile_o3> <seconds> <window> [extra flags...]
 # Builds+flashes the profile image for one effect and captures its serial dump
 # to a log under build/prof/ by default, then verifies the capture header and, for a
 # cycling effect, a preset marker; on a mismatch it rebuilds the profile image

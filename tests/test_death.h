@@ -6,8 +6,8 @@
 
 /** @file
  * @brief Fail-fast traps and cross-process cold/warm effect determinism.
- * @details Each case runs in a re-executed child. The parent requires an
- * illegal-instruction status and a breadcrumb naming the exact guard. */
+ * @details Each case runs in a re-executed child. The parent requires the
+ * native trap status and a breadcrumb naming the exact guard. */
 
 #include "tests/death/process.h"
 

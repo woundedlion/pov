@@ -1370,8 +1370,9 @@ template <int W, int H, typename ShapeT> consteval void require_scan_shape() {
  * @details Scans the bounding box, computes intervals, and executes the shader
  * for valid pixels. Under the canvas's column-time state the shape is
  * evaluated at each column's rotated basis and the shader receives that
- * direction; bounds come from the shape's swept() proxy, or from whole rows
- * of the swept band for a shape without one.
+ * direction; bounds come from the shape's cap turned to the time of the
+ * columns that see it, else its swept() proxy, else whole rows of the swept
+ * band.
  */
 template <int W, int H, bool ComputeUVs = true, typename PipelineT>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,

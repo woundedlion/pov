@@ -48,7 +48,7 @@ struct SampleSphericalTiling : ValueStateModel<SphericalTilingState> {
 
   /** @brief Frame controls and a view owned by the operator state. */
   struct Prepared {
-    const Source::SphereTilingGeometry *geometry; ///< Selected solid index.
+    const Source::SphereTilingGeometry *geometry; ///< Selected solid geometry.
     Source::SphereTilingEdgeBand edge;            ///< Edge coverage controls.
     float half_width;                             ///< Face inset in radians.
     float fringe;                                 ///< Face depth fraction.

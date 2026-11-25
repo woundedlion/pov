@@ -319,7 +319,8 @@ inline void test_pattern_noise_formulas() {
   HS_EXPECT_TRUE(!SphereNoise::valid(params));
 }
 
-/** @brief Plane bands preserve frequency and rotate counterclockwise. */
+/** @brief Plane bands preserve frequency and rotate counterclockwise; prepared
+ * state ignores later param edits. */
 inline void test_pattern_plane_bands() {
   using Source = Pattern::PlaneBands;
   static_assert(std::is_empty_v<Source::State>);

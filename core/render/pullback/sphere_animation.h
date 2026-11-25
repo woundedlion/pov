@@ -237,7 +237,7 @@ struct RippleGroupBands {
   struct ActiveRange {
     float pole_margin = 0.010001f; ///< Maximum travel plus the pole exclusion.
     /// First active wave index in the group.
-    uint8_t first = 0, end = 0; ///< Contiguous active waves [first, end).
+    uint8_t first = 0, end = 0; ///< One past the last active wave index.
   };
   std::array<ActiveRange, RIPPLE_BURST_GROUPS> active; ///< Active group ranges.
   double inverse_width = 0; ///< Shared half-width reciprocal, zero on fallback.

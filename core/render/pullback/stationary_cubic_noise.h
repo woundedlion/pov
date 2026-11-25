@@ -26,7 +26,7 @@ struct StationaryCubicNoise : ImmutableTable {
   std::array<Cell, Pattern::SphereLutView::FACE_COUNT * CELLS_PER_EDGE *
                        CELLS_PER_EDGE>
       cells;
-  /// Highest spatial frequency resolved by the 23-cell cubic face.
+  /// Highest spatial frequency resolved by CELLS_PER_EDGE cells per face edge.
   static constexpr float MAX_SCALE = 1.25f;
   /// Noise recipe and loop offset identifying a bake.
   struct Key {

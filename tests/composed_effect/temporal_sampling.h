@@ -138,9 +138,9 @@ public:
 
 /** @brief
  * Renders probe pixels with the requested frame storage and sampling mode.
- * @tparam Temporal Whether column-time sampling is enabled.
  * @tparam Persistent Whether prepared frame storage is persistent.
- * @param sampling Whether column-time sampling is enabled.
+ * @tparam Temporal Whether the probe spec enables column-time sampling.
+ * @param sampling Runtime column-time toggle applied while drawing.
  * @return Rendered frame pixels for the selected storage and sampling policy.
  */
 template <bool Persistent, bool Temporal>

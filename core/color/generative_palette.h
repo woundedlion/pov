@@ -44,7 +44,7 @@ public:
   /**
    * @brief The morphable subset of a palette's state, in 48 bytes.
    * @details Carries the keys and both axes, not the evaluation policy and not
-   * the loop-closing hue: a snapshot lerp keeps the target palette's own.
+   * the loop-closing hue: a snapshot lerp keeps the receiving palette's own.
    */
   struct Snapshot {
     /** Quantized lightness and chroma plus the raw hue bits. */

@@ -160,7 +160,8 @@ HS_O3_END
  * where the meridian, walked from the pole away from the face, has crossed
  * an odd number of edges on the way to it; its distance is SDF::PreparedFace's:
  * signed nearest-edge distance, with convex interior half-plane distances, in
- * radians for a face whose size is. Its rows are those within
+ * plane units for a face under SDF::LINEAR_FACE_SIZE across, else in radians,
+ * the units of size(). Its rows are those within
  * SWEEP_ROW_REACH of the edges clipped to the meridian's antialiasing strip,
  * on either arm and past either pole, and from the pole on when the face
  * holds it.
