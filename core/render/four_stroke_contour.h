@@ -8,6 +8,7 @@
  * @brief Marching-squares contour and subpixel membership on a fixed-time output lattice.
  */
 
+#include "core/platform/platform.h"
 #include "core/render/four_stroke.h"
 
 namespace FourStroke {
@@ -24,6 +25,9 @@ public:
     for (int y = -radius; y <= radius; ++y)
       for (int x = -radius; x <= radius; ++x)
         values[y + 3][x + 3] = field(x, y);
+#if HS_ENABLE_STRUCTURAL_AUDITS
+    prepared_radius = radius;
+#endif
   }
 
   /** @brief Classifies a subpixel against the reconstructed exposed segments.
@@ -49,6 +53,10 @@ public:
       for (int x = x_start; x < x_end; ++x) {
         if (!valid_cell(x - 3, y - 3))
           continue;
+        HS_AUDIT_CHECK(x - 3 >= -prepared_radius && x - 2 <= prepared_radius &&
+                           y - 3 >= -prepared_radius &&
+                           y - 2 <= prepared_radius,
+                       "ContourTile: query cell outside the prepared radius");
         const float field[4] = {values[y][x], values[y][x + 1],
                                 values[y + 1][x + 1], values[y + 1][x]};
         if (!(std::isfinite(field[0]) && std::isfinite(field[1]) &&
@@ -119,6 +127,8 @@ public:
   }
 
   /** @brief Classifies a subpixel on a continuous chart.
+   * @details Visits every cell of the halo, so the tile must be prepared
+   *          with radius 3.
    * @tparam Align Normal-to-direction alignment query.
    * @param dx Pixel-relative column coordinate in [-0.5, 0.5].
    * @param dy Pixel-relative row coordinate in [-0.5, 0.5].
@@ -130,6 +140,7 @@ public:
   }
 
   /** @brief Tests coverage within the reconstructed halo.
+   * @details The cell containing (dx, dy) must lie within the prepared radius.
    * @param dx,dy Pixel-relative coordinates.
    * @return True inside the interpolated contour. */
   bool contains(float dx, float dy) const {
@@ -143,6 +154,9 @@ public:
 
 private:
   float values[7][7]; ///< Signed samples centered on the output pixel.
+#if HS_ENABLE_STRUCTURAL_AUDITS
+  int prepared_radius = 0; ///< Lattice radius of the last prepare().
+#endif
 };
 
 } // namespace FourStroke
