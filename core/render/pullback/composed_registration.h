@@ -157,7 +157,7 @@ protected:
     std::array<ParameterGroup, 11> groups{
         {{"Camera", "Camera", 0},
          {"Lens", "Lens", 1},
-         {"Surface Noise", "Surface Noise", 2},
+         {"Surface Noise", "Surface", 2},
          {"Projection Frame", "Projection Frame", 3},
          {"Projection", "Projection", 4},
          {"Planar Warp 1", "Planar Warp 1", 5},
