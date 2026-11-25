@@ -109,11 +109,13 @@ template <int W, typename SpecT> struct ComposedTraits {
 
   static_assert(
       !SpecT::HEX_MORPH_TABLE ||
-      (SOURCE_MORPH &&
-       std::is_base_of_v<
-           Source::FixedTessellationParams<Pattern::TessellationKind::HEXAGONAL,
-                                           Pattern::TessellationFill::CELLS>,
-           SourceFamily>));
+          (SOURCE_MORPH &&
+           std::is_base_of_v<Source::FixedTessellationParams<
+                                 Pattern::TessellationKind::HEXAGONAL,
+                                 Pattern::TessellationFill::CELLS>,
+                             SourceFamily>),
+      "HEX_MORPH_TABLE requires source morphing over a fixed hexagonal-cell "
+      "tessellation source");
   using Binding = Pullback::Binding<FrameState, SpecT>; ///< Pipeline binding.
   /// Whether projection controls are present.
   static constexpr bool HAS_FRAME_PARAMS = Params::template HAS<"projection">;
