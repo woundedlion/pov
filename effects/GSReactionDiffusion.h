@@ -868,6 +868,9 @@ private:
   /// Words in a node bit set, guards included.
   static constexpr int HOT_WORDS = (RD_N + 31) / 32 + 2 * HOT_GUARD_WORDS;
   static_assert(RD_N % 32 == 0, "node bit sets occupy whole words");
+  static_assert(HOT_GUARD_WORDS >= (PHYSICS_NEIGHBOR_REACH + 31) / 32 + 1,
+                "hot-bit guards must cover the widest neighbour offset plus a "
+                "spill word");
 
   /** @brief Per-node flags packed 32 to a word, read like a flag array. */
   struct HotBits {
