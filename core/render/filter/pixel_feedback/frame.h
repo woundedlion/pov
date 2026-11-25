@@ -381,7 +381,7 @@ Feedback<W, H>::prepare_flush(Canvas &cv, float alpha, Arena &scratch,
   ctx.geometry.warp = ctx.geometry.end;
   ctx.frames.filtered_row =
       (!band.x_clip.active &&
-       (split || grid.downsample > 1 || !SphereField::HAS_NORTH_POLE ||
+       (grid.downsample > 1 || !SphereField::HAS_NORTH_POLE ||
         !SphereField::HAS_SOUTH_POLE))
           ? scratch.allocate_n<::Pixel>(W)
           : nullptr;
