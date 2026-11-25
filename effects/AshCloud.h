@@ -233,7 +233,8 @@ public:
       if (!prepared.enabled || prepared.mechanic.amount == 0.0f)
         return;
       using Stage = typename Pipeline::template NodeAt<Index>::Descriptor;
-      const float scalar = Stage::sample_cached_phase_scalar(field, prepared);
+      const float scalar =
+          Stage::ColorPolicy::sample_cached_phase_scalar(field, prepared);
       hue = Pullback::Color::accumulate_hue(hue, scalar, prepared.mechanic);
     };
     apply_hue.template operator()<6>();
@@ -272,7 +273,7 @@ public:
               covered.sphere, noise.noise_to_chamber, *noise.noise_previous,
               *noise.noise_current, noise.noise_fraction, scalar)) {
         using NoiseStage = typename Pipeline::template NodeAt<6>::Descriptor;
-        scalar = NoiseStage::sample_phase_fallback(covered, noise);
+        scalar = NoiseStage::ColorPolicy::sample_phase_fallback(covered, noise);
       }
       hue = math::wrap_t(noise.mechanic.amount * scalar);
       hue = Pullback::Color::accumulate_hue(hue, covered.path_length,

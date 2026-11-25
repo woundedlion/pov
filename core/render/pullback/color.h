@@ -415,6 +415,37 @@ template <typename State> struct Modulate : ApproximationDefaults {
     return Color::sample_phase_scalar<Prepared, SINE_PHASE>(field, prepared,
                                                             scratch);
   }
+  /** @brief Samples a phase outside the displacement and chamber-cache paths.
+   * @param field Source coordinates and displacement travel.
+   * @param prepared Ready column phase.
+   * @return Source scalar before its mechanic. */
+  HS_FLASH_MEMBER static float sample_phase_fallback(const FieldSample &field,
+                                                     const Prepared &prepared)
+    requires std::is_base_of_v<PhaseModulationState, Prepared>
+  {
+    return sample_phase_scalar(field, prepared);
+  }
+  /** @brief Samples displacement or chamber noise with an outlined fallback.
+   * @param field Source coordinates and displacement travel.
+   * @param prepared Ready column phase.
+   * @return Source scalar before its mechanic. */
+  HS_HOT_INLINE static float
+  sample_cached_phase_scalar(const FieldSample &field, const Prepared &prepared)
+    requires std::is_base_of_v<PhaseModulationState, Prepared>
+  {
+    if (prepared.source == Pattern::SourceKind::DISPLACEMENT)
+      return field.path_length;
+    if constexpr (std::is_same_v<Prepared, ChamberPhaseModulationState>) {
+      float scalar;
+      if (prepared.source == Pattern::SourceKind::NOISE &&
+          prepared.noise_previous && prepared.noise_current &&
+          Modulation::sample_chamber_noise(
+              field.sphere, prepared.noise_to_chamber, *prepared.noise_previous,
+              *prepared.noise_current, prepared.noise_fraction, scalar))
+        return scalar;
+    }
+    return sample_phase_fallback(field, prepared);
+  }
   /** @brief Modulates one endpoint.
    * @tparam FrameState Frame context.
    * @param input Color carrier.
