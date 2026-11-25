@@ -5,59 +5,57 @@ Ranked on-device results for the shipping `profile` image, covering the
 the 62.5 ms display window. Rows rank by spill fraction, then steady peak render.
 🟢 zero spill; 🔴 any spill.
 
-Filigree's row covers the 105 s playlist slot. Its full capture covered both
-transition directions with **0 spills in 2,791 live frames** and a
-**60.862 ms** peak. [Full Filigree capture](profile_filigree_teensy_2026-11-20.md#frame-cadence)
+The earlier [bidirectional Filigree capture](profile_filigree_bidirectional_teensy_2026-11-20.md) includes both transition directions.
 
-| Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Captured |
-|---|---|--:|--:|--:|---|---|
-| [RiverStones](profile_riverstones_teensy_2026-11-18.md) § ● | `fx_shader_draw`<br>worst: RiverStones 2, 58.167 ms / 16 fps | 🟢 58.167 (2) | 70.027 | 🟢 0/1667 (0.00%) | COM3 | 2026-11-18 23:32 |
-| [IslamicStars](profile_islamicstars_teensy_2026-11-17.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.059 ms / 16 fps | 🟢 58.059 (16) | 16.537 | 🟢 0/4895 (0.00%) | COM3 | 2026-11-17 09:09 |
-| [Filigree](profile_filigree_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: Jade Weave → Ember Lattice, 57.375 ms / 16 fps | 🟢 57.375 (2) | 76.754 | 🟢 0/1667 (0.00%) | COM3 | 2026-11-20 08:42 |
-| [GridWarp](profile_gridwarp_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.343 | 80.625 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:41 |
-| [AshCloud](profile_ashcloud_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 56.216 | 85.379 | 🟢 0/959 (0.00%) | COM4 | 2026-11-17 09:39 |
-| [ShapeShifter](profile_shapeshifter_teensy_2026-11-17.md) § ● | `ss_draw_all`<br>worst: 8, 56.021 ms / 16 fps | 🟢 56.021 (9) | 76.786 | 🟢 0/4303 (0.00%) | COM3 | 2026-11-17 09:00 |
-| [MeshFeedback](profile_meshfeedback_teensy_2026-11-17.md) § ● | `mf_feedback_flush`<br>worst: WigglingWormhole, 55.672 ms / 16 fps | 🟢 55.672 (12) | 6.470 | 🟢 0/2895 (0.00%) | COM3 | 2026-11-17 09:23 |
-| [HopfFibration](profile_hopffibration_teensy_2026-11-17.md) ● | `hf_render_trails` | 🟢 55.635 | 0.672 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:45 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-11-17.md) § ● | `hl_shader_draw`<br>worst: octet-4d-flight, 53.311 ms / 16 fps | 🟢 53.311 (9) | 45.039 | 🟢 0/4799 (0.00%) | COM4 | 2026-11-17 09:08 |
-| [Millefiori](profile_millefiori_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 52.832 | 79.856 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:35 |
-| [Raymarch](profile_raymarch_teensy_2026-11-17.md) ● | `rm_shader_draw` | 🟢 52.759 | 94.040 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:52 |
-| [JewelMelt](profile_jewelmelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 52.547 | 79.906 | 🟢 0/959 (0.00%) | COM4 | 2026-11-17 09:45 |
-| [DreamBalls](profile_dreamballs_teensy_2026-11-17.md) § ● | `db_timeline_step`<br>worst: 9, 51.363 ms / 16 fps | 🟢 51.363 (10) | 49.416 | 🟢 0/3199 (0.00%) | COM3 | 2026-11-17 09:19 |
-| [RingSpin](profile_ringspin_teensy_2026-11-17.md) ● | `rs_draw_rings` | 🟢 51.117 | 3.279 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:54 |
-| [MindSplatter](profile_mindsplatter_teensy_2026-11-17.md) § ● | `msp_draw_particles`<br>worst: 7, 50.810 ms / 16 fps | 🟢 50.810 (8) | 0.372 | 🟢 0/1279 (0.00%) | COM3 | 2026-11-17 09:03 |
-| [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 50.074 | 78.699 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:45 |
-| [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Kaleidoscope Hex Oil 2, 48.354 ms / 16 fps | 🟢 48.354 (2) | 68.013 | 🟢 0/1679 (0.00%) | COM3 | 2026-11-17 09:26 |
-| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-11-17.md) ● | `grd_render` | 🟢 47.331 | 24.651 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:43 |
-| [MermaidSkin](profile_mermaidskin_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 45.898 | 68.306 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:37 |
-| [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Cup Hue, 45.881 ms / 16 fps | 🟢 45.881 (2) | 65.217 | 🟢 0/1679 (0.00%) | COM4 | 2026-11-17 09:25 |
-| [ChromaticLichen](profile_chromaticlichen_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 45.730 | 67.214 | 🟢 0/479 (0.00%) | COM4 | 2026-11-17 09:37 |
-| [Iridescence](profile_iridescence_teensy_2026-11-18.md) ● | `fx_shader_draw` | 🟢 44.915 | 83.018 | 🟢 0/479 (0.00%) | COM3 | 2026-11-18 18:14 |
-| [Involution](profile_involution_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 44.738 | 82.497 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:39 |
-| [DisplacementField](profile_displacementfield_teensy_2026-11-17.md) § ● | `df_timeline_step`<br>worst: noise, 44.616 ms / 16 fps | 🟢 44.616 (2) | 18.450 | 🟢 0/1935 (0.00%) | COM3 | 2026-11-17 08:38 |
-| [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-11-17.md) ● | `bz_render` | 🟢 44.329 | 76.068 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:32 |
-| [Galaxies](profile_galaxies_teensy_2026-11-17.md) ● | `gx_particle_step` | 🟢 43.803 | 1.477 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:28 |
-| [LiquidWindows](profile_liquidwindows_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 42.732 | 63.633 | 🟢 0/479 (0.00%) | COM4 | 2026-11-17 09:41 |
-| [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Fine Grid, 41.644 ms / 16 fps | 🟢 41.644 (3) | 61.934 | 🟢 0/2767 (0.00%) | COM4 | 2026-11-17 09:18 |
-| [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Hex Twin Wave, 41.633 ms / 16 fps | 🟢 41.633 (2) | 57.993 | 🟢 0/1679 (0.00%) | COM4 | 2026-11-17 09:29 |
-| [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Direct Grid, 40.288 ms / 16 fps | 🟢 40.288 (4) | 63.892 | 🟢 0/3839 (0.00%) | COM3 | 2026-11-17 09:14 |
-| [GridWorms](profile_gridworms_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 39.075 | 54.282 | 🟢 0/479 (0.00%) | COM4 | 2026-11-17 09:35 |
-| [AlienBrain](profile_alienbrain_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Alien Brain 3, 37.447 ms / 16 fps | 🟢 37.447 (4) | 57.420 | 🟢 0/3839 (0.00%) | COM4 | 2026-11-17 09:13 |
-| [MobiusGrid](profile_mobiusgrid_teensy_2026-11-17.md) § ● | `fx_shader_draw`<br>worst: Mobius Grid 2, 33.522 ms / 16 fps | 🟢 33.522 (2) | 55.942 | 🟢 0/1679 (0.00%) | COM3 | 2026-11-17 08:48 |
-| [HankinSolids](profile_hankinsolids_teensy_2026-11-17.md) § ● | `hk_timeline_step`<br>worst: truncatedCube, 32.980 ms / 16 fps | 🟢 32.980 (18) | 18.945 | 🟢 0/2719 (0.00%) | COM4 | 2026-11-17 09:22 |
-| [GridSpace](profile_gridspace_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 32.794 | 46.539 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:33 |
-| [CosmicEyeball](profile_cosmiceyeball_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 30.734 | 48.727 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 09:43 |
-| [Comets](profile_comets_teensy_2026-11-17.md) § ● | `cm_draw_trail`<br>worst: 5, 29.869 ms / 16 fps | 🟢 29.869 (12) | 0.869 | 🟢 0/1919 (0.00%) | COM3 | 2026-11-17 09:29 |
-| [Fishbowl](profile_fishbowl_teensy_2026-11-17.md) ● | `fish_build_vertices` | 🟢 28.256 | 1.681 | 🟢 0/959 (0.00%) | COM3 | 2026-11-17 08:34 |
-| [AlienCore](profile_aliencore_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 27.530 | 42.245 | 🟢 0/479 (0.00%) | COM4 | 2026-11-17 09:33 |
-| [AlienOcean](profile_alienocean_teensy_2026-11-17.md) ● | `fx_shader_draw` | 🟢 27.306 | 49.224 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 09:31 |
-| [GnomonicStars](profile_gnomonicstars_teensy_2026-11-17.md) ● | `gn_draw_stars` | 🟢 26.078 | 15.179 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:40 |
-| [PetalFlow](profile_petalflow_teensy_2026-11-17.md) ● | `pf_draw_rings` | 🟢 25.420 | 19.712 | 🟢 0/479 (0.00%) | COM3 | 2026-11-17 08:50 |
-| [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-11-17.md) § ● | `sh_rasterize`<br>worst: l=4, m=4, 12.841 ms / 16 fps | 🟢 12.841 (24) | 21.305 | 🟢 0/1535 (0.00%) | COM4 | 2026-11-17 09:31 |
+| Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Board | Show s | Captured |
+|---|---|--:|--:|--:|---|--:|---|
+| [IslamicStars](profile_islamicstars_teensy_2026-11-20.md) § ● | `is_timeline_step`<br>worst: dodecahedron_hk35_ambo_hk62_ambo_relax_hk42, 58.986 ms / 16 fps | 🟢 58.986 (16) | 16.611 | 🟢 0/4880 (0.00%) | COM3 | 306 | 2026-11-20 15:00 |
+| [RiverStones](profile_riverstones_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: river-stones → river-stones-2, 58.139 ms / 16 fps | 🟢 58.139 (2) | 69.048 | 🟢 0/1670 (0.00%) | COM3 | 105 | 2026-11-20 15:27 |
+| [ShapeShifter](profile_shapeshifter_teensy_2026-11-20.md) § ● | `ss_draw_all`<br>worst: 8, 56.029 ms / 16 fps | 🟢 56.029 (9) | 76.265 | 🟢 0/4289 (0.00%) | COM4 | 269 | 2026-11-20 15:33 |
+| [MeshFeedback](profile_meshfeedback_teensy_2026-11-20.md) § ● | `mf_feedback_flush`<br>worst: WigglingWormhole, 55.879 ms / 16 fps | 🟢 55.879 (12) | 6.551 | 🟢 0/2886 (0.00%) | COM4 | 181 | 2026-11-20 15:40 |
+| [AshCloud](profile_ashcloud_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 55.513 | 83.423 | 🟢 0/950 (0.00%) | COM3 | 60 | 2026-11-20 14:53 |
+| [HopfFibration](profile_hopffibration_teensy_2026-11-20.md) ● | `hf_render_trails` | 🟢 55.490 | 0.672 | 🟢 0/945 (0.00%) | COM4 | 60 | 2026-11-20 16:15 |
+| [Filigree](profile_filigree_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: jade-weave → ember-lattice, 55.155 ms / 16 fps | 🟢 55.155 (2) | 78.329 | 🟢 0/1666 (0.00%) | COM4 | 105 | 2026-11-20 15:45 |
+| [Millefiori](profile_millefiori_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 53.861 | 82.441 | 🟢 0/950 (0.00%) | COM4 | 60 | 2026-11-20 16:04 |
+| [JewelMelt](profile_jewelmelt_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 53.778 | 83.605 | 🟢 0/949 (0.00%) | COM4 | 60 | 2026-11-20 16:01 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-11-20.md) § ● | `hl_shader_draw`<br>worst: octet-4d-flight, 53.279 ms / 16 fps | 🟢 53.279 (9) | 45.645 | 🟢 0/4786 (0.00%) | COM4 | 300 | 2026-11-20 15:27 |
+| [Raymarch](profile_raymarch_teensy_2026-11-20.md) ● | `rm_shader_draw` | 🟢 52.092 | 93.629 | 🟢 0/469 (0.00%) | COM4 | 30 | 2026-11-20 16:05 |
+| [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 51.489 | 81.763 | 🟢 0/950 (0.00%) | COM4 | 60 | 2026-11-20 16:18 |
+| [DreamBalls](profile_dreamballs_teensy_2026-11-20.md) § ● | `db_timeline_step`<br>worst: 9, 51.441 ms / 16 fps | 🟢 51.441 (10) | 51.219 | 🟢 0/3187 (0.00%) | COM4 | 200 | 2026-11-20 15:36 |
+| [RingSpin](profile_ringspin_teensy_2026-11-20.md) ● | `rs_draw_rings` | 🟢 50.813 | 3.257 | 🟢 0/948 (0.00%) | COM4 | 60 | 2026-11-20 16:20 |
+| [GridWarp](profile_gridwarp_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 50.732 | 78.390 | 🟢 0/949 (0.00%) | COM4 | 60 | 2026-11-20 16:14 |
+| [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-11-20.md) ● | `bz_render` | 🟢 50.177 | 87.527 | 🟢 0/950 (0.00%) | COM4 | 60 | 2026-11-20 15:54 |
+| [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: kaleidoscope-hex-oil → kaleidoscope-hex-oil-2, 49.700 ms / 16 fps | 🟢 49.700 (2) | 71.154 | 🟢 0/1668 (0.00%) | COM4 | 105 | 2026-11-20 15:47 |
+| [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: wave-mirror → cup-hue, 47.556 ms / 16 fps | 🟢 47.556 (2) | 67.029 | 🟢 0/1668 (0.00%) | COM4 | 105 | 2026-11-20 16:07 |
+| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-11-20.md) ● | `grd_render` | 🟢 47.186 | 24.668 | 🟢 0/945 (0.00%) | COM4 | 60 | 2026-11-20 15:56 |
+| [MermaidSkin](profile_mermaidskin_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 45.788 | 69.784 | 🟢 0/948 (0.00%) | COM4 | 60 | 2026-11-20 16:19 |
+| [Iridescence](profile_iridescence_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 45.752 | 84.370 | 🟢 0/949 (0.00%) | COM4 | 60 | 2026-11-20 16:17 |
+| [ChromaticLichen](profile_chromaticlichen_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 45.706 | 68.909 | 🟢 0/948 (0.00%) | COM4 | 60 | 2026-11-20 16:10 |
+| [MindSplatter](profile_mindsplatter_teensy_2026-11-20.md) § ● | `msp_draw_particles`<br>worst: 6 → 7, 45.451 ms / 16 fps | 🟢 45.451 (8) | 0.423 | 🟢 0/1263 (0.00%) | COM4 | 80 | 2026-11-20 16:09 |
+| [Involution](profile_involution_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 45.232 | 81.961 | 🟢 0/949 (0.00%) | COM4 | 60 | 2026-11-20 16:00 |
+| [DisplacementField](profile_displacementfield_teensy_2026-11-20.md) § ● | `df_timeline_step`<br>worst: noise, 44.765 ms / 16 fps | 🟢 44.765 (2) | 18.584 | 🟢 0/1921 (0.00%) | COM3 | 121 | 2026-11-20 15:17 |
+| [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: open-grid → fine-grid, 44.353 ms / 16 fps | 🟢 44.353 (3) | 63.854 | 🟢 0/2755 (0.00%) | COM3 | 173 | 2026-11-20 15:14 |
+| [Galaxies](profile_galaxies_teensy_2026-11-20.md) ● | `gx_particle_step` | 🟢 43.659 | 1.470 | 🟢 0/949 (0.00%) | COM4 | 60 | 2026-11-20 16:13 |
+| [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: hex-twin-wave, 42.290 ms / 16 fps | 🟢 42.290 (2) | 59.706 | 🟢 0/1667 (0.00%) | COM3 | 105 | 2026-11-20 15:22 |
+| [LiquidWindows](profile_liquidwindows_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 42.228 | 64.841 | 🟢 0/947 (0.00%) | COM4 | 60 | 2026-11-20 17:20 |
+| [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: coupled-grid, 41.435 ms / 16 fps | 🟢 41.435 (4) | 65.479 | 🟢 0/3825 (0.00%) | COM3 | 240 | 2026-11-20 15:10 |
+| [GridWorms](profile_gridworms_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 38.612 | 52.447 | 🟢 0/945 (0.00%) | COM4 | 60 | 2026-11-20 15:59 |
+| [AlienBrain](profile_alienbrain_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: alien-brain-2 → alien-brain-3, 37.554 ms / 16 fps | 🟢 37.554 (4) | 58.378 | 🟢 0/3825 (0.00%) | COM3 | 240 | 2026-11-20 15:05 |
+| [MobiusGrid](profile_mobiusgrid_teensy_2026-11-20.md) § ● | `fx_shader_draw`<br>worst: mobius-grid → mobius-grid-2, 34.612 ms / 16 fps | 🟢 34.612 (2) | 59.131 | 🟢 0/1666 (0.00%) | COM4 | 105 | 2026-11-20 15:49 |
+| [HankinSolids](profile_hankinsolids_teensy_2026-11-20.md) § ● | `hk_timeline_step`<br>worst: truncatedCuboctahedron, 32.517 ms / 16 fps | 🟢 32.517 (18) | 19.007 | 🟢 0/2703 (0.00%) | COM4 | 170 | 2026-11-20 15:43 |
+| [GridSpace](profile_gridspace_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 32.296 | 45.993 | 🟢 0/943 (0.00%) | COM4 | 60 | 2026-11-20 15:21 |
+| [Comets](profile_comets_teensy_2026-11-20.md) § ● | `cm_draw_trail`<br>worst: 5, 29.874 ms / 16 fps | 🟢 29.874 (12) | 0.879 | 🟢 0/1903 (0.00%) | COM3 | 120 | 2026-11-20 15:19 |
+| [AlienOcean](profile_alienocean_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 28.276 | 51.217 | 🟢 0/463 (0.00%) | COM4 | 30 | 2026-11-20 16:05 |
+| [GnomonicStars](profile_gnomonicstars_teensy_2026-11-20.md) ● | `gn_draw_stars` | 🟢 28.079 | 15.235 | 🟢 0/928 (0.00%) | COM4 | 60 | 2026-11-20 15:57 |
+| [Fishbowl](profile_fishbowl_teensy_2026-11-20.md) ● | `fish_build_vertices` | 🟢 27.892 | 1.653 | 🟢 0/941 (0.00%) | COM4 | 60 | 2026-11-20 16:12 |
+| [AlienCore](profile_aliencore_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 27.527 | 41.722 | 🟢 0/941 (0.00%) | COM4 | 60 | 2026-11-20 15:53 |
+| [CosmicEyeball](profile_cosmiceyeball_teensy_2026-11-20.md) ● | `fx_shader_draw` | 🟢 27.513 | 47.003 | 🟢 0/943 (0.00%) | COM4 | 60 | 2026-11-20 15:55 |
+| [PetalFlow](profile_petalflow_teensy_2026-11-20.md) ● | `pf_draw_rings` | 🟢 25.346 | 19.772 | 🟢 0/459 (0.00%) | COM4 | 30 | 2026-11-20 16:21 |
+| [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-11-20.md) § ● | `sh_rasterize`<br>worst: morph toward l=4, m=4, 12.368 ms / 16 fps | 🟢 12.368 (24) | 20.591 | 🟢 0/1519 (0.00%) | COM4 | 96 | 2026-11-20 15:51 |
 
-● captures updated 2026-11-17, 2026-11-18, 2026-11-19.
+● The 2026-11-20 sweep measured 43 configured slots totaling 4,476 seconds at `6cca5fb7f`. LiquidWindows was remeasured 2026-11-20 17:20 at `e76722518`.
 
-Shipping results use only the authored show budget, including in-show transitions.
+Shipping results use each configured show duration from the shipping firmware. The denominator counts frames confirmed complete by that elapsed-time boundary. Each report gives the possible additional boundary frames and their measured costs.
 Setup frame 1 remains separate. Post-show capture padding is excluded from every
 peak, spill denominator, phase readout and per-preset table.
 A full cycle means the scheduled show slot; an additional wrap is not required.

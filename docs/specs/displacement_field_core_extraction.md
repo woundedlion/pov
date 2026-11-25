@@ -360,7 +360,7 @@ the effect's alternates.
 
 **Profile scopes.** DF keeps `df_fused_scan`, `df_chunk_cull`, `df_lut_bake`,
 `df_octave_noise` and `df_hue_table_prep` at its call sites, so report rows
-stay comparable with the current [shipping report](../profiles/shipping/profile_displacementfield_teensy_2026-11-17.md).
+stay comparable with the current [shipping report](../profiles/shipping/profile_displacementfield_teensy_2026-11-20.md).
 
 ### 4.6 S6: `ArenaFootprint`
 
@@ -638,7 +638,7 @@ check.
 
 The capture above is recorded in
 [the historical 2026-11-12 DisplacementField timing report](https://raw.githubusercontent.com/woundedlion/pov/6ac5a4f049fd06562df1530888d9a50fcbfa9f21/docs/profiles/shipping/profile_displacementfield_teensy_2026-11-12.md).
-The maintained [shipping report](../profiles/shipping/profile_displacementfield_teensy_2026-11-17.md)
+The maintained [shipping report](../profiles/shipping/profile_displacementfield_teensy_2026-11-20.md)
 covers the refreshed archive.
 
 ### 9.4 Daydream visual check

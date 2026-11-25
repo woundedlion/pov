@@ -229,4 +229,4 @@ The O3 profile image costs +28,528 B FLASH code and +9,456 B ITCM code; RAM1 fre
 
 Core raster functions already receive selective O3. The shipping attributes disable loop unswitching to control code growth; global O3 restores it and changes inlining/layout. The capture does not demonstrate a large core saving worth importing. Any narrow unswitching experiment would need its own peak, render-equivalence and full-image memory qualification.
 
-[Current shipping report](../shipping/profile_islamicstars_teensy_2026-11-17.md). [Historical TS4 capture](profile_islamicstars_historical_ts4_teensy_2026-09-28.md).
+[Current shipping report](../shipping/profile_islamicstars_teensy_2026-11-20.md). [Historical TS4 capture](profile_islamicstars_historical_ts4_teensy_2026-09-28.md).
