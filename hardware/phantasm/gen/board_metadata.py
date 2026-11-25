@@ -187,9 +187,7 @@ def dielectric_stackup(stackup):
         thickness = _decimal(_one_value(layer, "thickness"), "dielectric thickness")
         if not thickness.is_finite():
             raise MetadataError("dielectric thickness must be finite")
-        thickness_mm = format(thickness, "f")
-        if "." in thickness_mm:
-            thickness_mm = thickness_mm.rstrip("0").rstrip(".")
+        thickness_mm = _format_decimal(thickness)
         material = sexp.val(layer, "material") or [None]
         layers.append([str(layer[1]), str(layer_type[0]), thickness_mm, str(material[0])])
     return layers
