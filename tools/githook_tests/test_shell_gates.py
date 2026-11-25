@@ -38,7 +38,7 @@ class ShellGateTests(unittest.TestCase):
         return subprocess.run(
             ["bash", "-c", 'export PATH="$PWD/stubs:$PATH"; exec bash "$@"',
              "fixture", str(script or REPO / "tools" / name), *args],
-            cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
+            cwd=self.root, env=self.env, capture_output=True, encoding="utf-8", timeout=30)
 
     def cold_build_script(self):
         script = self.root / "tools" / "teensy_cold_build.sh"
