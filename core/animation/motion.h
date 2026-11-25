@@ -119,22 +119,25 @@ namespace Animation {
 /** @brief Maximum smooth rotation step for a display width. */
 template <int W> inline constexpr float MAX_ROTATION_STEP = 2 * math::PI_F / W;
 
+/** @brief Upper clamp on rotation_substeps(). */
+inline constexpr int ROTATION_MAX_SUBSTEPS = 4096;
+
 /**
  * @brief Sub-rotation count needed to keep each interpolated step within
  * `max_angle` over a total sweep of `angle` radians.
  * @param angle Total sweep angle in radians.
  * @param max_angle Per-column smoothness threshold in radians.
- * @return Sub-step count, clamped to [1, MAX_SUBSTEPS].
+ * @return Sub-step count, clamped to [1, ROTATION_MAX_SUBSTEPS].
  * @details The caller upsamples the orientation trail to (result + 1) frames.
  * @note The upper clamp keeps the float->int conversion defined. A NaN or
  * non-positive quotient yields 1.
  */
 inline int rotation_substeps(float angle, float max_angle) {
-  constexpr float MAX_SUBSTEPS = 4096.0f;
   const float steps = std::ceil(angle / max_angle);
   if (!(steps > 1.0f)) // false for NaN
     return 1;
-  return static_cast<int>(std::min(steps, MAX_SUBSTEPS));
+  return static_cast<int>(
+      std::min(steps, static_cast<float>(ROTATION_MAX_SUBSTEPS)));
 }
 
 /** @brief Repeat and coordinate-space options for Motion and Rotation. */

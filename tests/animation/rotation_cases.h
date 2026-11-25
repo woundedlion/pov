@@ -32,14 +32,15 @@ inline void test_rotation_substeps_shared_and_tight() {
   HS_EXPECT_EQ(Animation::rotation_substeps(MAX, MAX), 1);
   HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 3.0f, MAX), 3);
   HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 3.2f, MAX), 4);
-  // NaN yields 1; infinite or huge sweeps clamp to MAX_SUBSTEPS.
+  // NaN yields 1; infinite or huge sweeps clamp to ROTATION_MAX_SUBSTEPS.
   HS_EXPECT_EQ(Animation::rotation_substeps(
                    std::numeric_limits<float>::quiet_NaN(), MAX),
                1);
   HS_EXPECT_EQ(
       Animation::rotation_substeps(std::numeric_limits<float>::infinity(), MAX),
-      4096);
-  HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 1e6f, MAX), 4096);
+      Animation::ROTATION_MAX_SUBSTEPS);
+  HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 1e6f, MAX),
+               Animation::ROTATION_MAX_SUBSTEPS);
   // Every sub-interval stays within MAX.
   for (float a = 0.0f; a < 2.0f; a += 0.013f) {
     int n = Animation::rotation_substeps(a, MAX);
