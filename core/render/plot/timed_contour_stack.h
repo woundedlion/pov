@@ -370,9 +370,10 @@ private:
         start_orientation *
         math::make_rotation(contour.axis, contour.turn_at(0.0f)) *
         end_orientation.conjugate();
+    const int second = chart.corners > 1 ? 1 : 0;
     const float lever = PlanarChords<W, H>::rotation_radius(
         {chords.chart_x()[0], chords.chart_y()[0]},
-        {chords.chart_x()[1], chords.chart_y()[1]});
+        {chords.chart_x()[second], chords.chart_y()[second]});
     const float contour_speed =
         fabsf(contour.twist) * contour.rate * lever + spin;
     flush();
