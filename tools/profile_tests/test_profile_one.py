@@ -71,6 +71,7 @@ class ProfileSweepTests(unittest.TestCase):
                 sweep = root / "tools/profile_sweep.sh"
                 shutil.copyfile(REPO / "tools/profile_sweep.sh", sweep)
                 shutil.copyfile(REPO / "tools/cpp_roster.py", root / "tools/cpp_roster.py")
+                shutil.copyfile(REPO / "tools/find_python.sh", root / "tools/find_python.sh")
                 (root / "targets/Phantasm/phantasm_playlist.def").write_text(header, encoding="utf-8")
                 result = subprocess.run(["bash", sweep.as_posix(), "check"],
                                         capture_output=True, text=True, env=isolated_env())
