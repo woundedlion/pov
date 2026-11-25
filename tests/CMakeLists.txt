@@ -616,6 +616,23 @@ foreach(_hs_target IN LISTS _hs_exe_targets)
   endif()
 endforeach()
 
+# Apply the native display profile to compiled targets in this directory,
+# before hs_share_test_engines keys shared engine objects on definitions.
+set(HS_NATIVE_DISPLAY_PROFILE 0 CACHE STRING "Native test latitude profile (0 or 1)")
+set_property(CACHE HS_NATIVE_DISPLAY_PROFILE PROPERTY STRINGS 0 1)
+if(NOT HS_NATIVE_DISPLAY_PROFILE MATCHES "^[01]$")
+  message(FATAL_ERROR "HS_NATIVE_DISPLAY_PROFILE must be 0 or 1")
+endif()
+get_property(_hs_profile_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(_hs_target IN LISTS _hs_profile_targets)
+  get_target_property(_hs_target_type ${_hs_target} TYPE)
+  if(NOT _hs_target_type STREQUAL "UTILITY"
+      AND NOT _hs_target_type STREQUAL "INTERFACE_LIBRARY"
+      AND NOT _hs_target STREQUAL "display_geometry_check")
+    target_compile_definitions(${_hs_target} PRIVATE HS_DISPLAY_PROFILE=${HS_NATIVE_DISPLAY_PROFILE})
+  endif()
+endforeach()
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/engine_libraries.cmake)
 hs_share_test_engines()
 
