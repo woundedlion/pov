@@ -124,6 +124,7 @@ inline int run_plot_scan_tests() {
   HS_RUN(test_arm_passes_match_brute_force);
   HS_RUN(test_arm_passes_extend_to_frame_ends);
   HS_RUN(test_piecewise_arm_passes_match_brute_force);
+  HS_RUN(test_piecewise_inner_knot_pass_emitted_once);
   HS_RUN(test_model_track_guard_bounds_true_passes);
   HS_RUN(test_model_track_splits_or_refuses_near_poles);
   HS_RUN(test_swept_bounds_cover_moving_edges);

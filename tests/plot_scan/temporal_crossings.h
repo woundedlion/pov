@@ -226,6 +226,41 @@ inline void test_piecewise_arm_passes_match_brute_force() {
   HS_EXPECT_EQ(later.passes[0].arm, 0);
 }
 
+/** @brief An arm passing exactly through an inner knot is emitted once,
+ *         whatever the knot column's rounding. */
+inline void test_piecewise_inner_knot_pass_emitted_once() {
+  constexpr int W = 288;
+  constexpr float HALF = W / 2.0f;
+  constexpr float SPEEDS[] = {-97.3f, -41.9f, -3.7f,  0.0f,
+                              13.1f,  58.6f,  101.9f, 131.7f};
+  float columns[8];
+  for (int knots = 3; knots <= 8; ++knots) {
+    const int pieces = knots - 1;
+    for (int k = 1; k < pieces; ++k) {
+      const float tk = static_cast<float>(k) / static_cast<float>(pieces);
+      for (int arm = -3; arm <= 3; ++arm) {
+        const float knot = (static_cast<float>(arm) + tk) * HALF;
+        for (float before : SPEEDS)
+          for (float after : SPEEDS) {
+            for (int j = 0; j < knots; ++j) {
+              const float t =
+                  static_cast<float>(j) / static_cast<float>(pieces);
+              columns[j] =
+                  j == k ? knot : knot + (j < k ? before : after) * (t - tk);
+            }
+            int emitted = 0;
+            Spacetime::piecewise_crossings<W>(
+                columns, knots, Spacetime::FrameEnds::NEITHER,
+                [&](const Spacetime::Crossing &pass) {
+                  emitted += pass.arm == arm;
+                });
+            HS_EXPECT_EQ(emitted, 1);
+          }
+      }
+    }
+  }
+}
+
 /**
  * @brief Checks a modelled sphere track's passes against brute force.
  * @param exact Unit path over the span.

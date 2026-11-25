@@ -74,8 +74,11 @@ HS_HOT_INLINE void crossings(int width, float x0, float x1, float t0, float t1,
     if (raw < 0.0f &&
         (!includes_start(ends) || fabsf(x0 - (branch + t0) * half) > reach))
       continue;
-    if ((raw >= 1.0f && !includes_end(ends)) ||
-        (raw > 1.0f && fabsf(x1 - (branch + t1) * half) > reach))
+    // The next span's start test reads this residual, so exactly one of the
+    // two emits a pass at the shared column.
+    const float end_residual = x1 - (branch + t1) * half;
+    if ((end_residual * approach >= 0.0f && !includes_end(ends)) ||
+        (raw > 1.0f && fabsf(end_residual) > reach))
       continue;
     const float s = hs::clamp(raw, 0.0f, 1.0f);
     emit(Crossing{t0 + span * s, s, branch});
