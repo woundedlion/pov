@@ -207,6 +207,42 @@ struct Line {
     SDF::Line shape(v1, v2, thickness);
     Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
   }
+
+  /** @brief Draws a round-capped geodesic with per-footprint fragment shading.
+   * @tparam W,H Output dimensions.
+   * @param pipeline Prepared destination pipeline.
+   * @param canvas Destination canvas.
+   * @param f1,f2 Endpoint positions and interpolated registers.
+   * @param radius Positive angular stroke half-width.
+   * @param material Wrapped line material and contour register stage. */
+  template <int W, int H>
+  static void draw(ScanRef pipeline, Canvas &canvas, const Fragment &f1,
+                   const Fragment &f2, float radius,
+                   FourStrokeMaterial material) {
+    if (!(radius > 0))
+      return;
+    const SDF::Line line(f1.pos, f2.pos, radius);
+    const bool have_arc = line.len > 0.0f;
+    const auto base = material.base;
+    const auto paint = [&](const math::Vector &p, Fragment &f) {
+      float arc = 0.0f;
+      if (have_arc) {
+        const float start_dot = math::dot(p, f1.pos);
+        arc = std::atan2(math::dot(p, line.edge_a), start_dot);
+        if (arc < 0.0f || arc > line.len)
+          arc = math::dot(p, f2.pos) > start_dot ? line.len : 0.0f;
+      }
+      const float u = have_arc ? arc / line.len : 0.0f;
+      f = Fragment::lerp(f1, f2, u);
+      f.pos = p;
+      f.v0 = u;
+      f.v1 = arc;
+      f.v2 = 0;
+      base(p, f);
+    };
+    material.base = paint;
+    Scan::rasterize<W, H>(pipeline, canvas, line, material);
+  }
 };
 
 /**

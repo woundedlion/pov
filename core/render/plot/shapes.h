@@ -4,8 +4,6 @@
  */
 #pragma once
 
-#include "core/render/scan/four_stroke.h"
-
 #include "core/render/plot/column_walk.h"
 #include "core/render/render_policy.h"
 #include <algorithm>
@@ -220,42 +218,6 @@ struct Line {
   static void draw(PipelineT &pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderRef fragment_shader) {
     draw<W, H>(pipeline, canvas, f1, f2, fragment_shader, {});
-  }
-  /** @brief Draws a round-capped geodesic with per-footprint fragment shading.
-   * @tparam W,H Output dimensions.
-   * @param pipeline Prepared destination pipeline.
-   * @param canvas Destination canvas.
-   * @param f1,f2 Endpoint positions and interpolated registers.
-   * @param radius Positive angular stroke half-width.
-   * @param material Wrapped line material and contour register stage. */
-  template <int W, int H, typename PipelineT>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const Fragment &f1,
-                   const Fragment &f2, float radius,
-                   Scan::FourStrokeMaterial material) {
-    if (!(radius > 0))
-      return;
-    const SDF::Line line(f1.pos, f2.pos, radius);
-    const auto span = make_geodesic_edge_span(f1.pos, f2.pos);
-    const auto tangent = math::cross(span.axis, f1.pos);
-    const auto base = material.base;
-    const auto paint = [&](const math::Vector &p, Fragment &f) {
-      float arc = 0.0f;
-      if (span.have_axis) {
-        const float start_dot = math::dot(p, f1.pos);
-        arc = std::atan2(math::dot(p, tangent), start_dot);
-        if (arc < 0.0f || arc > span.total)
-          arc = math::dot(p, f2.pos) > start_dot ? span.total : 0.0f;
-      }
-      const float u = span.have_axis ? arc / span.total : 0.0f;
-      f = Fragment::lerp(f1, f2, u);
-      f.pos = p;
-      f.v0 = u;
-      f.v1 = arc;
-      f.v2 = 0;
-      base(p, f);
-    };
-    material.base = paint;
-    Scan::rasterize<W, H>(pipeline, canvas, line, material);
   }
 };
 

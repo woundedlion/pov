@@ -75,7 +75,7 @@ inline void test_four_stroke_fragment_registers() {
             math::Vector(math::Spherical(0.75f * math::PI_F, math::PI_F / 2));
         b.pos =
             math::Vector(math::Spherical(1.25f * math::PI_F, math::PI_F / 2));
-        Plot::Line::draw<W, H>(filters, canvas, a, b, 0.36f, material);
+        Scan::Line::draw<W, H>(filters, canvas, a, b, 0.36f, material);
       } else {
         Scan::Star::draw<W, H>(filters, canvas, basis, 0.46f, 5, material);
       }
@@ -116,7 +116,7 @@ inline void test_four_stroke_line_cap_material_across_seam() {
       HS_EXPECT_EQ(f.color.color.b, 65535);
     }
   };
-  Plot::Line::draw<W, H>(pipeline, canvas, start, end, 15.0f * DEG,
+  Scan::Line::draw<W, H>(pipeline, canvas, start, end, 15.0f * DEG,
                          Scan::FourStrokeMaterial{{.strength = 0.0f}, base});
   HS_EXPECT_GT(sampled, 0);
 }
