@@ -82,7 +82,8 @@ inline StrokePixel four_stroke_pixel(int x, int y, uint64_t time,
     age += frag.age * frag.color.alpha;
     return frag.color;
   });
-  return {resolved, resolved.alpha > 0 ? age / (16 * resolved.alpha) : 0};
+  return {resolved,
+          resolved.alpha > 0 ? age / (FourStroke::TAPS * resolved.alpha) : 0};
 }
 
 /** @brief Binds an output-pixel heading to a draw.

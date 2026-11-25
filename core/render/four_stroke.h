@@ -13,6 +13,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 
 namespace FourStroke {
@@ -252,6 +253,8 @@ inline Pixel shade(Pixel input, Boundary boundary, const Colors &beat,
 
 /// Equal-area subpixel offsets on either output axis.
 inline constexpr float OFFSETS[] = {-0.375f, -0.125f, 0.125f, 0.375f};
+/// Subpixel taps resolve_pixel() averages.
+inline constexpr int TAPS = int(std::size(OFFSETS) * std::size(OFFSETS));
 
 /// Coverage-resolved linear color and alpha.
 struct Resolved {
@@ -259,7 +262,7 @@ struct Resolved {
   float alpha;         ///< Mean material alpha over the footprint.
 };
 
-/** @brief Integrates material and coverage at sixteen subpixel centers.
+/** @brief Integrates material and coverage at TAPS subpixel centers.
  * @tparam Sample Straight-alpha material query.
  * @param sample Callable accepting center-relative column and row offsets.
  * @return Premultiplied RGB and alpha averaged over the footprint. */
@@ -274,9 +277,9 @@ template <typename Sample> inline Resolved resolve_pixel(Sample &&sample) {
       alpha += tap.alpha;
     }
   }
-  return {{round_linear_channel(r / 16), round_linear_channel(g / 16),
-           round_linear_channel(b / 16)},
-          alpha / 16};
+  return {{round_linear_channel(r / TAPS), round_linear_channel(g / TAPS),
+           round_linear_channel(b / TAPS)},
+          alpha / TAPS};
 }
 
 /** @brief Resolves premultiplied foreground over opaque linear RGB.
