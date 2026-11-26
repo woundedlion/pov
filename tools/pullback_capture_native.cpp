@@ -89,9 +89,8 @@ struct ShaderChainWhiteBox {
     for (size_t index = 0; index < effect.program.ops().size(); ++index)
       if (std::string_view(effect.program.ops()[index].op->operator_id) ==
           Pullback::Interp::Op::ModulateColorV1::ID)
-        const_cast<Pullback::Interp::Op::ModulationClockState *>(
-            static_cast<const Pullback::Interp::Op::ModulationClockState *>(
-                effect.program.state_block(index)))
+        static_cast<Pullback::Interp::Op::ModulationClockState *>(
+            effect.program.state_block(index))
             ->modulation.phase.phase_turns = math::wrap_t(phase);
   }
 };

@@ -272,8 +272,7 @@ struct PotentialParams {
    * @param index Extra-schema field index.
    * @return Parameter storage. */
   HS_FLASH_MEMBER void *extra_address(size_t index) {
-    auto &params = *this;
-    auto &term = params.terms[index / POTENTIAL_TERM_FIELDS];
+    auto &term = terms[index / POTENTIAL_TERM_FIELDS];
     switch (index % POTENTIAL_TERM_FIELDS) {
     case 0:
       return &term.type;

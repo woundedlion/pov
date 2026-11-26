@@ -10,6 +10,7 @@
 
 #include "core/color/pixel.h"
 #include "core/math/rotation_math.h"
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>

@@ -8,7 +8,6 @@
  * @brief Linear-light pixels, alpha, and integer sRGB conversion.
  */
 
-#include <algorithm>
 #include "core/platform/platform.h"
 #include "core/color/color_luts.h"
 #include "core/color/srgb_decode.h"

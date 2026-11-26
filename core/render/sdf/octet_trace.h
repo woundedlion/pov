@@ -456,9 +456,7 @@ walk_octet_family(const OctetWalk4 &state, int flipped, float sign,
     const float along =
         state.components[pair.i] + sign * state.components[pair.j];
     const float denominator = 1.0f - 0.5f * along * along;
-    uint32_t bits;
-    std::memcpy(&bits, &denominator, sizeof(bits));
-    const bool owned = bits - 1 < 0x7F7FFFFFu;
+    const bool owned = hs::positive_finite(denominator);
     if (!owned)
       return true;
   }

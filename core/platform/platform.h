@@ -85,6 +85,15 @@ namespace hs {
 inline bool finite(float value) {
   return (std::bit_cast<uint32_t>(value) & 0x7f800000u) != 0x7f800000u;
 }
+
+/** @brief Tests for a positive finite IEEE-754 value independently of
+ * floating-point mode.
+ * @param value Candidate scalar.
+ * @return Whether the scalar is positive and finite, positive subnormals
+ * included; false for +0, -0, negatives, infinities and NaN. */
+inline bool positive_finite(float value) {
+  return std::bit_cast<uint32_t>(value) - 1u < 0x7f7fffffu;
+}
 } // namespace hs
 
 #include "core/platform/attributes.h"

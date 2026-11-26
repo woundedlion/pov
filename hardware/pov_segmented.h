@@ -33,7 +33,6 @@
  * Effects use full-canvas coordinates with rendering clipped per board.
  */
 #pragma once
-#include "core/platform/led.h"
 #include "hardware/pov_segment_map.h"
 #include "hardware/pov_segment_frame.h"
 #include "hardware/pov_sync.h"
