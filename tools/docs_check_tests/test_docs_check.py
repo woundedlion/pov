@@ -95,6 +95,20 @@ class TestDocumentationChecker(unittest.TestCase):
         self.assertEqual(issues[2].line, 5)
         self.assertIn("scripts/run-tests.mjs", issues[2].message)
 
+    def test_parent_relative_paths_resolve_from_a_nested_readme(self):
+        entries = {
+            PurePosixPath("hardware"),
+            PurePosixPath("hardware/phantasm"),
+            PurePosixPath("hardware/phantasm/1.1"),
+            PurePosixPath("hardware/phantasm/1.1/README.md"),
+            PurePosixPath("hardware/phantasm/gen"),
+            PurePosixPath("hardware/phantasm/gen/fab.py"),
+        }
+        issues = dc.check_text(PurePosixPath("hardware/phantasm/1.1/README.md"),
+                               "`../gen/fab.py` `../gen/renamed.py`", entries)
+        self.assertEqual(len(issues), 1)
+        self.assertIn("../gen/renamed.py", issues[0].message)
+
     def test_allowances_do_not_cover_neighboring_files(self):
         text = ("`.github/workflows/deploy.yml` `.github/workflows/deploy.yml.old.yml` "
                 "`generated/linked.md` `generated-old/linked.md`")

@@ -991,7 +991,12 @@ def _scoped_path_exists(source: PurePosixPath, candidate: str,
     for base in (PurePosixPath(""), _IMPLICIT_PATH_ROOT, source.parent):
         resolved = PurePosixPath(posixpath.normpath(
             posixpath.join(base.as_posix(), candidate)))
-        scope = PurePosixPath(*resolved.parts[:len(base.parts) + 1])
+        common = 0
+        for resolved_part, base_part in zip(resolved.parts, base.parts):
+            if resolved_part != base_part:
+                break
+            common += 1
+        scope = PurePosixPath(*resolved.parts[:common + 1])
         if scope not in entries:
             continue
         in_scope = True
