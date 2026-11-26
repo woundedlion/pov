@@ -752,9 +752,12 @@ private:
       const ReactionGraph::NeighborRun *runs = ReactionGraph::neighbor_runs,
       unsigned count = ReactionGraph::NEIGHBOR_RUN_COUNT) {
     for (unsigned r = 0; r < count; ++r)
-      for (int delta : runs[r].delta)
+      for (int delta : runs[r].delta) {
         HS_CHECK(delta >= -PHYSICS_NEIGHBOR_REACH,
                  "GS neighbor exceeds delayed-write history");
+        HS_CHECK(delta <= PHYSICS_NEIGHBOR_REACH,
+                 "GS neighbor exceeds hot-bit guard");
+      }
   }
 
   /** @brief Advances float A/B in place after their last stencil read. */

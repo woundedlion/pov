@@ -132,6 +132,14 @@ inline void case_gs_neighbor_exceeds_history() {
   WB::validate_physics_neighbors(&run, 1);
 }
 
+/** @brief Death case: a GS stencil must fit the hot-bit guard words. */
+inline void case_gs_neighbor_exceeds_hot_guard() {
+  using WB = hs_test::effects_tests::GSWhiteBox;
+  ReactionGraph::NeighborRun run{};
+  run.delta[0] = opaque<int16_t>(WB::PHYSICS_NEIGHBOR_REACH + 1);
+  WB::validate_physics_neighbors(&run, 1);
+}
+
 /** @brief Death case: GS rejects a zero color-noise scale. */
 inline void case_gs_color_noise_zero_scale() {
   using WB = hs_test::effects_tests::GSWhiteBox;
