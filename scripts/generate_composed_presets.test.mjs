@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SHADER_DOCUMENT_EFFECTS, SHADER_DOCUMENT_PROMOTION_OPTIONS } from './composed_effect_roster.mjs';
-import { departureLiteral, floatLiteral, generate, generatedSections, presetAssignments, topologySelections, updateHeader } from './generate_composed_presets.mjs';
+import { departureLiteral, fadesDepartures, floatLiteral, generate, generatedSections, presetAssignments, topologySelections, updateHeader } from './generate_composed_presets.mjs';
 import { PLANAR_SOURCE_OPERATOR, compileShaderDocument, declarationFromCatalogField } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
 import { loadEffectIdentities } from './effect_roster.mjs';
@@ -163,6 +163,16 @@ test('departure policy kinds must be parallel', () => {
   const policies = structuredClone(document.descriptor.path_policies);
   policies[0].kind = 'SERIAL';
   assert.throws(() => departureLiteral(bank, bank.edges[0].from, policies), /policy kind/);
+});
+
+test('tiling documents depart by fading for their single stored solid', async () => {
+  const filigree = JSON.parse(await readFile(new URL('../patterns/filigree.shader.json', import.meta.url), 'utf8'));
+  assert.equal(fadesDepartures(filigree.descriptor), true);
+  assert.equal(fadesDepartures(document.descriptor), false);
+  const { preset_bank: bank, descriptor } = filigree;
+  for (const edge of bank.edges)
+    assert.equal(departureLiteral(bank, edge.from, descriptor.path_policies, { fade: true }),
+      `Segue::Preset::Fade{${edge.duration}}`);
 });
 
 test('missing departure edges require automatic snap fallback', () => {

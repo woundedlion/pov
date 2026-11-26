@@ -11,6 +11,7 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
+#include <algorithm>
 #include <array>
 #include <memory>
 
@@ -22,9 +23,40 @@
 
 namespace Pullback::Interp::Op {
 
+/** @brief Heap-owned faces-and-edges geometry of one registry solid. */
+class OwnedSphereTiling {
+public:
+  /** @brief Builds a solid's geometry and keeps it in an exact-size block.
+   * @param solid Registry solid ordinal. */
+  explicit OwnedSphereTiling(uint8_t solid) {
+    constexpr size_t BUILD_BYTES = 3 * 1024 * 1024;
+    constexpr size_t SCRATCH_BYTES = 512 * 1024;
+    auto build = std::make_unique_for_overwrite<uint8_t[]>(BUILD_BYTES +
+                                                           2 * SCRATCH_BYTES);
+    const auto scratch_a =
+        std::make_unique<Arena>(build.get() + BUILD_BYTES, SCRATCH_BYTES);
+    const auto scratch_b = std::make_unique<Arena>(
+        build.get() + BUILD_BYTES + SCRATCH_BYTES, SCRATCH_BYTES);
+    using Geometry = Source::SphereTilingGeometry;
+    const auto built = Geometry::build<Geometry::Content::FACES_AND_EDGES>(
+        solid, {build.get(), BUILD_BYTES}, *scratch_a, *scratch_b);
+    block = std::make_unique_for_overwrite<uint8_t[]>(built.bytes());
+    std::copy_n(build.get(), built.bytes(), block.get());
+    geometry = built.rebased(build.get(), block.get());
+  }
+
+  /** @brief The solid's geometry.
+   * @return Geometry viewing the owned block. */
+  const Source::SphereTilingGeometry &get() const { return geometry; }
+
+private:
+  std::unique_ptr<uint8_t[]> block;
+  Source::SphereTilingGeometry geometry;
+};
+
 /// Shared immutable geometry for the two most recently selected distinct solids.
 struct SphericalTilingGeometryCache {
-  std::array<std::shared_ptr<const Source::SphereTilingGeometry>, 2>
+  std::array<std::shared_ptr<const OwnedSphereTiling>, 2>
       geometry{}; ///< Projected geometry; null until populated.
   std::array<uint8_t, 2>
       solids{}; ///< Registry solid ordinal for each populated slot.
@@ -101,7 +133,7 @@ private:
         if (state.cache->geometry[index] &&
             state.cache->solids[index] == solid) {
           state.active = index;
-          return *state.cache->geometry[index];
+          return state.cache->geometry[index]->get();
         }
     auto cache =
         state.cache
@@ -109,10 +141,10 @@ private:
             : std::make_shared<SphericalTilingGeometryCache>();
     state.active ^= 1;
     cache->geometry[state.active] =
-        std::make_shared<const Source::SphereTilingGeometry>(solid);
+        std::make_shared<const OwnedSphereTiling>(solid);
     cache->solids[state.active] = solid;
     state.cache = std::move(cache);
-    return *state.cache->geometry[state.active];
+    return state.cache->geometry[state.active]->get();
   }
 
   static float integrated_fade(float depth, float softness) {

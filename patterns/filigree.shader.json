@@ -12,8 +12,7 @@
       },
       {
         "label": "sample",
-        "operator": "sample.spherical-tiling.v1",
-        "source_morph": true
+        "operator": "sample.spherical-tiling.v1"
       },
       {
         "label": "colorize",
@@ -2017,15 +2016,15 @@
     },
     "edges": [
       {
-        "duration": 480,
-        "easing": "EASE_IN_OUT_SIN",
+        "duration": 48,
+        "easing": "LINEAR",
         "from": "ember-lattice",
         "path_policy": "parallel",
         "to": "jade-weave"
       },
       {
-        "duration": 480,
-        "easing": "EASE_IN_OUT_SIN",
+        "duration": 48,
+        "easing": "LINEAR",
         "from": "jade-weave",
         "path_policy": "parallel",
         "to": "ember-lattice"

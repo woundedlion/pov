@@ -216,6 +216,23 @@ constexpr std::string_view projection_operator_id(ProjectionKind projection) {
  * @tparam Binding Frame binding of the effect.
  */
 template <typename Family, typename Binding> struct SourcePolicyFor;
+
+namespace ComposedDetail {
+/// Runtime state of a source family that keeps none.
+struct NoSourceStore {};
+} // namespace ComposedDetail
+
+/**
+ * @brief Maps a source parameter family to the persistent store the composed
+ *        runtime keeps for it, exposed as `Type`.
+ * @details A store provides `refresh(family)`, called before each frame and at
+ * init, `bind(frame)`, and `same_geometry(a, b)`, which a preset crossfade
+ * must keep true.
+ * @tparam Family Source parameter family.
+ */
+template <typename Family> struct SourceStoreFor {
+  using Type = ComposedDetail::NoSourceStore; ///< No store.
+};
 /** @brief Grid source. @tparam B Frame binding. */
 template <typename B> struct SourcePolicyFor<GridSourceParams, B> {
   using Type = Pullback::Source::Grid<SourceProvider<B, GridSourceParams>>;

@@ -19,8 +19,8 @@
 struct FiligreeSpec : Pullback::Spec {
   /// Uses the authored node identities.
   static constexpr bool AUTHORED_TOPOLOGY = true;
-  /// Blends the incoming and outgoing spherical tiling fields.
-  static constexpr bool SOURCE_MORPH = true;
+  /// Reads the gamut table from flash, leaving the RAM to the tiling edges.
+  static constexpr bool CACHE_FULL_GAMUT_LUT = false;
   /// Factors the leading sphere rotation into column bases.
   static constexpr bool FACTORED_SPHERE_COLUMNS = true;
   /// Bakes the hue table only when a live modulation rotates hue.
@@ -70,9 +70,9 @@ public:
   /// Canonical machine ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "f24c87c2d12951531fed4dc30153b5964c626d4320f38bf3ce4335a1fd7aabdb";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "97d447e61456e096b9b6b1d93d164932a4e2d405bad17ca377ae55f8147d5969";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "4f45ac9359fbd414db2c4aa146174b7070a7b36407c1160773bda2ccff783da8";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "d7f48f23acac425da3ff85ca43bad0e27dc17d760529fa28d807c165b23096f2";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "jade-weave",
@@ -237,7 +237,7 @@ public:
       value.template get<"source">().line_softness = 1.2350903f;
       value.template get<"source">().solid = 50;
     }
-    return {value, Segue::Preset::Lerp{480, math::ease_in_out_sin}};
+    return {value, Segue::Preset::Fade{48}};
   }
   // clang-format on
   // End generated params.

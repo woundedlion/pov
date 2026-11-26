@@ -74,7 +74,11 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_river_stones_color_tail);
   HS_RUN(test_river_stones_meridian_periodic);
   HS_RUN(test_river_stones_source_morph);
-  HS_RUN(test_filigree_source_morph);
+  HS_RUN(test_filigree_fade_swaps_solid_at_zero_opacity);
+  HS_RUN(test_filigree_solid_changes_keep_persistent_offset);
+  HS_RUN(test_filigree_admits_solids_within_the_edge_store);
+  HS_RUN(test_filigree_presets_keep_their_band_side);
+  HS_RUN(test_filigree_band_crossing_rebuilds_the_index);
   HS_RUN(test_river_stones_modulation_morph);
   HS_RUN(test_modulation_stack_observes_warp_distance);
   HS_RUN(test_iridescence_color_tail);

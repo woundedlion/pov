@@ -1022,7 +1022,10 @@ inline int run_shader_chain_tests() {
   HS_RUN(test_shader_chain_spherical_tiling);
   HS_RUN(test_shader_chain_spherical_tiling_morph);
   HS_RUN(test_shader_chain_spherical_tiling_legacy_output_restore);
-  HS_RUN(test_shader_chain_baked_tiling_edges);
+  HS_RUN(test_shader_chain_tiling_edge_store_admission);
+  HS_RUN(test_shader_chain_tiling_edge_store_builds_admitted);
+  HS_RUN(test_shader_chain_tiling_indices_match_exhaustive_scan);
+  HS_RUN(test_shader_chain_tiling_tables_match_exhaustive_scan);
   HS_RUN(test_shader_chain_spherical_source_pipeline);
   HS_RUN(test_shader_chain_spherical_noise_lifecycle);
   HS_RUN(test_shader_chain_parity_colorize_variants);

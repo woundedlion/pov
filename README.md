@@ -1467,15 +1467,14 @@ selected `tests/` files, which the exhaustive check exempts.
 │   │   │                            (composed_effect)
 │   │   │   ├── authored_lens.h         Keyed glitch and kaleidoscope controls
 │   │   │   ├── tangent_surface.h       Polynomial tangent-field and configurable noise displacements
-│   │   │   ├── sphere_tiling.h          Radially projected solid faces and edge queries
+│   │   │   ├── sphere_tiling.h          Arena-built projected solid faces, edges and their cubemap indices
 │   │   │   ├── sphere_tiling_edges.h    Shared spherical edge query and coverage
-│   │   │   ├── sphere_tiling_edges_baked.h  Flash-resident edge tables for promoted tilings
 │   │   │   ├── spherical_tiling_source.h  ShaderChain tiling parameters and scalar field
 │   │   │   ├── composed_providers.h    Composed-effect provider bindings
 │   │   │   ├── composed_parameters.h   Composed-effect parameter interpolation and validation, runtime storage mixins and Spec kind enums
 │   │   │   ├── composed_planar.h       Composed planar source selection and morphing
 │   │   │   ├── composed_policies.h     Composed-effect stage policies
-│   │   │   ├── composed_tiling.h       Compiled Tiling Edges source policy
+│   │   │   ├── composed_tiling.h       Compiled Tiling edge source and its runtime edge store
 │   │   │   ├── composed_spec_policies.h Composed-effect Spec runtime policies: temporal sampling, palette caches, projection motion
 │   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
 │   │   │   ├── composed_runtime.h      Composed-effect runtime
@@ -1905,7 +1904,6 @@ selected `tests/` files, which the exhaustive check exempts.
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
 │   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table
 │   ├── showlength.cpp         Nominal Phantasm show runtime for `just showlength`
-│   ├── sphere_tiling_bake.cpp  Generates flash-resident spherical edge tables
 │   ├── teensy_size_trail.py    Per-commit firmware size trail: ELF section parser, recorder, regression report
 │   ├── teensy_cold_build.sh    Cold `pio run -v` over every environment, teed for the warning gate
 │   ├── profile_variants.sh     Shared profile variant names and build flags for size and cold-build gates

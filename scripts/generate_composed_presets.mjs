@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { exitAfterStderr, isMain } from './exit.mjs';
 import { resolve } from 'node:path';
 import {
-  LIVE_TOPOLOGY_FIELD, PLANAR_SOURCE_OPERATOR,
+  LIVE_TOPOLOGY_FIELD, PLANAR_SOURCE_OPERATOR, TILING_OPERATOR,
   compileShaderDocument, fixedDerivedBinding,
   hasLiveComposedTopology, isUnusedPlanarParameter, planarSourceField, promotionDepartureDiagnostics,
   promotionDiagnostics, supportsExplicitSourceMorph,
@@ -166,12 +166,19 @@ export function presetAssignments(document, values,
 
 const EASINGS = { LINEAR: 'math::ease_linear', EASE_IN_OUT_SIN: 'math::ease_in_out_sin' };
 
+/** Whether a document's compiled effect departs by fading: compiled Tiling
+ * holds one solid's geometry, so its edges swap at zero opacity. */
+export const fadesDepartures = descriptor =>
+  descriptor.chain.some(slot => slot.operator === TILING_OPERATOR);
+
 /** The C++ departure of a preset: the document edge leaving it, or a snap. */
-export function departureLiteral(bank, presetId, policies = []) {
+export function departureLiteral(bank, presetId, policies = [], { fade = false } = {}) {
   const [diagnostic] = promotionDepartureDiagnostics(bank, presetId, policies);
   if (diagnostic) throw new Error(diagnostic.message);
   const edge = bank.edges.find(candidate => candidate.from === presetId);
-  return edge ? `Segue::Preset::Lerp{${edge.duration}, ${EASINGS[edge.easing]}}` : 'Segue::Preset::Snap{}';
+  if (!edge) return 'Segue::Preset::Snap{}';
+  return fade ? `Segue::Preset::Fade{${edge.duration}}`
+    : `Segue::Preset::Lerp{${edge.duration}, ${EASINGS[edge.easing]}}`;
 }
 
 export function generatedSections(compiled, metadata,
@@ -241,7 +248,8 @@ export function generatedSections(compiled, metadata,
     '    Params value;', ...[...initial].map(assignment), '    return value;', '  }',
   ];
   if (presets.length > 1) {
-    const departures = order.map((id) => departureLiteral(bank, id, document.descriptor.path_policies));
+    const fade = fadesDepartures(document.descriptor);
+    const departures = order.map((id) => departureLiteral(bank, id, document.descriptor.path_policies, { fade }));
     const uniform = departures.every((departure) => departure === departures[0]);
     params.push('', '  /**',
       '   * @brief The preset at index in PRESET_IDS and how it departs.',

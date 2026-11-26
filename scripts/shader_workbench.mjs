@@ -9,7 +9,7 @@ export const SHADER_DOCUMENT_SCHEMA_VERSION = 2;
 export const OPERATOR_CATALOG_VERSION = 2;
 export const PLANAR_SOURCE_OPERATOR = 'sample.planar.v1';
 export const FIXED_TESSELLATION_OPERATOR = 'sample.tessellation.v3';
-const TILING_OPERATOR = 'sample.spherical-tiling.v1';
+export const TILING_OPERATOR = 'sample.spherical-tiling.v1';
 
 export function supportsExplicitSourceMorph(operator) {
   return operator === FIXED_TESSELLATION_OPERATOR || operator === TILING_OPERATOR;
@@ -1149,8 +1149,12 @@ export function fixedDerivedBinding(descriptor, parameterId, values) {
 const TILING_OUTPUT_MIGRATION = new Map([
   ['borders', 'edges'], ['face-type', 'faces'], ['tile-value', 'faces'],
 ]);
-const PROMOTABLE_TILING_SOLIDS = [
-  'truncated-icosahedron', 'truncated-icosahedron-truncate50d-ambo-dual', 'dodecahedron-hk54-ambo-hk72',
+// Solids whose edges exceed `SphereTilingEdgeStore` (core/render/pullback/composed_tiling.h).
+const OVERSIZED_TILING_SOLIDS = [
+  'truncated-icosahedron-ambo-relax-truncate33-hk64', 'truncated-icosidodecahedron-bevel5-relax-hk77',
+  'truncated-icosahedron-ambo-relax-truncate001-hankin59', 'truncated-icosahedron-ambo-relax-truncate001-hankin73',
+  'dodecahedron-hk35-ambo-hk62-ambo-relax-hk42', 'truncated-icosahedron-hk54-ambo-hk72',
+  'icosahedron-snub-relax-truncate033-hankin62', 'icosahedron-truncate25-hk60-ambo-relax100-hk60',
 ];
 
 /** Updates superseded field declarations and selections.
@@ -1619,14 +1623,14 @@ export function promotionDiagnostics(document, { catalog, authoredTopology = fal
   if (tiling) {
     if (!authoredTopology)
       diagnostics.push({ code: 'AUTHORED_TILING_TOPOLOGY', message: 'Tiling promotion requires authored topology' });
-    for (const [field, choices, code] of [
-      ['output', ['edges'], 'UNSUPPORTED_TILING_OUTPUT'],
-      ['solid', PROMOTABLE_TILING_SOLIDS, 'UNSUPPORTED_TILING_SOLID'],
+    for (const [field, supported, code] of [
+      ['output', value => value === 'edges', 'UNSUPPORTED_TILING_OUTPUT'],
+      ['solid', value => !OVERSIZED_TILING_SOLIDS.includes(value), 'UNSUPPORTED_TILING_SOLID'],
     ]) {
       const parameterId = `${tiling.label}.${field}`;
       const defaultValue = descriptor.parameters.find(parameter => parameter.id === parameterId)?.default;
       const selections = [defaultValue, ...bank.presets.map(preset => preset.values[parameterId])];
-      const unsupported = selections.find(value => value !== undefined && !choices.includes(value));
+      const unsupported = selections.find(value => value !== undefined && !supported(value));
       if (unsupported !== undefined)
         diagnostics.push({ code, parameter_id: parameterId,
           message: `Composed Tiling does not support ${field} ${unsupported}` });

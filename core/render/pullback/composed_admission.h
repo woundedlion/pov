@@ -88,6 +88,7 @@ protected:
     bool admitted = true;
     effect().params.visit([&]<typename Resource>(const auto &family) {
       if constexpr (Resource::KIND == ResourceKind::LENS ||
+                    Resource::KIND == ResourceKind::SOURCE ||
                     Resource::KIND == ResourceKind::SURFACE ||
                     Resource::KIND == ResourceKind::COLOR ||
                     Resource::KIND == ResourceKind::MODULATION) {

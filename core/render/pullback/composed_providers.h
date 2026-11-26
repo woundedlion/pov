@@ -20,6 +20,10 @@
 
 namespace Pullback {
 
+namespace Source {
+class SphereTilingEdgeStore;
+} // namespace Source
+
 /** @brief Pipeline order of the surface stage relative to the lens stage. */
 enum class SurfacePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
 
@@ -113,6 +117,8 @@ template <typename ParamsT, bool PhaseNoise = false> struct FrameState {
       nullptr; ///< Runtime-owned immutable reflection matrices.
   const uint8_t *dodecahedral_faces =
       nullptr; ///< Runtime-owned face-major classifiers.
+  const Source::SphereTilingEdgeStore *sphere_tiling =
+      nullptr; ///< Runtime-owned tiling edges, or null.
 };
 
 /** @brief Column-sampled context with retained color resources.

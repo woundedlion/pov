@@ -1579,6 +1579,7 @@ Automatic transitions follow the departing preset's policy — `Segue::Preset::L
 
 Promoted composed effects also have authored shader documents under `patterns/`. `scripts/promoted_digests.test.mjs` checks the header/document/product-group roster; `scripts/generate_composed_presets.test.mjs` pins descriptor and preset-bank digests against effect headers; the runtime uses `ChoreographedEffect` to play the resulting presets.
 A promoted fixed tessellation slot records `source_morph: true` when the compiled spec enables `SOURCE_MORPH`. The ShaderChain preview uses this setting to blend endpoint fields. Without it, fixed tessellation preview interpolates the parameters.
+A composed effect binds `set_preset_opacity`: a Fade skips shading at zero opacity and scales the display clip below full opacity. Compiled Tiling keeps one solid's edges in a fixed block of the runtime state (`Pullback::Source::SphereTilingEdgeStore`), rebuilt before the frame whose solid differs, so its documents generate Fade departures and admit only solids whose edges fit the block. The block holds only the edge index the band reads: the narrow index while the current and previous frames both draw thin bands, the coarse index otherwise; a band crossing rebuilds it in a drawn frame.
 
 ## Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
 

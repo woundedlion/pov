@@ -88,6 +88,9 @@ struct SphericalTilingSourceParams {
       Solids::SEED_TRUNCATED_ICOSAHEDRON; ///< Default registry entry.
   static constexpr float MAX_SOFTNESS =
       10.0f; ///< Full face depth in Faces mode.
+  /// Refusal message of the compiled edge source.
+  static constexpr char RANGE_WARNING[] =
+      "Compiled Tiling draws edges only, of solids that fit its edge store.";
 
   float line_thickness = 1.0f; ///< Full edge width in degrees.
   float line_softness =

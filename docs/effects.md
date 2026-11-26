@@ -333,7 +333,7 @@ Spherical ripple bursts distort a scrolling hexagonal lattice. The first preset 
 
 ### Filigree
 
-Filigree cycles between Jade Weave and Ember Lattice. Both use a Direct Lens and Tiling Edges. Ember Lattice adds camera wander, directional lightness and hue driven by lens displacement. The presets hold for 600 frames and segue over 480 frames.
+Filigree cycles between Jade Weave and Ember Lattice. Both use a Direct Lens and Tiling Edges. Ember Lattice adds camera wander, directional lightness and hue driven by lens displacement. The presets hold for 600 frames and fade through black over 48 frames, swapping the tiled solid at zero opacity.
 
 **Parameters**: rotate.Wander, rotate.Spin Speed, Edge Thickness (deg), Softness, solid, output, displace.Surface Noise Scale, displace.Surface Noise Strength, displace.Surface Noise Speed, displace.Surface Noise Direction, displace.basis, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, and for each of modulate and modulate1: modulation-amount, modulation-enabled, modulation-source, modulation-evaluation, modulation-mechanic, and the pattern-, sine-, interference- and grid- source fields. A modulator's source fields are read-only unless its selected source and evaluation use them.
 

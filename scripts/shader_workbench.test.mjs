@@ -455,12 +455,12 @@ test('spherical source documents compile and round-trip without a planar stage',
       assert.ok(promotionDiagnostics(restored.document, { catalog: CATALOG })
         .some(issue => issue.code === 'AUTHORED_TILING_TOPOLOGY'));
       const preset = restored.document.preset_bank.presets.at(-1);
-      for (const solid of ['truncated-icosahedron-truncate50d-ambo-dual', 'dodecahedron-hk54-ambo-hk72']) {
+      for (const solid of ['icosahedron', 'truncated-icosahedron-truncate50d-ambo-dual', 'dodecahedron-hk54-ambo-hk72']) {
         preset.values['source.solid'] = solid;
         assert.ok(!promotionDiagnostics(restored.document, options)
           .some(issue => issue.code === 'UNSUPPORTED_TILING_SOLID' || issue.code === 'NON_UNIFORM_TOPOLOGY'));
       }
-      preset.values['source.solid'] = 'icosahedron';
+      preset.values['source.solid'] = 'truncated-icosahedron-hk54-ambo-hk72';
       preset.values['source.output'] = 'faces';
       const rejected = promotionDiagnostics(restored.document, options);
       assert.ok(rejected.some(issue => issue.code === 'UNSUPPORTED_TILING_SOLID' && issue.parameter_id === 'source.solid'));
@@ -1143,30 +1143,6 @@ test('fixed tessellation morphs endpoint fields only when its policy opts in', (
   to.values['sample.cell-scale'] = from.values['sample.cell-scale'];
   to.values['sample.cell-softness'] = from.values['sample.cell-softness'];
   assert.equal(evaluate(frame).sourceMorph, undefined);
-});
-
-test('Filigree preview morphs spherical tiling endpoints in both directions', async () => {
-  const source = JSON.parse(await readFile(
-    new URL('../patterns/filigree.shader.json', import.meta.url), 'utf8'));
-  const { descriptor, preset_bank: bank } = compile(source).document;
-  const slot = descriptor.chain.find(({ operator }) => operator === 'sample.spherical-tiling.v1');
-  assert.equal(slot.source_morph, true);
-  const endpoints = (row) => Object.fromEntries(Object.entries(row.values)
-    .filter(([id]) => id.startsWith('sample.')));
-  for (const edge of bank.edges) {
-    const from = endpoints(bank.presets.find(row => row.preset_id === edge.from));
-    const to = endpoints(bank.presets.find(row => row.preset_id === edge.to));
-    assert.notEqual(from['sample.solid'], to['sample.solid']);
-    for (const frame of [0, edge.duration / 4, edge.duration]) {
-      const { sourceMorph } = evaluateTransition(descriptor, bank, edge.from, edge.to, frame, CATALOG);
-      assert.deepEqual(sourceMorph, { instance: 'sample', from, to, evaluation: frame,
-        duration: edge.duration, easing: edge.easing });
-    }
-  }
-  delete slot.source_morph;
-  const [edge] = bank.edges;
-  const { sourceMorph } = evaluateTransition(descriptor, bank, edge.from, edge.to, edge.duration / 2, CATALOG);
-  assert.equal(sourceMorph, undefined);
 });
 
 test('RiverStones preview blends the first modulation source in both directions', async () => {

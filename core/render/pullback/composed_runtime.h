@@ -13,6 +13,7 @@
 #include <optional>
 #include <span>
 #include <type_traits>
+#include <variant>
 #include "core/animation/orientation.h"
 #include "core/color/authored_palette.h"
 #include "core/color/palette_cycler.h"
@@ -120,6 +121,9 @@ class ComposedEffect
       typename ComposedDetail::FamilyOf<SourceResource>::Type;
   static constexpr bool HAS_PLANAR =
       requires { typename SourceSelector::PlanarWeights; };
+  using SourceStore = typename SourceStoreFor<SourceSelector>::Type;
+  static constexpr bool HAS_SOURCE_STORE =
+      !std::is_same_v<SourceStore, ComposedDetail::NoSourceStore>;
   friend Clocks;
   friend Choreography;
   friend Registration;
@@ -189,8 +193,14 @@ public:
         "composed modulation preset exceeds its source or mechanic capability");
     static_assert(planar_presets_use_compiled_kinds(),
                   "composed planar kinds must match the preset bank");
+    static_assert(!HAS_SOURCE_STORE || !Traits::SOURCE_MORPH,
+                  "a stored source holds one endpoint and cannot morph");
+    static_assert(crossfades_keep_source_store(),
+                  "a preset crossfade changes its stored source geometry; "
+                  "depart by Segue::Preset::Fade instead");
     this->begin_choreography();
     state = persistent_arena.make<State>();
+    refresh_source_store();
     if constexpr (HAS_PLANAR)
       source_state().weights = params.template get<"source">().weights();
     if constexpr (SpecT::HEX_MORPH_TABLE) {
@@ -269,6 +279,15 @@ public:
     }
     prepare_frame(state->current);
     const FrameState &current = state->current;
+    if constexpr (fade_departures()) {
+      if (preset_opacity <= 0.0f) {
+        if constexpr (TEMPORAL_SAMPLING) {
+          IntervalCache::begin(*state, current);
+          IntervalCache::capture(*state, current);
+        }
+        return;
+      }
+    }
     if constexpr (TEMPORAL_SAMPLING) {
       IntervalCache::begin(*state, current);
       if (!Spacetime::flat_surface()) {
@@ -295,7 +314,14 @@ public:
     } else {
       draw_current_columns(canvas, current);
     }
+    if constexpr (fade_departures())
+      if (preset_opacity < 1.0f)
+        canvas.scale_display_clip(preset_opacity);
   }
+
+  /** @brief Receives a fading departure's opacity.
+   * @param value Opacity in [0, 1]; zero skips shading. */
+  void set_preset_opacity(float value) { preset_opacity = value; }
 
   /**
    * @brief Shades one pixel; forwards to RenderPipeline::shade.
@@ -697,7 +723,9 @@ public:
         Control::HookBinding<Control::ChoreographyHook::BLEND_PARAMS,
                              &ComposedEffect::blend_params>,
         Control::HookBinding<Control::ChoreographyHook::TRANSITION_ARMED,
-                             &ComposedEffect::transition_armed>>;
+                             &ComposedEffect::transition_armed>,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_OPACITY,
+                             &ComposedEffect::set_preset_opacity>>;
     return Hooks{};
   }
 
@@ -736,6 +764,30 @@ private:
       }
       return used == SourceSelector::KIND_MASK;
     }
+  }
+
+  static consteval bool fade_departures() {
+    for (size_t index = 0; index < Choreography::authored_preset_count();
+         ++index)
+      if (std::holds_alternative<Segue::Preset::Fade>(
+              Choreography::preset_departure(index)))
+        return true;
+    return false;
+  }
+
+  static consteval bool crossfades_keep_source_store() {
+    if constexpr (HAS_SOURCE_STORE) {
+      const size_t count = Choreography::authored_preset_count();
+      for (size_t index = 0; count > 1 && index < count; ++index)
+        if (std::holds_alternative<Segue::Preset::Lerp>(
+                Choreography::preset_departure(index)) &&
+            !SourceStore::same_geometry(
+                Choreography::preset_row(index).params.template get<"source">(),
+                Choreography::preset_row((index + 1) % count)
+                    .params.template get<"source">()))
+          return false;
+    }
+    return true;
   }
 
   static consteval bool modulation_presets_are_supported() {
@@ -778,6 +830,7 @@ private:
         Registration::Storage,
         ComposedDetail::ResourcePlanarWeights<SourceResource>,
         MorphStorage,
+        SourceStore,
         std::conditional_t<SpecT::HEX_MORPH_TABLE, Source::HexMorphTables,
                            std::monostate> {
     OwnedResources resources;
@@ -810,6 +863,15 @@ private:
   {
     return static_cast<ComposedDetail::ResourcePlanarWeights<SourceResource> &>(
         *state);
+  }
+
+  /** @brief Rebuilds the stored source geometry when the live source needs it. */
+  HS_FLASH_INLINE void refresh_source_store() {
+    if constexpr (HAS_SOURCE_STORE) {
+      HS_PROFILE(fx_source_store);
+      static_cast<SourceStore &>(*state).refresh(
+          params.template get<"source">());
+    }
   }
 
   /// Persistent-arena bytes one instance claims.
@@ -911,6 +973,7 @@ private:
    * @param frame Receives this draw's frame state.
    */
   HS_FLASH_MEMBER void prepare_frame(FrameState &frame) {
+    refresh_source_store();
     HS_PROFILE(fx_prepare_frame);
     palette.prepare(frame, *state, hue_rotation_lut_needed());
     frame.projection_conjugate = this->frame_conjugate();
@@ -925,6 +988,8 @@ private:
     else
       frame.dodecahedral_faces = nullptr;
     frame.params = params;
+    if constexpr (HAS_SOURCE_STORE)
+      static_cast<const SourceStore &>(*state).bind(frame);
     frame.resources = {};
     const FrameState *retained = nullptr;
     if constexpr (TEMPORAL_SAMPLING)
@@ -953,6 +1018,7 @@ private:
 
   State *state = nullptr;
   Clocks clocks{this->params};
+  float preset_opacity = 1.0f;
   bool projection_frame_paused = false;
   ComposedPalette<Traits> palette{this->params.template get<"color">()};
 };
