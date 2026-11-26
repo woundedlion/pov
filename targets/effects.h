@@ -115,7 +115,7 @@
 /// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
 constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;
 
-/** Canvas cycle lengths are read at, so targets with different
+/** Width of the canvas cycle lengths are read at, so targets with different
  * CANVAS_W/CANVAS_H agree on a show length. */
 inline constexpr int HS_CYCLE_CANVAS_W = 96;
 /** Height half of the cycle-reading canvas (see HS_CYCLE_CANVAS_W). */

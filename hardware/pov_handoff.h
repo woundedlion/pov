@@ -205,10 +205,7 @@ public:
    * @brief Publishes which half the now-open display window sweeps.
    * @param zero_crossing True if the flip that opened the window was a ZERO
    *        crossing (opens the arm-A-left [0,W/2) half-rev).
-   * @details The relaxed store is ordered ahead of the caller's
-   *          advance_display() by its release store to prev, so a foreground
-   *          released from buffer_free() reads this window's half and not the
-   *          previous one.
+   * @details Sets the open window's arm phase and keeps its index.
    */
   void set_window_left(bool zero_crossing) {
     publish_window({current_window().index, zero_crossing});

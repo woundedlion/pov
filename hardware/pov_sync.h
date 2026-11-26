@@ -344,7 +344,7 @@ public:
   }
   /**
    * @brief Output envelope derived from the synchronized effect revolution.
-   * @param column Displayed canvas column.
+   * @param column Flywheel rotation column (arm A's canvas column).
    * @param width Canvas width in columns.
    * @return Brightness multiplier in [0, 1].
    * @details Flywheel-ISR context only: reads `tick`-owned state unguarded.

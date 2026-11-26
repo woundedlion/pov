@@ -73,10 +73,7 @@ SECTIONS
 		*(.text.*Authored*)
 		*(.text.*Involution*)
 		/* Sections without source-level cold annotations: generated ctors
-		 * (Animation graph nodes, PolyMesh), sort instantiations from
-		 * classify_faces_impl and compile_hankin inner lambdas
-		 * (preset/geometry builders only -- stored draw callbacks must not
-		 * be defined inside them), and framework one-time setup. */
+		 * (Animation graph nodes, PolyMesh). */
 		*(.text._ZN9Animation*C1E*)
 		*(.text._ZN9Animation*C2E*)
 		*(.text._ZN8PolyMeshC1E*)
@@ -93,6 +90,10 @@ SECTIONS
 		*(.text._ZN7PersistI*D1Ev*)
 		*(.text._ZN7PersistI*D2Ev*)
 		*(.text._ZN*ILi288ELi144E*ED[012]Ev*)
+		/* Preset/geometry builders: sort instantiations from
+		 * classify_faces_impl and compile_hankin inner lambdas (stored draw
+		 * callbacks must not be defined inside them), CompiledHankin, and
+		 * timeline event construction. */
 		*(.text.*classify_faces_impl*)
 		*(.text.*compile_hankin*)
 		*(.text._ZN14CompiledHankin*)

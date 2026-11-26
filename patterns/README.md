@@ -41,8 +41,7 @@ The optional boolean `source_morph` is honoured on `sample.tessellation.v3`
 and `sample.spherical-tiling.v1` entries, where it contributes to the
 descriptor digest and lets preset edges blend the endpoint source fields.
 Canonical export drops it from other operators. `sample.planar.v1` always
-blends its endpoint sources. Filigree enables it on its spherical-tiling entry
-and RiverStones on its tessellation entry.
+blends its endpoint sources. RiverStones enables it on its tessellation entry.
 
 The descriptor is a semantic identity over the chain, not a complete
 reproduction of the effect. It describes `chain`, `parameters`,

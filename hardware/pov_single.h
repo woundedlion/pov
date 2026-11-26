@@ -211,10 +211,15 @@ private:
   static CRGB
       leds[S]; /**< Array holding the CRGB data for the physical LED strip. */
 #endif
+  /** @brief Display advances since run() started; ISR-written. */
   inline static std::atomic<uint32_t> display_window{0};
+  /** @brief Last display_window value update_presentation() folded in. */
   inline static uint32_t previous_open = 0;
+  /** @brief display_window widened to 64 bits. */
   inline static uint64_t extended_open = 0;
 
+  /** @brief Buffer-ready hook: targets the next display window.
+   * @param ready Effect whose back buffer is ready. */
   static void update_presentation(Effect &ready) {
     const uint32_t open = display_window.load(std::memory_order_relaxed);
     extended_open += static_cast<uint32_t>(open - previous_open);

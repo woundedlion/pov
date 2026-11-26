@@ -467,8 +467,8 @@ struct RingGroup {
    * @details Row intervals come from one covering ring: the middle member (n/2)
    * inflated by the group's maximum plane/radius deviation plus thickness.
    * Members evaluate per pixel in ascending slot order. The canvas's
-   * column-time basis is honoured. This draw ignores the birth fraction, drift, and
-   * render-x window of an open TimeWindowScope. At
+   * column-time basis is honoured except its birth fraction and drift; an open
+   * TimeWindowScope's render-x window is ignored. At
    * pole_lod_aggressiveness 0 and one destination pixel per plot, the only
    * divergence from rasterizing the rings one by one is AA-tail pixels a
    * member's own interval clip would drop.
@@ -1109,6 +1109,8 @@ struct Star {
 
 /**
  * @brief Draws a solid flower shape.
+ * @details Centred on -basis.v; @p radius is the petal-tip angular radius about
+ * that point, as a fraction of the hemisphere.
  */
 struct Flower {
   /**

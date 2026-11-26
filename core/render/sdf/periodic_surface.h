@@ -86,6 +86,9 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
   }
 
 private:
+  /** @brief Field gradient in phase space.
+   *  @param q Phase point, (p - origin) * 2*pi / period.
+   *  @return Gradient of field() with respect to q. */
   static math::Vector phase_gradient(const math::Vector &q) {
     if constexpr (Kind == PeriodicSurfaceKind::COSINE)
       return {-sinf(q.x), -sinf(q.y), -sinf(q.z)};

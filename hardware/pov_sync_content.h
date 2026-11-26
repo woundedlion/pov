@@ -23,7 +23,7 @@ namespace sync {
  * Synchronized fade-through-clear envelope for one displayed column.
  * @param rev_in_effect Revolutions elapsed in the current effect.
  * @param effect_revolutions Effect length in revolutions.
- * @param column Displayed canvas column.
+ * @param column Flywheel rotation column (arm A's canvas column).
  * @param width Canvas width in columns.
  * @param fade_revolutions Fade-in and fade-out length in revolutions; 0
  *        disables the envelope.
@@ -253,7 +253,7 @@ struct ContentTracker {
   /**
    * @brief Output envelope, zero from the first accepted epoch until commit.
    * @param cfg Protocol configuration.
-   * @param column Column being displayed.
+   * @param column Flywheel rotation column (arm A's canvas column).
    * @param width Canvas width, in columns.
    * @return Scale in [0, 1].
    * @details Zero while commit_pending, announce phase included. A

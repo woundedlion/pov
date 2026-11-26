@@ -99,7 +99,8 @@ struct PotentialTerm {
 };
 
 /** @brief Extracts unnormalised half-turn axes from the tetrahedral mirrors.
- * @return Three columns of the half-turn matrices plus identity. */
+ * @return The longest column of M + I for each half-turn M (an unnormalised
+ *         axis), and the number stored. */
 constexpr auto make_tetrahedral_axes() {
   constexpr auto GROUP =
       lenses::ReflectionGroup::make_group(lenses::TETRAHEDRAL_MIRRORS);

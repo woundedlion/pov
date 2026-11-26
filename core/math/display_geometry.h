@@ -281,7 +281,8 @@ struct DisplayGeometry<H, -1> : DisplayRowMapping<DisplayGeometry<H, -1>, H> {
   /** @brief Whether the last LED row reaches the south pole. */
   inline static bool HAS_SOUTH_POLE = INITIAL_ROWS.has_south_pole;
 
-  /** @brief Refreshes the initial ideal mapping after set_display_geometry(). */
+  /** @brief Reloads the latitude mapping from DISPLAY_NORTH_PHI and
+   * DISPLAY_SOUTH_PHI. */
   static void refresh() {
     NORTH_PHI = DISPLAY_NORTH_PHI;
     SOUTH_PHI = DISPLAY_SOUTH_PHI;

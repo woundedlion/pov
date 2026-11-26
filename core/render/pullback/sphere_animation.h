@@ -142,7 +142,7 @@ HS_HOT_FLASH_MEMBER inline math::Vector ripple_center(uint32_t seed,
 
 /** @brief Random centers shared by all column times of a burst epoch. */
 struct BurstCenters {
-  /// Deterministic random centers in descending burst order.
+  /// Random centers indexed by burst % RIPPLE_BURST_GROUPS.
   std::array<math::Vector, RIPPLE_BURST_GROUPS> centers;
   /// Seed of the cached burst sequence.
   uint32_t seed = 0;

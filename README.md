@@ -30,7 +30,7 @@ To explore effects, open the [live simulator](https://woundedlion.github.io/dayd
 For local development:
 
 1. Clone Holosphere and daydream as sibling directories.
-2. Install Python with pip, Node.js with npm, CMake, Ninja and Emscripten. The tested tool versions are pinned in `tools/build_pins.py`, and each repository's `package.json` declares its Node requirement. Install the pinned host development tools with pip (including CMake and `just`):
+2. Install Python with pip, Node.js with npm, Ninja and Emscripten. The tested tool versions are pinned in `tools/build_pins.py`, and each repository's `package.json` declares its Node requirement. Install the pinned host development tools with pip (including CMake and `just`):
 
    ```bash
    python -m pip install --require-hashes -r requirements/dev.txt
@@ -759,16 +759,16 @@ index.html → embedded import map          segment_worker.js × N
                    ├─ failure overlay +    postMessage(Transfer pixels)
                    │  refreshModuleCache()
                    └─ import('./daydream.js')
-                   ├─ createHolosphereModule()
-                   ├─ Daydream (driver.js)
-                   │    ├─ Three.WebGLRenderer
-                   │    ├─ instanced dot mesh
-                   │    ├─ OrbitControls
-                   │    └─ PiP camera
-                   ├─ AppState + URLSync
-                   ├─ EffectSidebar
-                   ├─ lil-gui (params + global)
-                   └─ VideoRecorder (MediaRecorder)
+                        ├─ createHolosphereModule()
+                        ├─ Daydream (driver.js)
+                        │    ├─ Three.WebGLRenderer
+                        │    ├─ instanced dot mesh
+                        │    ├─ OrbitControls
+                        │    └─ PiP camera
+                        ├─ AppState + URLSync
+                        ├─ EffectSidebar
+                        ├─ lil-gui (params + global)
+                        └─ VideoRecorder (MediaRecorder)
 ```
 
 `index.html` loads exactly one module, `src/app/main.js`, whose whole body is a call to `src/app/bootstrap.js`'s exported `bootstrap()`. Keeping the side effect in the entry module rather than in `src/app/bootstrap.js` itself is what lets `src/app/daydream.js` import the failure overlay without standing up a second simulator. `bootstrap()` dynamically imports `src/app/daydream.js` inside a `try`/`catch` that handles the rest of the module graph; `src/shared/module_load_guard.js` covers load failures of `main.js` or `bootstrap.js`. On failure it renders the error into the page's `loading-overlay` (as `role="alert"`, with a focused **Reload** button) and falls back to the shared fatal-error banner when no overlay exists. The Reload handler first runs `refreshModuleCache()`, which attempts to re-fetch every same-origin `.js`, `.mjs`, `.wasm`, `.css`, and `.json` resource the page has already loaded with `cache: 'reload'`. Failed refreshes are ignored before reloading. Successful refreshes reduce the deploy-skew hazard: a plain browser reload only revalidates the top-level document, so modules cached from an earlier deploy stay stale and keep failing to link against freshly fetched importers — and the WASM binary is bound to its glue by content hash, so a stale binary against fresh glue is the canonical form of the skew.
@@ -1187,7 +1187,7 @@ Unit coverage spans the math, geometry and memory core, color, easing and waves,
 
    - The scan covers column-0 void, bool, int and size_t definitions named `test_*`, `check_*`, `case_*`, `verify_*` and `expect_*` in `tests/*.h` and `tests/*.hpp`. It also covers `run_*_cases` and the named sweep drivers `smoke_one`, `determinism_one` and `clip_clear_parity_one`. Indented member definitions are outside the scan.
    - Every scanned case must be reachable from its module's `run_*_tests()` through a call chain or a file-scope reference. Off-roster headers and the named sweep drivers resolve against the shared test and tools corpus.
-   - Every case must reach an `HS_EXPECT*` or `static_assert` directly or through helpers. Death cases in `tests/death/*_cases.h` are checked against `tests/death/registry.h` by `tests/check_death_pins.py`; they are outside the `unit_case_calls` scan.
+   - Every case must reach an `HS_EXPECT*` or `static_assert` directly or through helpers. Death `case_*` definitions are expanded into `test_death.h` and must be reachable, but need no assertion; `tests/check_death_pins.py` checks their registration against `tests/death/registry.h`.
 
    There are no measured assertion floors or exact case-count pins to update when a test changes.
 CMake derives its per-module CTest registrations from `HS_TEST_MODULE_LIST`; `unit_module_roster` checks the parsed names against the compiled roster.

@@ -18,7 +18,7 @@ from committed_boards import committed_board  # noqa: E402
 
 ROUTED = committed_board()
 
-# One F.Cu track between two SMD pads, plus a second pad pair the track misses.
+# One F.Cu track joining the two SMD pads of one net.
 BOARD = """(kicad_pcb
 \t(layers
 \t\t(0 "F.Cu" signal)

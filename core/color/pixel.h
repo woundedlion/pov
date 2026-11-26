@@ -240,8 +240,9 @@ inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
 
 /**
  * @brief Per-sample alpha floor for 8-bit sRGB output.
- * @details The simulator and operator CRGB use linear_to_srgb8, whose first
- * nonzero integer input is 10 of 65535. Per-channel rounding can lift a peak
+ * @details Operator CRGB uses linear_to_srgb8, whose first nonzero integer
+ * input is 10 of 65535; the simulator's float sRGB encode, rounded to 8 bits,
+ * has the same floor. Per-channel rounding can lift a peak
  * in [9.5, 10) to that input. LED output uses linear PWM: HD107S floors vary
  * by channel gains and brightness; FastLED rounding starts at 129.
  */
