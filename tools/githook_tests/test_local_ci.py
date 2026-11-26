@@ -260,7 +260,7 @@ class CommitJobs(unittest.TestCase):
                   "tests/test_harness.h", "effects/IslamicStars.h",
                   "CMakeLists.txt", "README.md", "CONTRIBUTING.md", "LICENSE",
                   "scripts/check_profiles.mjs", "scripts/effect_roster.mjs",
-                  "scripts/exit.mjs", "ruff.toml")
+                  "scripts/exit.mjs", "ruff.toml", ".gitignore")
         for relative in inputs:
             with self.subTest(path=relative):
                 origin = git_run(self.repo, "rev-parse", "HEAD", env=self.env).stdout.strip()
