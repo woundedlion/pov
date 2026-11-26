@@ -124,18 +124,31 @@ namespace Pullback::ProjectionCoverage {
 /** @brief Runtime coverage over an authored source crossing.
  * @tparam Provider Keyed source control provider. */
 template <typename Provider> struct Authored : ApproximationDefaults {
+  using Prepared = NoPrepared; ///< Empty validated preparation.
+
+  /** @brief Validates the projection coverage selector.
+   * @tparam Frame Provider frame state.
+   * @param frame Current frame.
+   * @return Empty preparation. */
+  template <typename Frame> static NoPrepared prepare(const Frame &frame) {
+    const auto &params = Provider::params(frame);
+    const uint8_t mode = params.coverage_mode;
+    HS_CHECK(mode < std::size(params.COVERAGE_IDS),
+             "invalid sample projection coverage");
+    return {};
+  }
+
   /** @brief Applies the selected projection coverage.
    * @tparam Frame Provider frame state.
    * @param provenance Projection metadata.
    * @param frame Current frame.
    * @return Projection coverage without domain-coverage multiplication. */
   template <typename Frame>
-  static float apply(const ProjectionProvenance &provenance,
-                     const Frame &frame) {
+  static float apply(const ProjectionProvenance &provenance, const Frame &frame,
+                     const NoPrepared &) {
     const auto &params = Provider::params(frame);
     const uint8_t mode = params.coverage_mode;
-    HS_CHECK(mode < std::size(params.COVERAGE_IDS),
-             "invalid sample projection coverage");
+    HS_AUDIT_CHECK(mode < std::size(params.COVERAGE_IDS));
     return select(static_cast<ProjectionCoverageMode>(mode), provenance,
                   params.edge_width, frame);
   }
