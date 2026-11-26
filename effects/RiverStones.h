@@ -94,7 +94,7 @@ public:
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "bac10bb82d189dfed895c1b67f4fa37694a8ac7e2b3df06a1db3cb77b371225a";
   /// SHA-256 hex of the shader document's preset bank.
-  static constexpr std::string_view PRESET_BANK_DIGEST = "515e3f1ec445f58c726bbb86218723abf9674aa686a75d243b1065dff890d4e2";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "90f238e7508f156d327e5d3af09e9be5b4ca2772c06c50fd187290059f19d7de";
   /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "river-stones",
@@ -277,7 +277,7 @@ public:
     value.template get<"projection">().wander = 0.0f;
     value.template get<"projection">().singularity_fade = 1.0f;
     value.template get<"source">().cell_radius = 0.41925988f;
-    value.template get<"source">().cell_scale = 2.5352101f;
+    value.template get<"source">().cell_scale = 2.546479f;
     value.template get<"source">().cell_shape = 0.5292398f;
     value.template get<"source">().cell_softness = 0.10124387f;
     value.template get<"outer_warp">().lattice_period = 1.0f;

@@ -1809,8 +1809,8 @@ inline void test_river_stones_color_tail() {
                                    "modulate2">();
 }
 
-/** @brief River Stones 2's translating cells meet across the longitude cut. */
-inline void test_river_stones_2_meridian() {
+/** @brief Each River Stones preset's cells meet across the longitude cut. */
+inline void test_river_stones_meridian_periodic() {
   using FX = RiverStones<SMALL_W, SMALL_H>;
   using Pipeline = FX::RenderPipeline;
   using Projection = Pipeline::StageAt<2>::ProjectionPolicy;
@@ -1820,24 +1820,26 @@ inline void test_river_stones_2_meridian() {
   FX effect;
   effect.init();
   auto state = effect.frame_for_test();
-  state.params = FX::preset(1).params;
-  for (const float phase : {0.0f, 0.125f, 0.31f, 0.5f, 0.875f}) {
-    state.resources.template get<"outer_warp">().phase = phase;
-    const auto warp = Warp::prepare(state);
-    for (int row = -24; row <= 24; ++row) {
-      const float latitude = row / 16.0f;
-      const auto sample = [&](float side) {
-        const math::Vector direction{-cosf(latitude), sinf(latitude),
-                                     side * cosf(latitude)};
-        const auto plane = Projection::project(direction, state);
-        HS_EXPECT_TRUE(side * plane.coords.re > 0.0f);
-        const auto step =
-            Warp::apply(plane.coords, plane.provenance, state, warp);
-        return Source::sample(
-            {step.coords, plane.provenance, direction, step.path_length},
-            state);
-      };
-      HS_EXPECT_NEAR(sample(-1e-6f), sample(1e-6f), 1e-4f);
+  for (size_t preset = 0; preset < FX::PRESET_IDS.size(); ++preset) {
+    state.params = FX::preset(preset).params;
+    for (const float phase : {0.0f, 0.125f, 0.31f, 0.5f, 0.875f}) {
+      state.resources.template get<"outer_warp">().phase = phase;
+      const auto warp = Warp::prepare(state);
+      for (int row = -24; row <= 24; ++row) {
+        const float latitude = row / 16.0f;
+        const auto sample = [&](float side) {
+          const math::Vector direction{-cosf(latitude), sinf(latitude),
+                                       side * cosf(latitude)};
+          const auto plane = Projection::project(direction, state);
+          HS_EXPECT_TRUE(side * plane.coords.re > 0.0f);
+          const auto step =
+              Warp::apply(plane.coords, plane.provenance, state, warp);
+          return Source::sample(
+              {step.coords, plane.provenance, direction, step.path_length},
+              state);
+        };
+        HS_EXPECT_NEAR(sample(-1e-6f), sample(1e-6f), 1e-4f);
+      }
     }
   }
 }

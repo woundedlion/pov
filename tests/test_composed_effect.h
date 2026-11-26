@@ -72,7 +72,7 @@ inline int run_composed_effect_tests() {
   HS_RUN(test_ash_cloud_noise_column_phase);
   HS_RUN(test_temporal_direct_noise_endpoint_reuse);
   HS_RUN(test_river_stones_color_tail);
-  HS_RUN(test_river_stones_2_meridian);
+  HS_RUN(test_river_stones_meridian_periodic);
   HS_RUN(test_river_stones_source_morph);
   HS_RUN(test_filigree_source_morph);
   HS_RUN(test_river_stones_modulation_morph);
