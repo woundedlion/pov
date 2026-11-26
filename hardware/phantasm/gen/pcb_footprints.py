@@ -240,6 +240,18 @@ def reference_bbox(node, ref):
     return bounds
 
 
+def rotate_text(node, rotation):
+    """Add a footprint rotation to the angle of every property and fp_text in node.
+
+    Board files store footprint text angles in board orientation; library
+    angles are footprint-local.
+    """
+    for text in F(node, "property") + F(node, "fp_text"):
+        for at in F(text, "at"):
+            local_rotation = float(at[3]) if len(at) > 3 else 0
+            at[3:4] = [sexp.Sym(fmt((local_rotation + rotation) % 360))]
+
+
 def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           dnp=False, hand_assembled=False, hide_reference=False,
           consumed=None, ctx=None):
@@ -293,9 +305,6 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
         if isinstance(c, list) and c and c[0] == "property":
             if c[1] == "Reference":
                 c[2] = ref
-                for at in F(c, "at"):
-                    local_rotation = float(at[3]) if len(at) > 3 else 0
-                    at[3:] = [sexp.Sym(fmt((local_rotation + rot) % 360))]
                 if hide_reference and not any(
                         isinstance(d, list) and d and d[0] == "hide" for d in c):
                     c.insert(-1, [sexp.Sym("hide"), sexp.Sym("yes")])
@@ -310,6 +319,7 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
             node.append(sexp.parse_one(
                 f'(property {sexp.quote(name)} {sexp.quote(value)} (at 0 0 0) '
                 '(layer "F.Fab") (hide yes) (effects (font (size 1 1) (thickness 0.15))))'))
+    rotate_text(node, rot)
     # assign pad nets by name; `consumed` collects the (ref, pad) keys that matched
     for c in node:
         if isinstance(c, list) and c and c[0] == "pad":

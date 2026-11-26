@@ -236,7 +236,7 @@
 		)
 		(attr through_hole exclude_from_pos_files exclude_from_bom)
 		(fp_text user "+"
-			(at 2 0)
+			(at 2 0 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -246,7 +246,7 @@
 			)
 		)
 		(fp_text user "-"
-			(at 2 2.54)
+			(at 2 2.54 0)
 			(layer "F.SilkS")
 			(effects
 				(font
@@ -3162,7 +3162,7 @@
 			)
 		)
 		(property "Value" "74AHCT125"
-			(at 0 5.28 0)
+			(at 0 5.28 180)
 			(layer "F.Fab")
 			(effects
 				(font
@@ -3172,7 +3172,7 @@
 			)
 		)
 		(property "KiLib_Generator" "package/gullwing"
-			(at 0 0 0)
+			(at 0 0 180)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -3375,7 +3375,7 @@
 			(layer "F.Fab")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 90)
+			(at 0 0 270)
 			(layer "F.Fab")
 			(effects
 				(font
@@ -3515,7 +3515,7 @@
 			)
 		)
 		(property "Value" "33R"
-			(at 0 1.65 0)
+			(at 0 1.65 180)
 			(layer "F.Fab")
 			(effects
 				(font
@@ -3525,7 +3525,7 @@
 			)
 		)
 		(property "KiLib_Generator" "SMD_2terminal_chip_molded"
-			(at 0 0 0)
+			(at 0 0 180)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -3576,7 +3576,7 @@
 			(layer "F.Fab")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 0)
+			(at 0 0 180)
 			(layer "F.Fab")
 			(effects
 				(font
@@ -3632,7 +3632,7 @@
 			)
 		)
 		(property "Value" "33R"
-			(at 0 1.65 0)
+			(at 0 1.65 180)
 			(layer "F.Fab")
 			(effects
 				(font
@@ -3642,7 +3642,7 @@
 			)
 		)
 		(property "KiLib_Generator" "SMD_2terminal_chip_molded"
-			(at 0 0 0)
+			(at 0 0 180)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -3693,7 +3693,7 @@
 			(layer "F.Fab")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 0)
+			(at 0 0 180)
 			(layer "F.Fab")
 			(effects
 				(font
@@ -3979,7 +3979,7 @@
 			)
 		)
 		(property "Value" "0.1uF"
-			(at 0 1.43 0)
+			(at 0 1.43 180)
 			(layer "F.Fab")
 			(effects
 				(font
@@ -3989,7 +3989,7 @@
 			)
 		)
 		(property "KiLib_Generator" "SMD_2terminal_chip_molded"
-			(at 0 0 0)
+			(at 0 0 180)
 			(layer "F.SilkS")
 			(hide yes)
 			(effects
@@ -4040,7 +4040,7 @@
 			(layer "F.Fab")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 0)
+			(at 0 0 180)
 			(layer "F.Fab")
 			(effects
 				(font
@@ -5172,7 +5172,7 @@
 			)
 		)
 		(property "Value" "shield gnd (master only)"
-			(at 0 1.9 0)
+			(at 0 1.9 90)
 			(layer "F.Fab")
 			(uuid "1beaa498-f6ea-55c7-a473-6f58567138a0")
 			(effects
@@ -5183,7 +5183,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
@@ -5196,7 +5196,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
@@ -5558,7 +5558,7 @@
 			)
 		)
 		(property "Value" "ID0->GND"
-			(at 0 1.9 0)
+			(at 0 1.9 90)
 			(layer "F.Fab")
 			(uuid "f710edd3-fc13-51a5-88a0-67365904d8db")
 			(effects
@@ -5569,7 +5569,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
@@ -5582,7 +5582,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
@@ -5829,7 +5829,7 @@
 			)
 		)
 		(property "Value" "ID1->GND"
-			(at 0 1.9 0)
+			(at 0 1.9 90)
 			(layer "F.Fab")
 			(uuid "8bf75bdd-5ec4-5650-86e6-51f8d1c28027")
 			(effects
@@ -5840,7 +5840,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
@@ -5853,7 +5853,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
@@ -6100,7 +6100,7 @@
 			)
 		)
 		(property "Value" "ID2->GND (N=8)"
-			(at 0 1.9 0)
+			(at 0 1.9 90)
 			(layer "F.Fab")
 			(uuid "66a39c79-fdea-5547-9f4e-4b7406a66285")
 			(effects
@@ -6111,7 +6111,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
@@ -6124,7 +6124,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 0)
+			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)

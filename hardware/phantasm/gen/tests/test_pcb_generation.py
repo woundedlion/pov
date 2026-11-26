@@ -145,6 +145,23 @@ class TerminalFootprintTests(unittest.TestCase):
                         self.assertIn(pattern, str(caught.exception))
                     self.assertEqual(str(pcb.load_mod("phantasm:custom")[1]), "custom")
 
+    def test_footprint_text_angles_rotate_with_footprint(self):
+        def text_angles(node):
+            return {(text[0], str(text[1] if text[0] == "property" else text[2])):
+                    float(at[3]) if len(at) > 3 else 0.0
+                    for text in F(node, "property") + F(node, "fp_text")
+                    for at in F(text, "at")}
+
+        libid = pcb.TERMINAL_LIBIDS[0]
+        local = text_angles(pcb.embedded_footprint("J1", libid))
+        self.assertIn(("fp_text", "+"), local)
+        for angle in (0, 90, 180, 270):
+            with self.subTest(angle=angle):
+                placed = text_angles(pcb.embed(libid, "J1", "power", 20, 30,
+                                               angle, {}, {"": 0}))
+                self.assertEqual({key: placed[key] for key in local},
+                                 {key: (value + angle) % 360 for key, value in local.items()})
+
     def test_revision_13_rejects_legacy_connector_footprints(self):
         ctx = pcb.generation_context("1.3")
         comps = {ref: (ref, pcb.REVISION_LAYOUTS["1.3"].terminal_by_ref[ref], "", False)
