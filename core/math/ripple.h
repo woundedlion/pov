@@ -15,6 +15,10 @@ namespace RippleKernel {
 /** @brief Wave amplitudes at or below this threshold have no displacement. */
 inline constexpr float NEGLIGIBLE_AMPLITUDE = 0.001f;
 
+/** @brief Keep-out radius around both poles, in radians; a radial step that
+ *         ends inside it is a pole crossing. */
+inline constexpr float POLE_EXCLUSION = 0.01f;
+
 /** @brief Instantaneous wave parameters and cached cosine support. */
 struct Wave {
   math::Vector center;    ///< Unit source direction.
@@ -198,7 +202,7 @@ radial_step(const Wave &wave, float &distance, float &angle, float &path,
   if (theta == 0.0f)
     return true;
   distance += theta;
-  if (!(distance > 0.01f && distance < math::PI_F - 0.01f))
+  if (!(distance > POLE_EXCLUSION && distance < math::PI_F - POLE_EXCLUSION))
     return false;
   angle += theta;
   if (track_path)

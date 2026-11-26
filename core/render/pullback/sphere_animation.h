@@ -235,7 +235,8 @@ struct RippleGroupBands {
       angular; ///< Wavelet bands in launch order.
   /// Contiguous live wave interval for a burst group.
   struct ActiveRange {
-    float pole_margin = 0.010001f; ///< Maximum travel plus the pole exclusion.
+    /// Maximum travel plus the pole exclusion.
+    float pole_margin = RippleKernel::POLE_EXCLUSION + 1e-6f;
     /// First active wave index in the group.
     uint8_t first = 0, end = 0; ///< One past the last active wave index.
   };
@@ -403,7 +404,9 @@ supported_ripples(const math::Vector &input, const SupportedRipples &prepared,
       const float delta = wave.amplitude * (1.0f - t * t) *
                           math::fast_expf_normal_range(-0.5f * t * t);
       distance += delta;
-      if (check_poles && !(distance > 0.01f && distance < math::PI_F - 0.01f) &&
+      if (check_poles &&
+          !(distance > RippleKernel::POLE_EXCLUSION &&
+            distance < math::PI_F - RippleKernel::POLE_EXCLUSION) &&
           delta != 0.0f)
         return sequential_ripples(input, ripples, track_path);
       angle += delta;
