@@ -25,8 +25,16 @@ enum class ProjectionCoverageMode : uint8_t {
   EDGE_FADE_SQUARED = 4
 };
 
+/** @brief Raw-signal weighting modes consumed by the Sample crossing. */
+enum class WeightMode : uint8_t {
+  NONE = 0,      ///< Raw field unweighted.
+  PROJECTION = 1 ///< Raw field scaled by the projection weight.
+};
+
 /// Raw-signal weighting choices shared by Sample parameter families.
 inline constexpr const char *WEIGHT_MODE_IDS[] = {"none", "projection"};
+static_assert(std::size(WEIGHT_MODE_IDS) ==
+              static_cast<size_t>(WeightMode::PROJECTION) + 1);
 /// Coverage choices in ProjectionCoverageMode order.
 inline constexpr const char *COVERAGE_MODE_IDS[] = {
     "none", "weight", "weight-squared", "edge-fade", "edge-fade-squared"};
@@ -71,6 +79,26 @@ struct Projection : ApproximationDefaults {
     return field * provenance.value_weight;
   }
 };
+
+/** @brief Applies the weight policy a mode selects.
+ * @tparam FrameState Frame state type; unused by the policies.
+ * @param mode Weight mode; values past PROJECTION weight by projection.
+ * @param field Field value.
+ * @param provenance Projection provenance of the sample.
+ * @param frame Current frame.
+ * @return The weighted field value. */
+template <typename FrameState>
+HS_HOT_INLINE inline float select(WeightMode mode, float field,
+                                  const ProjectionProvenance &provenance,
+                                  const FrameState &frame) {
+  switch (mode) {
+  case WeightMode::NONE:
+    return None::apply(field, provenance, frame);
+  case WeightMode::PROJECTION:
+    break;
+  }
+  return Projection::apply(field, provenance, frame);
+}
 
 } // namespace Weight
 
@@ -290,6 +318,32 @@ HS_HOT_INLINE inline float
 edge_fade_squared(const ProjectionProvenance &provenance, float width) {
   const float fade = edge_fade(provenance, width);
   return fade * fade;
+}
+
+/** @brief Applies the coverage policy a mode selects.
+ * @tparam FrameState Frame state type; unused by the policies.
+ * @param mode Coverage mode; values past EDGE_FADE_SQUARED cover by weight.
+ * @param provenance Projection provenance of the sample.
+ * @param edge_width Edge-fade width; read only under edge-fade coverage.
+ * @param frame Current frame.
+ * @return Coverage in [0, 1]. */
+template <typename FrameState>
+HS_HOT_INLINE inline float select(ProjectionCoverageMode mode,
+                                  const ProjectionProvenance &provenance,
+                                  float edge_width, const FrameState &frame) {
+  switch (mode) {
+  case ProjectionCoverageMode::NONE:
+    return None::apply(provenance, frame);
+  case ProjectionCoverageMode::WEIGHT_SQUARED:
+    return WeightSquared::apply(provenance, frame);
+  case ProjectionCoverageMode::EDGE_FADE:
+    return edge_fade(provenance, edge_width);
+  case ProjectionCoverageMode::EDGE_FADE_SQUARED:
+    return edge_fade_squared(provenance, edge_width);
+  case ProjectionCoverageMode::WEIGHT:
+    break;
+  }
+  return Weight::apply(provenance, frame);
 }
 
 /**

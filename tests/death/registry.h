@@ -377,7 +377,7 @@ inline const Case *all_cases(int &n) {
               {"authored_sample_invalid_coverage_mode",
                case_authored_sample_invalid_coverage_mode,
                "core/render/pullback/authored_sample.h",
-               "(false) invalid sample projection coverage"},
+               "(mode < std::size(params.COVERAGE_IDS)) invalid sample projection coverage"},
               // callables
               {"empty_fn_call", case_empty_fn_call,
                "core/engine/static_storage.cpp",

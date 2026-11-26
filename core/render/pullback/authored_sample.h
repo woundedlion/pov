@@ -113,7 +113,7 @@ template <typename Provider> struct Authored : ApproximationDefaults {
     const auto &params = Provider::params(frame);
     const uint8_t mode = params.weight_mode;
     HS_AUDIT_CHECK(mode < std::size(params.WEIGHT_IDS));
-    return mode == 0 ? field : field * provenance.value_weight;
+    return select(static_cast<WeightMode>(mode), field, provenance, frame);
   }
 };
 
@@ -133,22 +133,11 @@ template <typename Provider> struct Authored : ApproximationDefaults {
   static float apply(const ProjectionProvenance &provenance,
                      const Frame &frame) {
     const auto &params = Provider::params(frame);
-    switch (static_cast<ProjectionCoverageMode>(params.coverage_mode)) {
-    case ProjectionCoverageMode::NONE:
-      return 1.0f;
-    case ProjectionCoverageMode::WEIGHT:
-      return provenance.value_weight;
-    case ProjectionCoverageMode::WEIGHT_SQUARED:
-      return provenance.value_weight * provenance.value_weight;
-    case ProjectionCoverageMode::EDGE_FADE:
-      return edge_fade(provenance, params.edge_width);
-    case ProjectionCoverageMode::EDGE_FADE_SQUARED: {
-      const float fade = edge_fade(provenance, params.edge_width);
-      return fade * fade;
-    }
-    }
-    HS_CHECK(false, "invalid sample projection coverage");
-    return 0.0f;
+    const uint8_t mode = params.coverage_mode;
+    HS_CHECK(mode < std::size(params.COVERAGE_IDS),
+             "invalid sample projection coverage");
+    return select(static_cast<ProjectionCoverageMode>(mode), provenance,
+                  params.edge_width, frame);
   }
 };
 

@@ -65,17 +65,12 @@ void temporal_sample(SourceClockState &out, const SourceClockInterval &interval,
 }
 
 /** @brief Sample crossing weighting of the raw field. */
-enum class WeightMode : uint8_t {
-  NONE = 0,      ///< Raw field unweighted.
-  PROJECTION = 1 ///< Raw field scaled by the projection weight.
-};
+using WeightMode = Pullback::WeightMode;
 /** @brief Sample crossing coverage policy. */
 using ProjectionCoverageMode = Pullback::ProjectionCoverageMode;
 
 /** @brief Shared weight topology values, in WeightMode order. */
 using Pullback::WEIGHT_MODE_IDS;
-static_assert(std::size(WEIGHT_MODE_IDS) ==
-              static_cast<size_t>(WeightMode::PROJECTION) + 1);
 /** @brief Shared coverage topology values, in ProjectionCoverageMode order. */
 using Pullback::COVERAGE_MODE_IDS;
 
@@ -102,13 +97,8 @@ inline void check_sample_topology(uint8_t weight_mode, uint8_t coverage_mode) {
 inline float weighted_field(uint8_t weight_mode, float raw,
                             const ProjectionProvenance &provenance,
                             const FrameContext &ctx) {
-  switch (static_cast<WeightMode>(weight_mode)) {
-  case WeightMode::NONE:
-    return Weight::None::apply(raw, provenance, ctx);
-  case WeightMode::PROJECTION:
-    break;
-  }
-  return Weight::Projection::apply(raw, provenance, ctx);
+  return Weight::select(static_cast<WeightMode>(weight_mode), raw, provenance,
+                        ctx);
 }
 
 /** @brief The Sample crossing's coverage switch over the shared policies.
@@ -120,19 +110,9 @@ inline float weighted_field(uint8_t weight_mode, float raw,
 inline float projection_coverage(uint8_t coverage_mode,
                                  const ProjectionProvenance &provenance,
                                  float edge_width, const FrameContext &ctx) {
-  switch (static_cast<ProjectionCoverageMode>(coverage_mode)) {
-  case ProjectionCoverageMode::NONE:
-    return ProjectionCoverage::None::apply(provenance, ctx);
-  case ProjectionCoverageMode::WEIGHT_SQUARED:
-    return ProjectionCoverage::WeightSquared::apply(provenance, ctx);
-  case ProjectionCoverageMode::EDGE_FADE:
-    return ProjectionCoverage::edge_fade(provenance, edge_width);
-  case ProjectionCoverageMode::EDGE_FADE_SQUARED:
-    return ProjectionCoverage::edge_fade_squared(provenance, edge_width);
-  case ProjectionCoverageMode::WEIGHT:
-    break;
-  }
-  return ProjectionCoverage::Weight::apply(provenance, ctx);
+  return ProjectionCoverage::select(
+      static_cast<ProjectionCoverageMode>(coverage_mode), provenance,
+      edge_width, ctx);
 }
 
 /** @brief Whether sample coverage consumes projection edge distance.
