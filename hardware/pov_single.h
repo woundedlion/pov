@@ -225,8 +225,8 @@ private:
     extended_open += static_cast<uint32_t>(open - previous_open);
     previous_open = open;
     const uint64_t target = extended_open + 1;
-    ready.set_presentation_interval(
-        {target * 30000000ULL / RPM, (target + 1) * 30000000ULL / RPM});
+    ready.set_presentation_interval({pov::window_start_us(target, RPM),
+                                     pov::window_start_us(target + 1, RPM)});
   }
 
   static Effect *effect; /**< Currently running effect; the ISR only reads it.

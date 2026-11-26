@@ -38,7 +38,13 @@ using pov::segment_y;
 using pov::SubmitAction;
 using pov::SubmitGate;
 using pov::SyncPulseGate;
+using pov::window_start_us;
 
+static_assert(window_start_us(0, 480) == 0);
+static_assert(window_start_us(1, 480) == 62500);
+static_assert(window_start_us(3, 480) == 187500);
+static_assert(window_start_us(1, 7) == 4285714);
+static_assert(window_start_us(1ULL << 32, 480) == (1ULL << 32) * 62500);
 static_assert(segment_map(1, 288, 4).y_base == 143);
 static_assert(segment_map(1, 288, 4).y_step == -1);
 static_assert(segment_map(1, 288, 8).y_base == 36);

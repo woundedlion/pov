@@ -305,7 +305,8 @@ public:
                       : hs::epoch_seed(static_cast<uint32_t>(effect_index)));
               Effect *effect = factories[effect_index]();
               validate_show_effect(effect);
-              effect->set_presentation_interval({0, 30000000ULL / RPM});
+              effect->set_presentation_interval(
+                  {pov::window_start_us(0, RPM), pov::window_start_us(1, RPM)});
               pov::prime_segment_frame(
                   *effect, pov::segment_clip(segment, true, S, N, CANVAS_W),
                   prepare_segment_clip);
@@ -509,8 +510,8 @@ private:
   static void prepare_segment_clip(Effect &effect) {
     pov::prepare_segment_frame(effect, segment, S, N, handoff.current_window());
     const uint64_t target = effect.scheduled_frame();
-    effect.set_presentation_interval(
-        {(target - 1) * 30000000ULL / RPM, target * 30000000ULL / RPM});
+    effect.set_presentation_interval({pov::window_start_us(target - 1, RPM),
+                                      pov::window_start_us(target, RPM)});
   }
 
   // ── ISRs ────────────────────────────────────────────────────────────

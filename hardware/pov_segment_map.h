@@ -17,6 +17,8 @@
  */
 #pragma once
 
+#include <cstdint>
+
 namespace pov {
 
 /**
@@ -252,6 +254,17 @@ constexpr SegmentClip segment_clip(const SegmentMap &m, bool arm_a_left, int S,
  */
 constexpr bool segment_clip_applies(bool full_frame, bool persists) {
   return !full_frame && !persists;
+}
+
+/**
+ * @brief Start of a half-rev display window.
+ * @param window Zero-based display window index.
+ * @param rpm Rotations per minute; must be positive.
+ * @return Window start in microseconds; window k spans
+ *         [window_start_us(k), window_start_us(k + 1)).
+ */
+constexpr uint64_t window_start_us(uint64_t window, uint32_t rpm) {
+  return window * 30000000ULL / rpm;
 }
 
 } // namespace pov
