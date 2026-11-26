@@ -64,8 +64,6 @@ struct FaceScratchBuffer {
   std::array<math::Vector, MAX_VERTS + 1>
       poly_2d; /**< Projected 2D polygon (+1 entry to avoid modulo). */
   std::array<math::Vector, MAX_VERTS> edge_vectors; /**< Per-edge 2D vectors. */
-  std::array<float, MAX_VERTS>
-      edge_lengths_sq; /**< Per-edge squared lengths. */
   std::array<math::Vector, MAX_VERTS>
       planes; /**< Compacted great-circle normals during bounds; then admitted
                   sector rays (unit direction x/y, minimum radius z). */
@@ -198,7 +196,6 @@ private:
 
   std::span<math::Vector> poly_2d; /**< Projected 2D polygon (+1 wrap entry). */
   std::span<math::Vector> edge_vectors; /**< Per-edge 2D vectors. */
-  std::span<float> edge_lengths_sq;     /**< Per-edge squared lengths. */
   std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
   std::span<float> inv_edge_j; /**< Reciprocal of each edge's y-component. */
 

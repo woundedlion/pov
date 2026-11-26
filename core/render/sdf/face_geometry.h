@@ -86,14 +86,11 @@ PreparedFace::compute_edges(FaceScratchBuffer &scratch) {
     math::Vector edge = scratch.poly_2d[i + 1] - scratch.poly_2d[i];
     scratch.edge_vectors[i] = edge;
     float edge_len_sq = math::dot(edge, edge);
-    scratch.edge_lengths_sq[i] = edge_len_sq;
     scratch.inv_edge_lengths_sq[i] = inverse_segment_length_sq(edge_len_sq);
     scratch.inv_edge_j[i] =
         (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
   }
   edge_vectors = {scratch.edge_vectors.data(), static_cast<size_t>(count)};
-  edge_lengths_sq = {scratch.edge_lengths_sq.data(),
-                     static_cast<size_t>(count)};
   inv_edge_lengths_sq = {scratch.inv_edge_lengths_sq.data(),
                          static_cast<size_t>(count)};
   inv_edge_j = {scratch.inv_edge_j.data(), static_cast<size_t>(count)};
