@@ -248,18 +248,25 @@ def instant(date: str) -> datetime:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
-def compute_deltas(rows: list[TrailRow], is_ancestor=lambda previous, current: True) -> list[Delta]:
+def compute_deltas(rows: list[TrailRow], is_ancestor=lambda previous, current: True,
+                   tail: int | None = None) -> list[Delta]:
     """Annotate trail rows with per-region deltas, comparing within an env.
 
     Rows are stably sorted by parsed committer instant, not append order and
     not the raw `%cI` string (which compares wall clocks across UTC offsets).
     The predicate selects eligible predecessors from earlier rows of the env.
+    A positive `tail` annotates only the newest `tail` rows; older rows remain
+    eligible predecessors without being evaluated.
     """
     rows = sorted(rows, key=lambda r: instant(r.date))
+    start = len(rows) - tail if tail and tail > 0 else 0
     previous: dict[str, list[TrailRow]] = {}
     out: list[Delta] = []
-    for row in rows:
+    for index, row in enumerate(rows):
         history = previous.setdefault(row.env, [])
+        if index < start:
+            history.append(row)
+            continue
         prev = next((candidate for candidate in reversed(history)
                      if is_ancestor(candidate.sha, row.sha)), None)
         changes = ({r: row.sizes[r] - prev.sizes[r]
@@ -504,9 +511,7 @@ def _fmt_delta(value: int | None) -> str:
 def render_show(rows: list[TrailRow], last: int | None = None, *,
                 is_ancestor=lambda previous, current: True) -> str:
     """Render the trail with per-row deltas, oldest first."""
-    deltas = compute_deltas(rows, is_ancestor)
-    if last and last > 0:
-        deltas = deltas[-last:]
+    deltas = compute_deltas(rows, is_ancestor, tail=last)
     if not deltas:
         return "(trail empty)"
     head = f"{'sha':<9} {'env':<15} " + " ".join(f"{r:>10}" for r in REGIONS)

@@ -1011,6 +1011,17 @@ class Rendering(unittest.TestCase):
         self.assertNotIn("1" * 8, text)
         self.assertIn("+40", text)
 
+    def test_show_last_checks_ancestry_only_for_printed_rows(self):
+        rows = [_row(str(n) * 40, "phantasm", date=f"2026-08-0{n}", itcm=100 + n)
+                for n in range(1, 6)]
+        calls = []
+        def related(previous, current):
+            calls.append((previous, current))
+            return True
+        text = tst.render_show(rows, last=1, is_ancestor=related)
+        self.assertEqual(calls, [("4" * 40, "5" * 40)])
+        self.assertIn("+1", text)
+
     def test_empty_renders_are_not_errors(self):
         self.assertIn("empty", tst.render_show([]))
         self.assertIn("no growth", tst.render_regressions([]))
