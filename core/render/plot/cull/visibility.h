@@ -380,10 +380,9 @@ template <int W>
 HS_HOT_INLINE inline CapColumns
 cap_window_columns(const Spacetime::TimeWindow &window) {
   constexpr float COLUMN = math::TWO_PI_F / W;
-  return {static_cast<float>(window.begin + window.end) * 0.5f * COLUMN,
-          (static_cast<float>(window.end - window.begin) * 0.5f + 1.0f) *
-              COLUMN,
-          window.active, math::PI_F};
+  const float count = static_cast<float>(window.end - window.begin);
+  return {(static_cast<float>(window.begin) + count * 0.5f - 0.5f) * COLUMN,
+          (count * 0.5f + 1.5f) * COLUMN, window.active, math::PI_F};
 }
 
 /**

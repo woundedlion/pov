@@ -12,7 +12,7 @@
 namespace hs_test {
 namespace plot_scan_tests {
 
-/** @brief Per-site widths contain the required columns and taps about the shared centre.
+/** @brief Per-site widths, the window cap's included, contain the required columns and taps about the shared centre.
  * @tparam W Canvas width in columns. */
 template <int W> inline void check_column_band_containment() {
   HS_CONTEXT("width", W);
@@ -55,6 +55,12 @@ template <int W> inline void check_column_band_containment() {
       region.margin = 0;
       const auto clip_gate = Plot::ClipBand<W, 20>::of(region);
       const auto cap_gate = Plot::cap_columns(region);
+      if (cap_gate.active && end < W) {
+        const auto window_gate =
+            Plot::cap_window_columns<W>(Spacetime::TimeWindow{rs, end, true});
+        HS_EXPECT_NEAR(window_gate.longitude, cap_gate.longitude, 1e-5f);
+        HS_EXPECT_NEAR(window_gate.half_width, cap_gate.half_width, 1e-5f);
+      }
       const float required_cap_centre =
           (rs + float(count) * 0.5f) * math::TWO_PI_F / W;
       const float required_cap_half =
