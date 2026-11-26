@@ -172,11 +172,13 @@ job_docs_doxygen() {
 }
 
 # True when no path matching the extended regex changed between HEAD and its
-# merge base with origin/master; false when there is no such base.
+# merge base with origin/master; false when there is no such base or the diff
+# fails.
 unchanged_since_origin() {
-  local base
+  local base changed
   base="$(git merge-base HEAD origin/master 2>/dev/null)" || return 1
-  ! git diff --name-only --no-renames "$base" HEAD | grep -E "$1" >/dev/null
+  changed="$(git diff --name-only --no-renames "$base" HEAD)" || return 1
+  ! grep -E "$1" <<<"$changed" >/dev/null
 }
 
 table() { printf '%s\n' "$JOBS" | sed '/^$/d'; }

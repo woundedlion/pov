@@ -56,7 +56,7 @@ class JobTable(unittest.TestCase):
 
 
 class PCBPushBase(unittest.TestCase):
-    def test_push_ignores_green_fork_runs_when_selecting_the_pcb_base(self):
+    def detect(self, git_body):
         bash = require_tool(self, "bash")
         workflow = (REPO / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         step = workflow.split("- name: Detect PCB input changes", 1)[1]
@@ -70,7 +70,7 @@ class PCBPushBase(unittest.TestCase):
             binary.mkdir()
             stubs = {
                 "gh": 'case "$*" in *event=push*) echo green-push;; *) echo green-fork;; esac',
-                "git": 'if [ "$1" = diff ] && [ "$4" = green-push ]; then echo hardware/phantasm/changed; fi; exit 0',
+                "git": git_body,
             }
             for name, body in stubs.items():
                 path = binary / name
@@ -82,7 +82,14 @@ class PCBPushBase(unittest.TestCase):
             done = subprocess.run([bash, "-c", 'PATH="$PWD/bin:$PATH"; export PATH\n' + script], cwd=root, env=env,
                                   capture_output=True, text=True, check=False)
             self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-            self.assertEqual(output.read_text(encoding="utf-8"), "run=true\n")
+            return output.read_text(encoding="utf-8")
+
+    def test_push_ignores_green_fork_runs_when_selecting_the_pcb_base(self):
+        self.assertEqual(self.detect('if [ "$1" = diff ] && [ "$4" = green-push ]; then '
+                                     'echo hardware/phantasm/changed; fi; exit 0'), "run=true\n")
+
+    def test_a_failed_diff_runs_the_pcb_suite(self):
+        self.assertEqual(self.detect('[ "$1" = diff ] && exit 1; exit 0'), "run=true\n")
 
 
 class CommitJobs(unittest.TestCase):
