@@ -289,11 +289,7 @@ public:
    * @return `pixel` with each channel multiplied by the envelope, rounded.
    */
   [[nodiscard]] Pixel apply_output_envelope(const Pixel &pixel) const {
-    auto scale = [this](uint16_t channel) {
-      return static_cast<uint16_t>(
-          (static_cast<uint32_t>(channel) * output_envelope + 32767u) / 65535u);
-    };
-    return {scale(pixel.r), scale(pixel.g), scale(pixel.b)};
+    return Pixel{}.lerp16(pixel, output_envelope);
   }
 
   /**
@@ -612,17 +608,14 @@ public:
    * @param gain Channel multiplier in [0, 1].
    */
   HS_FLASH_MEMBER void scale_display_clip(float gain) {
-    const uint32_t scale = frac_to_q16(gain);
+    const uint16_t scale = frac_to_q16(gain);
     const int c = effect.cur.load(std::memory_order_relaxed);
     const ClipRegion &clip = effect.clip_region;
     Pixel *const buffer = effect.bufs[c];
-    const auto channel = [scale](uint16_t value) {
-      return static_cast<uint16_t>((value * scale + 32767u) / 65535u);
-    };
     for (int y = clip.y_start; y < clip.y_end; ++y)
       for (int x = clip.x_start; x < clip.x_end; ++x) {
         Pixel &pixel = buffer[y * effect.frame_width + x];
-        pixel = {channel(pixel.r), channel(pixel.g), channel(pixel.b)};
+        pixel = Pixel{}.lerp16(pixel, scale);
       }
   }
 

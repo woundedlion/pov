@@ -162,6 +162,7 @@ inline int run_color_tests() {
   HS_RUN(test_lerp16_endpoints);
   HS_RUN(test_lerp16_midpoint);
   HS_RUN(test_lerp16_rounds_to_nearest);
+  HS_RUN(test_lerp16_zero_base_matches_division);
   HS_RUN(test_color4_lerp_straight_alpha);
   HS_RUN(test_blend_outputs_denormal_alpha);
   HS_RUN(test_blend_outputs_tiny_normal_alpha);

@@ -72,6 +72,24 @@ inline void test_lerp16_rounds_to_nearest() {
 }
 
 /**
+ * @brief Verifies a zero-based lerp16 equals the rounded division c * s / 65535.
+ */
+inline void test_lerp16_zero_base_matches_division() {
+  const uint16_t EDGES[] = {0, 1, 2, 32767, 32768, 32769, 65533, 65534, 65535};
+  const auto divided = [](uint32_t c, uint32_t s) {
+    return static_cast<uint16_t>((c * s + 32767u) / 65535u);
+  };
+  uint32_t mismatches = 0;
+  for (uint32_t sweep = 0; sweep <= 65535; ++sweep)
+    for (uint16_t edge : EDGES) {
+      const auto v = static_cast<uint16_t>(sweep);
+      mismatches += lerp_q16(0, edge, v) != divided(edge, v);
+      mismatches += lerp_q16(0, v, edge) != divided(v, edge);
+    }
+  HS_EXPECT_EQ(mismatches, 0u);
+}
+
+/**
  * @brief Verifies every interpolated channel lies within the endpoint envelope.
  * @details One LSB of rounding slack below the minimum.
  */
