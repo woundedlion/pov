@@ -347,8 +347,10 @@ enum class HankinBranch : uint8_t { INTERSECT, COLLAPSED, FALLBACK, BLENDED };
 struct HankinSolve {
   math::Vector pos;    ///< Solved vertex position.
   HankinBranch branch; ///< Conditioning path used for the position.
-  /** Squared star-to-corner chord divided by the largest midpoint-to-corner
-   * squared chord; zero on degenerate and collapsed branches. */
+  /** Squared chord from the conditioned contact-plane intersection to the corner,
+   * divided by the largest midpoint-to-corner squared chord; on BLENDED and
+   * FALLBACK it measures the intersection, not `pos`. Zero on degenerate and
+   * collapsed branches. */
   float far_ratio = 0;
 };
 

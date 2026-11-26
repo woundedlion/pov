@@ -158,8 +158,8 @@ public:
   }
 
   /**
-   * @brief Refreshes the displacement stack from the sliders, advances the
-   * NOISE -> BALLS phase machine, then renders one frame.
+   * @brief Advances the NOISE -> BALLS phase machine, refreshes the displacement
+   * stack from the sliders, then renders one frame.
    * @details Preset pause holds phase departures; entry fades and ambient motion continue.
    */
   void draw_frame() override {

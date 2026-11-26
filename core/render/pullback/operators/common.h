@@ -68,7 +68,8 @@ namespace Interp {
  * - `sample(const PlaneSample &, const Params &, const Prepared &)` and
  *   `finish_source(const PlaneSample &, float, const Params &, const FrameContext &)`
  *   — optional pair for raw planar sampling followed by weighting and
- *   coverage. Source-morph preview requires both hooks.
+ *   coverage. Source-morph preview requires both hooks; the spherical tiling
+ *   operator instead blends two `run` edge samples.
  * - `plane_bound(const Params &, float input_bound)` — required when `Output`
  *   is PlaneSample: output magnitude bound given the input's; optionally with
  *   a trailing `const TranslationLattice &` of the next stage.

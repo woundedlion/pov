@@ -215,8 +215,6 @@ inline ChainPeaks replay_build_chain(const char *name,
     size_t leg_faces = 0;
     int off_palette_frames = 0;
     const OpLeg::Landing *lp = nullptr;
-    // Ramp sample coordinates; both sides sample through BakedPalette, so the
-    // comparison is exact.
     Arena blend_arena(morph_temp_buf, sizeof(morph_temp_buf));
     // Every frame must draw every face's (from, to) ramp bit-exact at the
     // frame's blend weight.

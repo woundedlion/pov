@@ -43,7 +43,8 @@ public:
   /**
    * @brief Chooses this wake's submit.
    * @param dark True when the wake must fail dark: no lock/identity, the epoch
-   *        construction window, or no live effect.
+   *        construction window, no live effect, or the wire's build generation
+   *        is not yet live.
    * @param render_column Canvas column the flywheel wants drawn, or < 0 when
    *        this wake repeats an already-rendered column.
    * @return The action to perform, then report back through settle().

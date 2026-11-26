@@ -8,7 +8,7 @@ Upload these three files together from this directory:
 
 - [phantasm.kicad_pcb](phantasm.kicad_pcb): unplaced rev 1.2 board.
 - [phantasm.kicad_sch](phantasm.kicad_sch): matching rev 1.2 schematic.
-- [phantasm.kicad_pro](phantasm.kicad_pro): placement and design rules.
+- [phantasm.kicad_pro](phantasm.kicad_pro): design rules and the Default net class.
 
 Keep the accompanying symbol and footprint libraries with the project when
 opening it in KiCad 10. Every upload must use the board and schematic from the

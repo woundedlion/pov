@@ -216,7 +216,8 @@ protected:
   }
 
   /** @brief Repoints the registry at arena-owned descriptor storage; non-NDEBUG
-      structural-audit builds check the block is still alive on each access.
+      structural-audit builds check the block is still alive in updateParameter(),
+      getParameters() and replay_parameter_writes().
    * @param arena Arena that owns `storage`.
    * @param storage Descriptor array the registry registers into.
    * @param capacity Slots in `storage`.
