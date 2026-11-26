@@ -30,15 +30,19 @@ static_assert(!Involution<SMALL_W, SMALL_H>::Metadata::OUTER_CAMERA);
 
 /** @brief Direct modulation noise exposes scales beyond the baked-cube limit. */
 inline void test_composed_noise_modulation_scale_limits() {
+  constexpr float PROBE_SCALE = 20.0f;
+  static_assert(Pattern::MAX_BAKED_NOISE_SCALE < PROBE_SCALE &&
+                PROBE_SCALE <= Pattern::MAX_NOISE_SCALE);
   for (const auto evaluation :
        {Pattern::Evaluation::DIRECT, Pattern::Evaluation::BAKED_CUBE}) {
     Pullback::Modulation::Config config;
     config.evaluation = evaluation;
-    config.noise.scale = 20.0f;
+    config.noise.scale = PROBE_SCALE;
     const auto fields = Pullback::Modulation::control_fields(config);
-    HS_EXPECT_EQ(fields[1].min, 1.0f / 64.0f);
-    HS_EXPECT_EQ(fields[1].max,
-                 evaluation == Pattern::Evaluation::DIRECT ? 64.0f : 8.0f);
+    HS_EXPECT_EQ(fields[1].min, Pattern::MIN_NOISE_SCALE);
+    HS_EXPECT_EQ(fields[1].max, evaluation == Pattern::Evaluation::DIRECT
+                                    ? Pattern::MAX_NOISE_SCALE
+                                    : Pattern::MAX_BAKED_NOISE_SCALE);
     HS_EXPECT_EQ(Pullback::Modulation::valid(config),
                  evaluation == Pattern::Evaluation::DIRECT);
   }
@@ -49,10 +53,11 @@ inline void test_composed_noise_modulation_scale_limits() {
   const auto *scale = effect.getParameters().find("modulation.Pattern Scale");
   HS_EXPECT_TRUE(scale != nullptr);
   if (scale) {
-    HS_EXPECT_EQ(scale->max, 64.0f);
-    HS_EXPECT_EQ(effect.updateParameter("modulation.Pattern Scale", 20.0f),
-                 ParamSetResult::APPLIED);
-    HS_EXPECT_EQ(scale->get_requested(), 20.0f);
+    HS_EXPECT_EQ(scale->max, Pattern::MAX_NOISE_SCALE);
+    HS_EXPECT_EQ(
+        effect.updateParameter("modulation.Pattern Scale", PROBE_SCALE),
+        ParamSetResult::APPLIED);
+    HS_EXPECT_EQ(scale->get_requested(), PROBE_SCALE);
   }
 }
 

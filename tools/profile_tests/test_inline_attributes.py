@@ -32,8 +32,12 @@ def inline_conflicts(source: str) -> list[int]:
     declarations.extend((m.start(), m.group()) for m in re.finditer(r"[^;{}]+", code))
     conflicts = []
     for offset, declaration in declarations:
-        tokens = list(re.finditer(r"\bHS_(?:FLASH|HOT)_INLINE\b", declaration))
-        if {token.group() for token in tokens} == {"HS_FLASH_INLINE", "HS_HOT_INLINE"}:
+        tokens = list(re.finditer(
+            r"\b(?:HS_FLASH_INLINE|HS_HOT_INLINE|(?:__)?always_inline(?:__)?)\b",
+            declaration))
+        kinds = {"cold" if token.group() == "HS_FLASH_INLINE" else "inline"
+                 for token in tokens}
+        if kinds == {"cold", "inline"}:
             position = offset + tokens[0].start()
             conflicts.append(source.count("\n", 0, position) + 1 +
                              bisect_right(continuations, position))
@@ -47,6 +51,9 @@ class InlineAttributeTests(unittest.TestCase):
             "HS_HOT_INLINE\nHS_FLASH_INLINE static void f() {}",
             "HS_FLASH_INLINE /* placement */ HS_HOT_INLINE void f();",
             "#define COMBINED HS_FLASH_INLINE \\\nHS_HOT_INLINE\n",
+            "HS_FLASH_INLINE __attribute__((always_inline)) void f();",
+            "[[gnu::always_inline]] HS_FLASH_INLINE void f() {}",
+            "HS_FLASH_INLINE __attribute__((__always_inline__)) void f();",
         ):
             with self.subTest(source=source):
                 self.assertTrue(inline_conflicts(source))

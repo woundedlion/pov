@@ -166,6 +166,9 @@ template <typename T> inline T opaque(T v) {
   return x;
 }
 
+/** @brief Child output line recording that a case's valid companion ran. */
+inline constexpr const char *ADMITTED_MARKER = "death: admitted";
+
 /** @brief Records successful admission of the death case's valid companion. */
-inline void death_admitted() { std::fputs("death: admitted\n", stderr); }
+inline void death_admitted() { std::fprintf(stderr, "%s\n", ADMITTED_MARKER); }
 } // namespace hs_test::death_tests

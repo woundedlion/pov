@@ -144,12 +144,23 @@ inline int run_death_tests() {
     bool at_guard =
         line != 0 && (!cs[i].output_detail ||
                       std::strstr(child_output(), cs[i].output_detail));
+    // A case whose valid companion ran must require the admission marker.
+    bool admission_pinned =
+        !std::strstr(child_output(), ADMITTED_MARKER) ||
+        (cs[i].output_detail &&
+         std::strcmp(cs[i].output_detail, ADMITTED_MARKER) == 0);
     lines[i] = trapped ? line : 0;
     HS_EXPECT_TRUE(trapped);
     HS_EXPECT_TRUE(at_guard);
-    std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
-                trapped && at_guard ? "ok" : "FAIL", cs[i].name, rc);
-    if (!(trapped && at_guard))
+    HS_EXPECT_TRUE(admission_pinned);
+    const bool ok = trapped && at_guard && admission_pinned;
+    std::printf("  [%s] trap fires: %-26s (child rc=%d)\n", ok ? "ok" : "FAIL",
+                cs[i].name, rc);
+    if (!admission_pinned)
+      std::printf(
+          "      child logged \"%s\" but the case does not require it\n",
+          ADMITTED_MARKER);
+    if (!ok)
       std::printf("      expected %s: %s\n      child logged: %s\n",
                   cs[i].guard_file, cs[i].guard_text, child_output());
   }

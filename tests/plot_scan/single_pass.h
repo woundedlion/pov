@@ -779,24 +779,15 @@ inline void test_rasterize_balanced_star_visual_budget() {
     HS_EXPECT_LT(balanced_coverage * 25, standard_coverage * 27);
     HS_EXPECT_EQ(uncovered, size_t{0});
 
-    const std::array<ClipRegion, 4> CLIPS = {{
-        {0, H / 2, 0, W / 2},
-        {0, H / 2, W / 2, W},
-        {H / 2, H, 0, W / 2},
-        {H / 2, H, W / 2, W},
-    }};
-    for (const ClipRegion &clip : CLIPS) {
+    for (const auto &q : quadrant_clips<W, H>()) {
+      const ClipRegion clip{q[0], q[1], q[2], q[3], 1, W, H};
       const Frame tile =
           render.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>(
               state, &clip);
       HS_EXPECT_EQ(tile.backstops, uint32_t{0});
-      ClipRegion render_clip = clip;
-      render_clip.w = W;
-      render_clip.h = H;
-      for (int y = render_clip.render_y_start(); y < render_clip.render_y_end();
-           ++y)
+      for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y)
         for (int x = 0; x < W; ++x) {
-          if (!render_clip.contains_x(x))
+          if (!clip.contains_x(x))
             continue;
           const size_t index = static_cast<size_t>(y) * W + x;
           const bool in_display = y >= clip.y_start && y < clip.y_end &&

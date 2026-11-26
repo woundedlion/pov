@@ -456,19 +456,6 @@ inline void test_medial_dual_bridge_wellformed() {
 }
 
 /**
- * @brief Classifies a mesh's faces by topology in scratch arenas reclaimed on
- *        return.
- * @param mesh Mesh to classify.
- * @param target Arena receiving the topology keys.
- */
-inline void classify_in_scratch(PolyMesh &mesh, Arena &target) {
-  ScratchScope ta(scratch_arena_a);
-  ScratchScope tb(scratch_arena_b);
-  MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
-                                      target);
-}
-
-/**
  * @brief Class-keyed palette slot of each face of a classified mesh.
  * @param mesh Mesh with a topology key per face.
  * @return One palette slot per face, in face order.
@@ -808,16 +795,10 @@ inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
     int drawn = 0, rasterize_at = -1;
     auto cb = [&](Canvas &c, const MeshState &m, const OpLeg::Shading &sh) {
       ++drawn;
-      for (size_t f = 0; preserve_palettes && f < sh.faces; ++f) {
-        for (float t : {0.0f, 0.5f, 1.0f}) {
-          const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
-          const Color4 expected =
-              bank.bank.entries[expected_palettes[f]].get(t);
-          HS_EXPECT_EQ(got.color.r, expected.color.r);
-          HS_EXPECT_EQ(got.color.g, expected.color.g);
-          HS_EXPECT_EQ(got.color.b, expected.color.b);
-        }
-      }
+      for (size_t f = 0; preserve_palettes && f < sh.faces; ++f)
+        HS_EXPECT_TRUE(
+            ramp_matches(sh.ramps[sh.face_ramp[f]],
+                         bank.bank.entries[expected_palettes[f]].view()));
       if (drawn != rasterize_at)
         return;
       auto shader = [&](const math::Vector &, Fragment &frag) {

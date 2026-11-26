@@ -256,8 +256,6 @@ struct DisplacementLayerProvider : PaletteLayerProvider {
   }
 };
 
-enum class Cycle { TRIADIC, COMPLEMENTARY, ANALOGOUS };
-
 struct CountingPairedPalette
     : Pullback::Color::GeneratedPalette<TemporalPaletteProvider> {
   using Base = Pullback::Color::GeneratedPalette<TemporalPaletteProvider>;

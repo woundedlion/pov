@@ -182,6 +182,8 @@ struct AffineWarpChain {
     chain[WARPS + 1] = {"sample", In::Op::SampleGridV4::ID};
     chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV4::ID};
   }
+  AffineWarpChain(const AffineWarpChain &) = delete;
+  AffineWarpChain &operator=(const AffineWarpChain &) = delete;
 };
 
 inline constexpr auto &DEFAULT_CHAIN = SHADER_CHAIN_DEFAULT_CHAIN;

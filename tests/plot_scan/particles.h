@@ -614,17 +614,9 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
 
   // Clipped, split shaders: in-band pixels identical; trail 1 never shaded.
   {
-    hs_test::StubEffect fx(W, H);
-    fx.set_clip(0, H, BAND_X0, BAND_X1);
-    Pipeline<W, H> filters;
-    {
-      Canvas c(fx);
-      initialize_parity_frame<W, H>(c);
-      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
-                                       deferred_pass);
-    }
-    fx.advance_display();
-    const RenderBandDiff d = render_band_diff<W>(fx, ref);
+    const RenderBandDiff d =
+        particle_band_diff<W, H>(sys, {0, H, BAND_X0, BAND_X1}, ref, shade,
+                                 position_pass, deferred_pass);
     HS_EXPECT_GT(d.lit, 0);
     HS_EXPECT_GT(d.margin_lit, 0);
     expect_render_band_parity("particle deferred shader", d);
@@ -637,16 +629,9 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
   {
     deferred_calls[0] = deferred_calls[1] = 0;
     original_vertices.clear();
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> filters;
-    {
-      Canvas c(fx);
-      initialize_parity_frame<W, H>(c);
-      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
-                                       deferred_pass);
-    }
-    fx.advance_display();
-    HS_EXPECT_EQ(render_band_diff<W>(fx, ref).diff, 0);
+    const RenderBandDiff d = particle_band_diff<W, H>(
+        sys, {0, H, 0, W}, ref, shade, position_pass, deferred_pass);
+    HS_EXPECT_EQ(d.diff, 0);
     HS_EXPECT_GT(deferred_calls[0], 0);
     HS_EXPECT_GT(deferred_calls[1], 0);
     HS_EXPECT_EQ(orig_mismatches, 0);

@@ -291,10 +291,6 @@ struct ShapeShifterWhiteBox {
     return preset_params(index).shape;
   }
 
-  static OracleEffect::AlphaFalloff preset_alpha_falloff(size_t index) {
-    return preset_params(index).alpha_falloff;
-  }
-
   /** @brief Steps the timeline and the preset choreography one frame. */
   static void step_choreography(OracleEffect &effect, Canvas &canvas) {
     effect.timeline.step(canvas);

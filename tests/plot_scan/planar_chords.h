@@ -312,12 +312,6 @@ inline void test_planar_band_split_matches_whole_polyline() {
   constexpr int POLE_ROWS = 3;
   hs_test::StubEffect fx(W, H);
   const ClipRegion FULL{0, H, 0, W, 1, W, H};
-  const ClipRegion QUADRANTS[] = {
-      {0, H / 2, 0, W / 2, 1, W, H},
-      {0, H / 2, W / 2, W, 1, W, H},
-      {H / 2, H, 0, W / 2, 1, W, H},
-      {H / 2, H, W / 2, W, 1, W, H},
-  };
   const std::array<PlanarShapeCase, 4> flowers = {{
       {math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 0.6f, 3,
        0.4f},
@@ -332,7 +326,8 @@ inline void test_planar_band_split_matches_whole_polyline() {
     const auto whole =
         render_band_split_flower<W, H>(fx, flower, FULL, false).pixels;
     HS_EXPECT_GT(frame_energy(whole), uint64_t{0});
-    for (const ClipRegion &clip : QUADRANTS) {
+    for (const auto &q : quadrant_clips<W, H>()) {
+      const ClipRegion clip{q[0], q[1], q[2], q[3], 1, W, H};
       const auto tile = render_band_split_flower<W, H>(fx, flower, clip, true);
       skipped += tile.skipped_edges;
       expect_covered_within_one_pixel<W, H>(whole, tile.pixels, clip.y_start,

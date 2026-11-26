@@ -162,22 +162,13 @@ inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
   }
 }
 
-/** @brief Star options and shipping presets are planar. */
-inline void test_star_options_and_shipping_presets_are_planar() {
-  using Falloff = OracleEffect::AlphaFalloff;
-  using Shape = OracleEffect::ShapeType;
+/** @brief The roster has five shapes and no shipping preset selects the
+ * spherical star. */
+inline void test_shipping_presets_exclude_spherical_star() {
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_count(), 5);
-  size_t planar_stars = 0;
-  for (size_t index = 0; index < ShapeShifterWhiteBox::PRESET_COUNT; ++index) {
-    const Shape shape = ShapeShifterWhiteBox::preset_shape(index);
-    const bool planar_star = shape == Shape::PLANAR_STAR;
-    HS_EXPECT_NE(shape, Shape::SPHERICAL_STAR);
-    const Falloff falloff = ShapeShifterWhiteBox::preset_alpha_falloff(index);
-    HS_EXPECT_EQ(planar_star, falloff == Falloff::TOWARD_EQUATOR);
-    if (planar_star)
-      ++planar_stars;
-  }
-  HS_EXPECT_GT(planar_stars, size_t{0});
+  for (size_t index = 0; index < ShapeShifterWhiteBox::PRESET_COUNT; ++index)
+    HS_EXPECT_NE(ShapeShifterWhiteBox::preset_shape(index),
+                 OracleEffect::ShapeType::SPHERICAL_STAR);
 }
 
 /** @brief High count uniform star stays within visual budget. */

@@ -9,6 +9,7 @@
 
 #include "core/render/plot/mesh.h"
 #include "tests/filter/context.h"
+#include "tests/filter/feedback_white_box.h"
 
 namespace hs_test::filter_tests {
 

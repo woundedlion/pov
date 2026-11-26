@@ -125,12 +125,7 @@ inline ChainPeaks replay_build_chain(const char *name,
         Solids::simple_registry[recipe.seed].generate(a, b), target);
     MeshOps::compile(cur, seed_slot, target, a);
   });
-  {
-    ScratchScope a_guard(scratch_arena_a);
-    ScratchScope b_guard(scratch_arena_b);
-    MeshOps::classify_faces_by_topology(seed_slot, scratch_arena_a,
-                                        scratch_arena_b, persistent_arena);
-  }
+  classify_in_scratch(seed_slot, persistent_arena);
 
   // The spawned seed's shuffled palette order, consumed by class ordinal.
   std::array<int, OpLeg::PALETTES> slots;
@@ -205,12 +200,7 @@ inline ChainPeaks replay_build_chain(const char *name,
         const PolyMesh nx = replay_endpoint(steps[k], cur, a, b);
         next = Solids::finalize_solid(nx, target);
       });
-      {
-        ScratchScope a_guard(scratch_arena_a);
-        ScratchScope b_guard(scratch_arena_b);
-        MeshOps::classify_faces_by_topology(next, scratch_arena_a,
-                                            scratch_arena_b, persistent_arena);
-      }
+      classify_in_scratch(next, persistent_arena);
       const size_t bookend_faces = next.face_counts.size();
       HS_EXPECT_LE(bookend_faces, MAX_FACES);
       bookend = {.topology = next.topology.data(), .faces = bookend_faces};
@@ -227,7 +217,6 @@ inline ChainPeaks replay_build_chain(const char *name,
     const OpLeg::Landing *lp = nullptr;
     // Ramp sample coordinates; both sides sample through BakedPalette, so the
     // comparison is exact.
-    constexpr float PROBE_T[] = {0.0f, 0.5f, 1.0f};
     Arena blend_arena(morph_temp_buf, sizeof(morph_temp_buf));
     // Every frame must draw every face's (from, to) ramp bit-exact at the
     // frame's blend weight.
@@ -268,13 +257,8 @@ inline ChainPeaks replay_build_chain(const char *name,
           }
           want = &expected[from][to];
         }
-        for (float t : PROBE_T) {
-          const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
-          const Color4 exp = want->get(t);
-          if (got.color.r != exp.color.r || got.color.g != exp.color.g ||
-              got.color.b != exp.color.b)
-            frame_ok = false;
-        }
+        if (!ramp_matches(sh.ramps[sh.face_ramp[f]], *want))
+          frame_ok = false;
       }
       if (!frame_ok)
         ++off_palette_frames;

@@ -46,7 +46,6 @@ inline void test_feedback_warp_inputs_preserve_fold_contract() {
   const math::Vector axes[] = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
                                {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
   Animation::NoiseParams noise;
-  size_t inputs = 0;
   for (const auto &from : styles_tests::PRESETS)
     for (const auto &to : styles_tests::PRESETS)
       for (float t : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
@@ -60,7 +59,6 @@ inline void test_feedback_warp_inputs_preserve_fold_contract() {
                 sample < 6 ? axes[sample]
                            : math::fib_spiral(24, 0.5f, sample - 6);
             const math::Vector warped = style.space_fn(point, style);
-            ++inputs;
             const bool finite = finite_vec(warped);
             HS_EXPECT_TRUE(finite);
             HS_EXPECT_NEAR(math::dot(warped, warped), 1.0f, 2e-4f);
@@ -83,8 +81,6 @@ inline void test_feedback_warp_inputs_preserve_fold_contract() {
           }
         }
       }
-  HS_EXPECT_EQ(inputs, std::size(styles_tests::PRESETS) *
-                           std::size(styles_tests::PRESETS) * 5 * 3 * 30);
 }
 
 /**

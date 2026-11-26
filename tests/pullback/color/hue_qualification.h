@@ -20,7 +20,8 @@ inline void test_pullback_cached_hue_qualification() {
   for (uint32_t offset : {0u, 17u, 83u})
     for (float chroma : {.314f, .718f, .788f, 1.f})
       for (auto mode :
-           {Cycle::TRIADIC, Cycle::COMPLEMENTARY, Cycle::ANALOGOUS}) {
+           {Color::PaletteMode::TRIADIC, Color::PaletteMode::COMPLEMENTARY,
+            Color::PaletteMode::ANALOGOUS}) {
         HS_CONTEXT("cycle-offset", offset);
         HS_CONTEXT("chroma-milli", int(chroma * 1000));
         HS_CONTEXT("harmony", int(mode));

@@ -190,9 +190,19 @@ inline void test_galaxies_white_star_stays_white() {
   constexpr float RING = 0.35f;
   const float angle =
       galaxy.phase - galaxy.spin * logf(RING / WB::RING_RADIUS) / tanf(0.5f);
+  int white_seed = -1;
+  for (int k = 0; k < 256 && white_seed < 0; ++k) {
+    const auto seed = static_cast<uint16_t>(((0xc0 + k) & 0xff) << 8);
+    const auto color = WB::color(seed);
+    if (color.color.r == color.color.g && color.color.g == color.color.b)
+      white_seed = seed;
+  }
+  HS_EXPECT(white_seed >= 0, "galaxy 0 has a white star seed");
+  if (white_seed < 0)
+    return;
   ps.spawn(galaxy.core * cosf(RING) +
                (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(RING),
-           math::Vector(), 0xc000);
+           math::Vector(), static_cast<uint16_t>(white_seed));
   std::array<std::array<uint64_t, 3>, 3> colors{};
   const float AGES[] = {
       WB::ARM_FADE_START / 3, (WB::ARM_FADE_START + WB::ARM_FADE_END) / 2,

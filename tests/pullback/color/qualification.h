@@ -31,10 +31,10 @@ inline void test_pullback_modulation_lut_qualification() {
   int elapsed = 0;
   for (const int target : {0, 1, 150, 300, 600, 900, 1200, 1800}) {
     while (elapsed < target) {
-      bank.step(Cycle::TRIADIC);
+      bank.step(Color::PaletteMode::TRIADIC);
       ++elapsed;
     }
-    const auto &palette = bank.palette(Cycle::TRIADIC);
+    const auto &palette = bank.palette(Color::PaletteMode::TRIADIC);
     prepare_hue_rotation_lut(std::span(table), palette, &mask);
     constexpr int VALUES = 512, HUES = 128;
     for (int value = 0; value < VALUES; ++value) {

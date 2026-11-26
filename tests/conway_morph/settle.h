@@ -52,12 +52,7 @@ inline void test_position_legs_preserve_face_palettes() {
   build_solid<Solids::Dodecahedron>(dodeca, temp);
   PolyMesh seed = MeshOps::expand(dodeca, target, temp);
   PolyMesh relaxed = MeshOps::relax(seed, aux, temp, 50);
-  {
-    ScratchScope a(scratch_arena_a);
-    ScratchScope b(scratch_arena_b);
-    MeshOps::classify_faces_by_topology(relaxed, scratch_arena_a,
-                                        scratch_arena_b, aux);
-  }
+  classify_in_scratch(relaxed, aux);
   const size_t faces = seed.face_counts.size();
   std::vector<uint8_t> palettes(faces);
   for (size_t f = 0; f < faces; ++f)
@@ -68,15 +63,9 @@ inline void test_position_legs_preserve_face_palettes() {
   auto draw = [&](Canvas &, const MeshState &, const OpLeg::Shading &sh) {
     ++drawn;
     HS_EXPECT_EQ(sh.faces, faces);
-    for (size_t f = 0; f < faces; ++f) {
-      for (float t : {0.0f, 0.5f, 1.0f}) {
-        const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
-        const Color4 expected = bank.bank.entries[palettes[f]].get(t);
-        HS_EXPECT_EQ(got.color.r, expected.color.r);
-        HS_EXPECT_EQ(got.color.g, expected.color.g);
-        HS_EXPECT_EQ(got.color.b, expected.color.b);
-      }
-    }
+    for (size_t f = 0; f < faces; ++f)
+      HS_EXPECT_TRUE(ramp_matches(sh.ramps[sh.face_ramp[f]],
+                                  bank.bank.entries[palettes[f]].view()));
   };
   OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                 .prev_face_palette = palettes.data(),

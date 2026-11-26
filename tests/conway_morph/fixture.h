@@ -7,6 +7,7 @@
 #pragma once
 
 #include "core/animation/recipe_build.h"
+#include "core/color/baked_palette.h"
 #include "core/memory.h"
 #include "core/mesh/conway_graph.h"
 #include "core/mesh/mesh.h"
@@ -48,5 +49,36 @@ struct RecipeLegLengths : Animation::RecipeBuild<RecipeLegLengths, 1, 1> {
 };
 
 using ConwayGraph::T_EPS;
+
+/**
+ * @brief Classifies a mesh's faces by topology in scratch arenas reclaimed on
+ *        return.
+ * @tparam M Mesh type accepted by MeshOps::classify_faces_by_topology.
+ * @param mesh Mesh to classify.
+ * @param target Arena receiving the topology keys.
+ */
+template <typename M> inline void classify_in_scratch(M &mesh, Arena &target) {
+  ScratchScope ta(scratch_arena_a);
+  ScratchScope tb(scratch_arena_b);
+  MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
+                                      target);
+}
+
+/**
+ * @brief Whether two ramps agree bit-exactly in RGB at t = 0, 0.5 and 1.
+ * @param got Ramp under test.
+ * @param want Expected ramp.
+ * @return True when every probed sample matches.
+ */
+inline bool ramp_matches(const BakedPalette &got, const BakedPalette &want) {
+  for (float t : {0.0f, 0.5f, 1.0f}) {
+    const Color4 g = got.get(t);
+    const Color4 w = want.get(t);
+    if (g.color.r != w.color.r || g.color.g != w.color.g ||
+        g.color.b != w.color.b)
+      return false;
+  }
+  return true;
+}
 
 } // namespace hs_test::conway_morph_tests
