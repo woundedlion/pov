@@ -72,7 +72,7 @@ inline void test_shader_constant_fills_canvas() {
   }
   fx.advance_display();
 
-  // At alpha=1 the blend is the identity, so channels survive verbatim.
+  // At alpha 1 the premultiplied color is the color itself.
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       const Pixel &p = fx.get_pixel(x, y);

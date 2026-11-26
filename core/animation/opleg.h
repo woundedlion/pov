@@ -49,16 +49,13 @@ public:
                 "interned pair indices are uint8_t; every index below "
                 "MAX_BLEND_PAIRS must fit in it");
 
-  /** Leg kind selected by the constructor. */
+  /** @brief Alias of detail::LegKind. */
   using LegKind = detail::LegKind;
 
-  /** Partition operator a GATED_SWAP leg swaps to. */
+  /** @brief Alias of detail::SwapOp. */
   using SwapOp = detail::SwapOp;
 
-  /**
-   * @brief Graph-edge Conway sweep: the edge's single op swept between the
-   * edge's endpoint parameters.
-   */
+  /** @brief Alias of detail::EdgeSweepSpec. */
   using EdgeSweepSpec = detail::EdgeSweepSpec;
 
   /** @brief Immutable classification and newborn hosts of an opening dual bridge. */
@@ -143,22 +140,19 @@ public:
         : mesh(mesh), borrowed(borrowed) {}
   };
 
-  /** @brief Hankin contact-angle sweep on a fixed seed. */
+  /** @brief Alias of detail::HankinSweepSpec. */
   using HankinSweepSpec = detail::HankinSweepSpec;
 
-  /**
-   * @brief Relax leg: every vertex slerps from its seed position to its
-   * relaxed one.
-   */
+  /** @brief Alias of detail::RelaxSpec. */
   using RelaxSpec = detail::RelaxSpec;
 
-  /** @brief Medial-slerp leg (the Conway-dual bridge's middle leg). */
+  /** @brief Alias of detail::MedialSpec. */
   using MedialSpec = detail::MedialSpec;
 
-  /** @brief Reconcile leg closing a smooth kis/needle path. */
+  /** @brief Alias of detail::ReconcileSpec. */
   using ReconcileSpec = detail::ReconcileSpec;
 
-  /** @brief Gated-swap leg: a partition op with no sweep. */
+  /** @brief Alias of detail::GatedSwapSpec. */
   using GatedSwapSpec = detail::GatedSwapSpec;
 
   /** Floor on a hankin leg's arrival contact angle (the T_EPS analog): the
@@ -279,24 +273,13 @@ public:
    */
   using BlendWeightFn = float (*)(int frame, int duration);
 
-  /** @brief Face-order relationship between departed and swept meshes. */
+  /** @brief Alias of detail::FaceCorrespondence. */
   using FaceCorrespondence = detail::FaceCorrespondence;
 
-  /**
-   * @brief Palette provenance of the departed node.
-   * @details prev_face_palette describes the node base mesh the leg departs
-   * from, in emission order; read only during construction. Supplying
-   * prev_face_centroid makes the mapping geometric.
-   */
+  /** @brief Alias of detail::PaletteHandoff. */
   using PaletteHandoff = detail::PaletteHandoff;
 
-  /**
-   * @brief Bookend grouping of the arrival node.
-   * @details topology[f] is the class the effect displays arrival face f
-   * with at the closing bookend. Color targets key on it, so faces it merges
-   * converge to one color by w = 1. A null topology keys targets on the swept
-   * classification instead. Palette-preserving legs retain departed colors.
-   */
+  /** @brief Alias of detail::BookendClasses. */
   using BookendClasses = detail::BookendClasses;
 
   /**
@@ -722,7 +705,7 @@ private:
     bool drawn = false;        /**< Whether the leg has drawn a frame. */
   };
 
-  /** @brief Split of a swept leg's eased progress into its two stages. */
+  /** @brief Alias of detail::SweepPhase. */
   using SweepPhase = detail::SweepPhase;
 
   /**
@@ -795,7 +778,7 @@ private:
   dual_closing_palettes(const PolyMesh &dual, const PaletteHandoff &handoff,
                         Arena &scratch);
 
-  /** @brief Per-leg switches for init_conway. */
+  /** @brief Alias of detail::ConwayLegFlags. */
   using ConwayLegFlags = detail::ConwayLegFlags;
 
   /**

@@ -22,7 +22,7 @@ struct MillefioriSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr auto PROJECTION_MOTION =
       Pullback::ProjectionMotion::ANIMATED_TILTED;
-  /// Sample column endpoints.
+  /// Samples animation continuously across each two-arm half-turn.
   static constexpr auto TEMPORAL =
       Pullback::TemporalPolicy::phase(Pullback::PaletteCache::LAB);
   static constexpr bool RIPPLE_RADIAL_TABLE = true; ///< Cache radial transfers.

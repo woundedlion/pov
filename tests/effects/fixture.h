@@ -104,11 +104,6 @@ inline void prepare_chain_parameter_probe(FX &effect,
   }
 }
 
-/**
- * @brief Checks that animated parameter edits pause automatic preset advancement.
- * @param effect Effect instance whose automated params are probed.
- * @param name Effect name used in diagnostic output.
- */
 template <typename FX>
 inline void lint_animated_pause(FX &effect, const char *name);
 
@@ -269,7 +264,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
 }
 
 /**
- * @brief Checks paused rendering for advertised animated parameters.
+ * @brief Checks that writing an animated parameter pauses animation, the write
+ *        persists, and the parameter holds still while paused.
  * @tparam FX Effect type, including its coordinated parameter API when present.
  * @param effect Effect instance whose automated params are probed.
  * @param name Effect name used in PAUSE LEAK diagnostic output.

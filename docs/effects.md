@@ -28,6 +28,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [LiquidWindows](#liquidwindows)
   - [Iridescence](#iridescence)
   - [River Stones](#river-stones)
+  - [Filigree](#filigree)
   - [Millefiori](#millefiori)
   - [HyperLattice](#hyperlattice)
   - [KaleidoscopeMelt](#kaleidoscopemelt)
@@ -323,6 +324,18 @@ A dodecahedral poloidal potential flow folds an equirectangular grid beneath the
 Spherical ripple bursts distort a scrolling hexagonal lattice. The first preset opens the Phantasm show, holding 600 frames before a 480-frame segue, and uses noise to drive its hue. River Stones 2 fits 30 hex cells around the longitude wrap, softens their edges, and rotates hue with the ripple displacement. Noise drives lightness and opacity in both presets.
 
 **Parameters**: Cell Scale, Cell Shape, Cell Softness, Cell Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, displace1.Ripple Duration, displace1.Ripple Strength, displace1.Ripple Decay, displace1.Ripple Thickness, displace1.Ripple Center Azimuth, displace1.Ripple Center Polar, displace1.Burst Rate, Planar Warp 1 Speed, Repeat Windings A, Repeat Windings B, Repeat Cells, path-length, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, modulate.Modulation Amount, modulate.Pattern Scale, modulate.Pattern Speed, modulate1.Modulation Amount, modulate1.Pattern Scale, modulate1.Pattern Speed, modulate2.Modulation Amount, modulate2.Pattern Scale, modulate2.Pattern Speed
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Filigree" target="_blank"><img src="screenshots/Filigree.png" alt="Filigree" width="280"></a></td>
+<td valign="top">
+
+### Filigree
+
+Filigree cycles between Jade Weave and Ember Lattice. Both use a Direct Lens and Tiling Edges. Ember Lattice adds camera wander, directional lightness and hue driven by lens displacement. The presets hold for 600 frames and segue over 480 frames.
+
+**Parameters**: rotate.Wander, rotate.Spin Speed, Edge Thickness (deg), Softness, solid, output, displace.Surface Noise Scale, displace.Surface Noise Strength, displace.Surface Noise Speed, displace.Surface Noise Direction, displace.basis, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Palette Mode, Palette Type, Palette Harmony, Palette Lightness Curve, Palette Name, Palette Name B, Brightness Envelope, Palette Hue, Palette Spread, Palette Lightness, Palette Lightness Range, Palette Mutation, Gradient Start R, Gradient Start G, Gradient Start B, Gradient Middle R, Gradient Middle G, Gradient Middle B, Gradient End R, Gradient End G, Gradient End B, and for each of modulate and modulate1: modulation-amount, modulation-enabled, modulation-source, modulation-evaluation, modulation-mechanic, and the pattern-, sine-, interference- and grid- source fields. A modulator's source fields are read-only unless its selected source and evaluation use them.
 
 </td></tr></table>
 
@@ -752,13 +765,6 @@ The stage contracts declare reference oracles and error metrics for fast square 
 | `iridescence` | `Iridescence` | 1 |
 | `river-stones` | `RiverStones` | 2 |
 | `filigree` | `Filigree` | 2 |
-
-![Filigree running in the simulator](screenshots/Filigree.png)
-
-Filigree cycles between Jade Weave and Ember Lattice. Both use a Direct Lens
-and Tiling Edges. Ember Lattice adds camera wander, directional lightness and
-hue driven by lens displacement. The presets hold for 600 frames and segue
-over 480 frames.
 
 These 25 effects form the product-only `shader-collection` group. Phantasm
 assigns some entries fixed show windows and derives other entries from their

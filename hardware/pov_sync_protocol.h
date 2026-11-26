@@ -18,7 +18,7 @@
 namespace pov {
 namespace sync {
 
-// ── Small integer helpers (signed-correct division/modulo) ─────────────────
+// ── Ring helpers ────────────────────────────────────────────────────────────
 
 /**
  * @brief Circular distance between two columns on a ring.

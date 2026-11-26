@@ -42,7 +42,8 @@ struct FrameworkPlane {
 };
 
 namespace detail {
-/** @brief Exact interior and exterior clearance of framework strut fields. */
+/** @brief Exact exterior and conservative interior clearance of framework strut
+ * fields. */
 inline constexpr Raycast::QueryCapabilities FRAMEWORK_CAPABILITIES{true, true,
                                                                    true, 0.0f};
 
@@ -160,7 +161,7 @@ struct TriangularFramework {
     return detail::framework_normal(*this, p);
   }
 
-  /** @brief Exact field with interior and exterior clearance.
+  /** @brief Exact exterior distance, conservative interior clearance.
    * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
     return detail::FRAMEWORK_CAPABILITIES;
@@ -261,7 +262,7 @@ struct OctetFramework {
     return detail::framework_normal(*this, p);
   }
 
-  /** @brief Exact field with interior and exterior clearance.
+  /** @brief Exact exterior distance, conservative interior clearance.
    * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
     return detail::FRAMEWORK_CAPABILITIES;
@@ -471,7 +472,7 @@ struct OctetFramework4 {
     return offset;
   }
 
-  /** @brief Exact field with interior and exterior clearance.
+  /** @brief Exact exterior distance, conservative interior clearance.
    * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
     return detail::FRAMEWORK_CAPABILITIES;

@@ -52,7 +52,8 @@ namespace effects_tests {
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Per-effect invariants with an explicit oracle; excluded from the
  * fast-math axis. HS_MESH_CAPTURE_ONLY selects profile replay at 3, handoff
- * history and work measurement at 2, and seam cases at any other nonzero value.
+ * history, strap LUT allocation and work measurement at 2, and seam cases at
+ * any other nonzero value.
  */
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");

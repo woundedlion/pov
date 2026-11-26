@@ -20,7 +20,8 @@
 
 /**
  * @file shapes.h
- * @brief The SDF-backed scan primitives: rings, polygons, circles, points, stars and flowers.
+ * @brief The SDF-backed scan primitives: rings and fused ring groups, lines,
+ * polygons, circles, points, stars and flowers.
  */
 
 namespace Scan {
