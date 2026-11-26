@@ -209,6 +209,22 @@ class Attribution(unittest.TestCase):
         self.assertIn("    +0x0000..+0x000f      200  40.0%  chords.h:491", text)
         self.assertTrue(any(line.startswith("WARNING: 5 samples") for line in text))
 
+    def test_no_symbol_rows_do_not_displace_functions_from_ranges(self):
+        counters = COUNTERS.replace("recorded=430", "recorded=75").replace(
+            "bins=6", "bins=3")
+        dump = pc.parse_dump(dump_lines(
+            bins={0x1000: 10, 0x1020: 60, 0x1030: 5}, counters=counters))
+        functions = pc.build_functions(pc.parse_nm(
+            "00001000 00000010 T first_fn()\n00001030 00000010 T second_fn()\n"))
+        rows = pc.attribute(dump, pc.Symbolizer(functions))
+        self.assertEqual(rows[0].name, "<no symbol: ITCM>")
+        self.assertEqual([row.name for row in pc.named_rows(rows)],
+                         ["first_fn()", "second_fn()"])
+        text = pc.report(dump, rows, top=8, ranges=2, range_rows=1, name_width=30)
+        hot = text[text.index("hot bins (function offset range, samples, % of render):"):]
+        self.assertIn("  first_fn()", hot)
+        self.assertIn("  second_fn()", hot)
+
     def test_report_labels_nonempty_latency_buckets_and_threshold(self):
         dump, rows = self.rows()
         dump.latency = [3, 0, 6, 0, 1]

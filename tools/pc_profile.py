@@ -293,6 +293,11 @@ def short(name, width):
     return name[:max(width - 3, 1)] + "..."
 
 
+def named_rows(rows):
+    """The rows that carry a function name, in rank order."""
+    return [row for row in rows if not row.name.startswith("<no symbol")]
+
+
 def hot_ranges(row, bin_bytes, limit):
     """The row's hottest bins as (start, end, samples), clipped to the row."""
     end_of_row = row.address + row.size
@@ -377,9 +382,7 @@ def report(dump, rows, *, top, ranges, range_rows, name_width, lines=None):
     if ranges:
         out.append("")
         out.append("hot bins (function offset range, samples, % of render):")
-        for row in rows[:ranges]:
-            if row.name.startswith("<no symbol"):
-                continue
+        for row in named_rows(rows)[:ranges]:
             out.append(f"  {short(row.name, name_width)}")
             for start, end, samples in hot_ranges(row, h["bin_bytes"],
                                                   range_rows):
@@ -489,7 +492,7 @@ def main(argv=None):
     rows = attribute(dump, Symbolizer(functions))
     locations = {}
     if elf_available and args.ranges:
-        starts = sorted({start for row in rows[:args.ranges]
+        starts = sorted({start for row in named_rows(rows)[:args.ranges]
                          for start, _, _ in hot_ranges(
                              row, dump.header["bin_bytes"], args.range_rows)})
         locations = run_addr2line(toolchain_tool("addr2line", args.addr2line),
