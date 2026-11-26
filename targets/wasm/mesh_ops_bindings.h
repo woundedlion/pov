@@ -25,7 +25,6 @@
 #include "targets/wasm/wasm_predicates.h"
 #include <cstdlib>
 #include <cmath>
-#include <limits>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -625,13 +624,9 @@ public:
     const float ct =
         note_clamped_arg(t, hs_wasm::half_open_fraction_out_of_range(t),
                          hs_wasm::clamp_half_open_fraction(t), "snub", "[0,1)");
-    const float clamped_twist = hs_wasm::clamp_finite_float(twist);
-    const float rotation =
-        note_clamped_arg(twist,
-                         twist != static_cast<double>(clamped_twist) &&
-                             (twist > std::numeric_limits<float>::max() ||
-                              twist < -std::numeric_limits<float>::max()),
-                         clamped_twist, "snub twist", "finite float range");
+    const float rotation = note_clamped_arg(
+        twist, hs_wasm::finite_float_out_of_range(twist),
+        hs_wasm::clamp_finite_float(twist), "snub twist", "finite float range");
     return apply(hs_wasm::SNUB_BOUNDS,
                  [ct, rotation](const PolyMesh &m, Arena &a, Arena &b) {
                    return MeshOps::snub(m, a, b, ct, rotation);

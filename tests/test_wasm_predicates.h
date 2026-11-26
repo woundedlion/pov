@@ -719,8 +719,19 @@ inline void test_hankin_angle_domain() {
   HS_EXPECT_TRUE(hs_wasm::hankin_angle_out_of_range(-1e300, MAX));
 }
 
-/** @brief Finite doubles clamp to the float range. */
+/** @brief Finite doubles outside the float range are flagged and saturate. */
 inline void test_finite_float_clamp() {
+  const double max = std::numeric_limits<float>::max();
+  HS_EXPECT_FALSE(hs_wasm::finite_float_out_of_range(0.5));
+  HS_EXPECT_FALSE(hs_wasm::finite_float_out_of_range(max));
+  HS_EXPECT_FALSE(hs_wasm::finite_float_out_of_range(-max));
+  HS_EXPECT_FALSE(hs_wasm::finite_float_out_of_range(0.1));
+  HS_EXPECT_TRUE(
+      hs_wasm::finite_float_out_of_range(std::nextafter(max, 1e300)));
+  HS_EXPECT_TRUE(
+      hs_wasm::finite_float_out_of_range(std::nextafter(-max, -1e300)));
+  HS_EXPECT_FALSE(hs_wasm::finite_float_out_of_range(
+      std::numeric_limits<double>::quiet_NaN()));
   HS_EXPECT_EQ(hs_wasm::clamp_finite_float(1e300),
                std::numeric_limits<float>::max());
   HS_EXPECT_EQ(hs_wasm::clamp_finite_float(-1e300),

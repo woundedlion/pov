@@ -147,6 +147,16 @@ inline float clamp_half_open_fraction(double t) {
 }
 
 /**
+ * @brief True when a finite JS scalar lies outside the engine float range.
+ * @param value Finite value supplied by the JS caller.
+ * @return True when `clamp_finite_float` saturates it; false for NaN.
+ */
+inline bool finite_float_out_of_range(double value) {
+  constexpr float MAX = std::numeric_limits<float>::max();
+  return value > MAX || value < -MAX;
+}
+
+/**
  * @brief Saturates a finite JS scalar to the engine float range.
  * @param value Finite value supplied by the JS caller.
  * @return A finite float, including either saturation endpoint.
