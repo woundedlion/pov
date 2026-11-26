@@ -488,20 +488,12 @@ private:
   static float sample(const PlaneSample &input, const Params &params,
                       const Arm &arm) {
     switch (Source::planar_family(arm.kind)) {
-    case Family::GRID: {
-      const auto &grid = params.grid;
-      return Pattern::grid(
-          Pattern::PlanePosition{projections::stereo_pattern_args(
-              input.coords, grid.pattern_freq)},
-          grid, std::get<Pattern::PreparedSource>(arm.kernel));
-    }
-    case Family::TWIN_WAVE: {
-      const auto &twin = params.twin_wave;
-      return Pattern::twin_wave(
-          Pattern::PlanePosition{projections::stereo_pattern_args(
-              input.coords, twin.pattern_freq)},
-          std::get<Pattern::PreparedSource>(arm.kernel));
-    }
+    case Family::GRID:
+      return grid_field(input, params.grid,
+                        std::get<Pattern::PreparedSource>(arm.kernel));
+    case Family::TWIN_WAVE:
+      return twin_wave_field(input, params.twin_wave,
+                             std::get<Pattern::PreparedSource>(arm.kernel));
     case Family::BANDS:
       return Pattern::PlaneBands::sample(
           {input.coords}, std::get<Pattern::PlaneBands::Prepared>(arm.kernel));
@@ -509,20 +501,13 @@ private:
       return Pattern::PlaneSpiral::sample(
           {input.coords}, std::get<Pattern::PlaneSpiral::Prepared>(arm.kernel));
     case Family::TESSELLATION:
-      return Pattern::tessellation(Pattern::PlanePosition{input.coords},
-                                   params.tessellation,
-                                   PlanarDetail::tessellation_kind(arm.kind),
-                                   PlanarDetail::tessellation_fill(arm.kind));
+      return tessellation_field(input, params.tessellation,
+                                PlanarDetail::tessellation_kind(arm.kind),
+                                PlanarDetail::tessellation_fill(arm.kind));
     case Family::PROJECTED_NOISE:
-      if (math::noise_plane_in_domain(input.coords)) {
-        const auto &noise = std::get<PreparedNoiseSource>(arm.kernel);
-        return Pattern::noise_contour(
-            *noise.noise, PlanarDetail::noise_basis(arm.kind),
-            math::noise_projected_coordinate(
-                input.coords, params.noise.noise_scale, noise.loop_offset),
-            params.noise.noise_contrast);
-      }
-      break;
+      return projected_noise_field(input, params.noise,
+                                   PlanarDetail::noise_basis(arm.kind),
+                                   std::get<PreparedNoiseSource>(arm.kernel));
     }
     return 0.0f;
   }

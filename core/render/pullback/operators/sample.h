@@ -252,6 +252,33 @@ struct SampleCoverageEdgeDistance {
   }
 };
 
+/** @brief Raw coupled grid field of a grid source block.
+ * @param input Projected sample.
+ * @param params Grid controls.
+ * @param prepared Prepared grid clocks.
+ * @return Raw grid field. */
+inline float grid_field(const PlaneSample &input,
+                        const Source::GridSourceParams &params,
+                        const Pattern::PreparedSource &prepared) {
+  return Pattern::grid(Pattern::PlanePosition{projections::stereo_pattern_args(
+                           input.coords, params.pattern_freq)},
+                       params, prepared);
+}
+
+/** @brief Raw two-wave interference field of a twin-wave source block.
+ * @param input Projected sample.
+ * @param params Twin-wave controls.
+ * @param prepared Prepared twin-wave clocks.
+ * @return Raw twin-wave field. */
+inline float twin_wave_field(const PlaneSample &input,
+                             const Source::TwinWaveSourceParams &params,
+                             const Pattern::PreparedSource &prepared) {
+  return Pattern::twin_wave(
+      Pattern::PlanePosition{
+          projections::stereo_pattern_args(input.coords, params.pattern_freq)},
+      prepared);
+}
+
 /** @brief PLANE→FIELD crossing: the coupled sine grid source with topology
     weight and coverage modes. */
 struct SampleGridV4 : SourceClockModel,
@@ -276,10 +303,7 @@ struct SampleGridV4 : SourceClockModel,
    * @return Raw grid field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &prepared) {
-    return Pattern::grid(
-        Pattern::PlanePosition{projections::stereo_pattern_args(
-            input.coords, params.pattern_freq)},
-        static_cast<const Source::GridSourceParams &>(params), prepared);
+    return grid_field(input, params, prepared);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -307,10 +331,7 @@ struct SampleTwinWaveV3 : SourceClockModel,
    * @return Raw twin-wave field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &prepared) {
-    return Pattern::twin_wave(
-        Pattern::PlanePosition{projections::stereo_pattern_args(
-            input.coords, params.pattern_freq)},
-        prepared);
+    return twin_wave_field(input, params, prepared);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
@@ -430,6 +451,20 @@ struct TessellationSampleParams : Source::TessellationSourceParams {
 };
 static_assert(sample_crossing_defaults_match<TessellationSampleParams>());
 
+/** @brief Raw cell or edge field of a tessellation source block.
+ * @param input Projected sample.
+ * @param params Cell controls.
+ * @param kind Cell primitive.
+ * @param fill Cell interior or edge bands.
+ * @return Raw tessellation field. */
+inline float tessellation_field(const PlaneSample &input,
+                                const Source::TessellationSourceParams &params,
+                                Pattern::TessellationKind kind,
+                                Pattern::TessellationFill fill) {
+  return Pattern::tessellation(Pattern::PlanePosition{input.coords}, params,
+                               kind, fill);
+}
+
 /** @brief PLANE to FIELD crossing: static square, hexagonal or triangular cell
     primitives or edge bands. */
 struct SampleTessellation : StatelessModel,
@@ -466,10 +501,8 @@ struct SampleTessellation : StatelessModel,
    * @return Raw tessellation field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &) {
-    return Pattern::tessellation(
-        Pattern::PlanePosition{input.coords},
-        static_cast<const Source::TessellationSourceParams &>(params),
-        static_cast<Pattern::TessellationKind>(params.kind),
+    return tessellation_field(
+        input, params, static_cast<Pattern::TessellationKind>(params.kind),
         static_cast<Pattern::TessellationFill>(params.fill));
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
@@ -507,6 +540,25 @@ struct PreparedNoiseSource {
   math::Vector loop_offset;   ///< Lattice offset of this frame's loop phase.
 };
 
+/** @brief Raw projected-plane noise contour of a noise source block.
+ * @param input Projected sample.
+ * @param params Noise scale and contrast.
+ * @param basis Noise basis.
+ * @param prepared Prepared noise generator and loop offset.
+ * @return Raw projected-noise field; zero outside the noise plane domain. */
+inline float projected_noise_field(const PlaneSample &input,
+                                   const Source::NoiseSourceParams &params,
+                                   math::NoiseBasis basis,
+                                   const PreparedNoiseSource &prepared) {
+  if (!math::noise_plane_in_domain(input.coords))
+    return 0.0f;
+  return Pattern::noise_contour(
+      *prepared.noise, basis,
+      math::noise_projected_coordinate(input.coords, params.noise_scale,
+                                       prepared.loop_offset),
+      params.noise_contrast);
+}
+
 /** @brief PLANE→FIELD crossing: the projected-plane noise contour source. */
 struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState>,
                               PlanarFieldFinish,
@@ -532,13 +584,8 @@ struct SampleProjectedNoise : PhaseClockModel<NoisePhaseState>,
    * @return Raw projected-noise field. */
   static float sample(const PlaneSample &input, const Params &params,
                       const Prepared &prepared) {
-    if (!math::noise_plane_in_domain(input.coords))
-      return 0.0f;
-    return Pattern::noise_contour(
-        *prepared.noise, static_cast<math::NoiseBasis>(params.basis),
-        math::noise_projected_coordinate(input.coords, params.noise_scale,
-                                         prepared.loop_offset),
-        params.noise_contrast);
+    return projected_noise_field(
+        input, params, static_cast<math::NoiseBasis>(params.basis), prepared);
   }
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
                          const Params &params, const Prepared &prepared) {
