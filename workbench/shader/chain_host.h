@@ -584,7 +584,7 @@ private:
               std::string_view(op.op->operator_id) ==
                   Op::SampleSphericalTiling::ID)
             value = static_cast<uint8_t>(Pullback::Source::TilingOutput::FACES);
-          if (!field_in_schema(info, value))
+          if (!Pullback::field_value_admitted(info, value))
             return false;
           write_field_value(*op.op, base + op.param_offset, field, value);
           found = true;
@@ -645,19 +645,8 @@ private:
 
   static void write_field_value(const Pullback::Interp::OperatorDescriptor &op,
                                 void *params, uint16_t field, float value) {
-    void *address = op.runtime.param_address(params, field);
-    if (op.schema[field].enum_count > 0)
-      *static_cast<uint8_t *>(address) = static_cast<uint8_t>(value);
-    else
-      *static_cast<float *>(address) = value;
-  }
-
-  static bool field_in_schema(const Pullback::Interp::ParamFieldInfo &info,
-                              float value) {
-    if (info.enum_count > 0)
-      return value >= 0.0f && value < info.enum_count &&
-             std::floor(value) == value;
-    return value >= info.min && value <= info.max;
+    Pullback::store_field_value(op.schema[field],
+                                op.runtime.param_address(params, field), value);
   }
 
   uint8_t *allocate_chain_block() {
@@ -923,7 +912,7 @@ private:
     for (uint16_t field = 0; field < op.schema_count; ++field) {
       const auto &info = op.schema[field];
       const float value = read_field_value(op, params, field);
-      if (!field_in_schema(info, value))
+      if (!Pullback::field_value_admitted(info, value))
         return "Parameter is outside its schema range";
     }
     if (const char *warning = op.runtime.validate(params))
@@ -1017,7 +1006,7 @@ private:
       const float value = write.value;
       if (!std::isfinite(value))
         return ParamSetResult::NON_FINITE;
-      if (!field_in_schema(op.schema[named->field], value))
+      if (!Pullback::field_value_admitted(op.schema[named->field], value))
         return ParamSetResult::INADMISSIBLE;
       write_field_value(op, endpoint, named->field, value);
     }

@@ -88,6 +88,37 @@ struct ParamFieldInfo {
   uint16_t sources = 0; /**< Bit per planar source kind using the field. */
 };
 
+/**
+ * @brief Whether @p value is admissible for the field @p info describes.
+ * @param info Field descriptor.
+ * @param value Candidate value. The enum test runs in double, so a value just
+ *              below an integer is not rounded into range.
+ * @return For an enum8, whether @p value is an integral index below
+ *         `enum_count`; for a float, whether it lies in [min, max].
+ */
+inline bool field_value_admitted(const ParamFieldInfo &info, double value) {
+  if (info.enum_count > 0)
+    return value >= 0.0 && value < info.enum_count &&
+           std::floor(value) == value;
+  const float scalar = static_cast<float>(value);
+  return scalar >= info.min && scalar <= info.max;
+}
+
+/**
+ * @brief Stores an admitted value at a field's address: one byte for an enum8,
+ *        a float otherwise.
+ * @param info Field descriptor.
+ * @param address The field's storage.
+ * @param value Value already passed by field_value_admitted().
+ */
+inline void store_field_value(const ParamFieldInfo &info, void *address,
+                              float value) {
+  if (info.enum_count > 0)
+    *static_cast<uint8_t *>(address) = static_cast<uint8_t>(value);
+  else
+    *static_cast<float *>(address) = value;
+}
+
 /** @brief When a field's slider is registered. */
 enum class FieldGate : uint8_t {
   ALWAYS,

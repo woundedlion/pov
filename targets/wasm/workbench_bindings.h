@@ -425,19 +425,11 @@ private:
       const double number = value.as<double>();
       if (!std::isfinite(number))
         return false;
-      void *address =
-          Detail::ErasedAdapter<Model>::param_address(&params, field);
-      if (info.enum_count != 0) {
-        if (number < 0.0 || number >= info.enum_count ||
-            number != std::floor(number))
-          return false;
-        *static_cast<uint8_t *>(address) = static_cast<uint8_t>(number);
-      } else {
-        const float scalar = static_cast<float>(number);
-        if (!(scalar >= info.min && scalar <= info.max))
-          return false;
-        *static_cast<float *>(address) = scalar;
-      }
+      if (!Pullback::field_value_admitted(info, number))
+        return false;
+      Pullback::store_field_value(
+          info, Detail::ErasedAdapter<Model>::param_address(&params, field),
+          static_cast<float>(number));
     }
     return true;
   }
