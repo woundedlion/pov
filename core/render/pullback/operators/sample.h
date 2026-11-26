@@ -124,64 +124,6 @@ inline bool sample_requires_edge_distance(uint8_t coverage_mode) {
          mode == ProjectionCoverageMode::EDGE_FADE_SQUARED;
 }
 
-/** @brief The parameters every plane-to-field Sample crossing family carries:
-    the edge-fade width and the weight and coverage enum8s. */
-struct SampleCrossingParams {
-  /** Edge-fade band width; read only under edge-fade coverage. */
-  float edge_width = 0.1f;
-  /** WeightMode topology value. */
-  uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
-  /** ProjectionCoverageMode topology value. */
-  uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
-};
-
-/**
- * @brief Whether @p Params spells the crossing's three members with the same
- *        defaults as SampleCrossingParams.
- * @details Members that can occupy the crossing's two tail-padding bytes
- * produce different inherited layouts under MSVC and Itanium ABIs. Those
- * families repeat the crossing members and assert this instead. Appended
- * floats require four-byte alignment and cannot occupy that padding.
- * @tparam Params Sample crossing parameter family.
- * @return True when all three defaults match.
- */
-template <typename Params> consteval bool sample_crossing_defaults_match() {
-  constexpr Params PARAMS{};
-  constexpr SampleCrossingParams CROSSING{};
-  return PARAMS.edge_width == CROSSING.edge_width &&
-         PARAMS.weight_mode == CROSSING.weight_mode &&
-         PARAMS.coverage_mode == CROSSING.coverage_mode;
-}
-
-/** @brief The tabled field of SampleCrossingParams, retyped to the family.
- *  @tparam Params Sample crossing parameter family.
- *  @return The edge-width field, gated on edge-fade coverage. */
-template <typename Params>
-constexpr std::array<Field<Params>, 1> sample_crossing_fields() {
-  return {edge_width_field<Params>(&Params::edge_width, "Edge Width",
-                                   COVERAGE_EDGE_FADE_GATE)};
-}
-
-/**
- * @brief The Sample crossing's shared weight and coverage enum8s, followed by
- *        any family-specific topology fields in @p extra.
- * @tparam Params Sample crossing parameter family.
- * @tparam Extra Additional topology field types.
- * @param extra Family-specific topology fields.
- * @return The weight-mode and coverage-mode fields, then @p extra.
- */
-template <typename Params, typename... Extra>
-constexpr std::array<TopologyField<Params>, 2 + sizeof...(Extra)>
-sample_crossing_topology(const Extra &...extra) {
-  return {TopologyField<Params>{"weight-mode", &Params::weight_mode,
-                                WEIGHT_MODE_IDS,
-                                static_cast<uint8_t>(WeightMode::PROJECTION)},
-          TopologyField<Params>{
-              "coverage-mode", &Params::coverage_mode, COVERAGE_MODE_IDS,
-              static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT)},
-          extra...};
-}
-
 /** @brief Builds the field carrier from a raw source value under the family's
     weight and coverage enum8s.
     @tparam Params Sample crossing parameter family.
@@ -237,7 +179,7 @@ struct SourceClockModel : ValueStateModel<SourceClockState> {
 };
 
 /** @brief Parameter family of sample.grid.v4: the grid source fields plus the
-    crossing's union field and topology enum8s. */
+    crossing's edge width and topology enum8s. */
 using GridSampleParams = Source::AuthoredGridSampleParams;
 
 /** @brief Edge-distance admission for an operator with coverage modes. */
