@@ -586,13 +586,7 @@ private:
             value = static_cast<uint8_t>(Pullback::Source::TilingOutput::FACES);
           if (!field_in_schema(info, value))
             return false;
-          void *address =
-              op.op->runtime.param_address(base + op.param_offset, field);
-          if (info.enum_count > 0) {
-            *static_cast<uint8_t *>(address) = static_cast<uint8_t>(value);
-          } else {
-            *static_cast<float *>(address) = value;
-          }
+          write_field_value(*op.op, base + op.param_offset, field, value);
           found = true;
         }
       if (!found)
@@ -647,6 +641,15 @@ private:
     return op.schema[field].enum_count > 0
                ? static_cast<float>(*static_cast<const uint8_t *>(address))
                : *static_cast<const float *>(address);
+  }
+
+  static void write_field_value(const Pullback::Interp::OperatorDescriptor &op,
+                                void *params, uint16_t field, float value) {
+    void *address = op.runtime.param_address(params, field);
+    if (op.schema[field].enum_count > 0)
+      *static_cast<uint8_t *>(address) = static_cast<uint8_t>(value);
+    else
+      *static_cast<float *>(address) = value;
   }
 
   static bool field_in_schema(const Pullback::Interp::ParamFieldInfo &info,
@@ -1010,21 +1013,13 @@ private:
       const auto named = find_named_field(write.name);
       if (!named || named->index != index)
         return ParamSetResult::UNKNOWN_PARAM;
-      const auto &field = ops[index].op->schema[named->field];
+      const auto &op = *ops[index].op;
       const float value = write.value;
       if (!std::isfinite(value))
         return ParamSetResult::NON_FINITE;
-      void *address = runtime.param_address(endpoint, named->field);
-      if (field.enum_count != 0) {
-        if (value < 0.0f || value >= field.enum_count ||
-            value != std::floor(value))
-          return ParamSetResult::INADMISSIBLE;
-        *static_cast<uint8_t *>(address) = static_cast<uint8_t>(value);
-      } else {
-        if (value < field.min || value > field.max)
-          return ParamSetResult::INADMISSIBLE;
-        *static_cast<float *>(address) = value;
-      }
+      if (!field_in_schema(op.schema[named->field], value))
+        return ParamSetResult::INADMISSIBLE;
+      write_field_value(op, endpoint, named->field, value);
     }
     return admission_refusal(ops, index, endpoint) == nullptr
                ? ParamSetResult::APPLIED
