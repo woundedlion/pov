@@ -32,23 +32,17 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # The native-clang toolchain may fall back to an unversioned `clang` from PATH;
-# refuse anything older than 18.
+# refuse anything older than 22.
 if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   message(FATAL_ERROR
-    "The native test suite requires upstream LLVM Clang 18 or newer; point "
+    "The native test suite requires upstream LLVM Clang 22 or newer; point "
     "CMAKE_CXX_COMPILER at LLVM clang++, or use the emsdk's compiler.")
 endif()
-if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
+if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 22)
   message(FATAL_ERROR
-    "Clang ${CMAKE_CXX_COMPILER_VERSION} is below the 18 this suite is built "
+    "Clang ${CMAKE_CXX_COMPILER_VERSION} is below the 22 this suite is built "
     "against. Point CMAKE_CXX_COMPILER at a newer clang++, or let "
     "cmake/toolchain-native-clang.cmake resolve the emsdk's.")
-endif()
-
-# Clang < 19 needs relaxed template-template matching opted in for the
-# harness's `template <int, int> class E` parameters; Clang 20 removed the flag.
-if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19)
-  add_compile_options(-frelaxed-template-template-args)
 endif()
 
 set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
