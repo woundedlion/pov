@@ -174,8 +174,8 @@ HS_HOT_INLINE void rasterize_column_edges_impl(
                                4.0f * frame.deviation * frame.deviation)),
         .top_y = walk_top_y,
         .bottom_y = bottom_y,
-        .half_sine = local_lattice ? full_sine : half_sine,
-        .half_cosine = local_lattice ? full_cosine : half_cosine};
+        .window_sine = local_lattice ? full_sine : half_sine,
+        .window_cosine = local_lattice ? full_cosine : half_cosine};
     if (batch.uniform_color) {
       if (local_lattice)
         walk_uniform_edge_columns<W, H, Cfg, false, true, RECORD_WORLD>(walk);

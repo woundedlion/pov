@@ -69,10 +69,8 @@ template <int W> struct ColumnWalk {
   bool turning;   /**< The arc can turn its longitude direction this frame. */
   float top_y;    /**< Highest emitted unit-sphere y. */
   float bottom_y; /**< Lowest emitted unit-sphere y. */
-  float
-      half_sine; /**< Sine of the window half-width: half a column, or a full column for local lattices. */
-  float
-      half_cosine; /**< Cosine of the window half-width: half a column, or a full column for local lattices. */
+  float window_sine;   /**< Sine of the column window's half-width. */
+  float window_cosine; /**< Cosine of the column window's half-width. */
 };
 
 /** @brief A walked sample whose tap columns splat at their own times. */

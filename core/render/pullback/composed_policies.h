@@ -751,7 +751,8 @@ struct AuthoredProjection
    * @return Identity or animated conjugate rotation. */
   static const math::Quaternion &frame_conjugate(const FrameState &frame) {
     static const math::Quaternion identity;
-    return frame.params.template get<"projection">().frame == 0
+    return frame.params.template get<"projection">().frame ==
+                   static_cast<uint8_t>(ProjectionFrame::IDENTITY)
                ? identity
                : State::conjugate(frame);
   }

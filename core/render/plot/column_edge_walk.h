@@ -106,13 +106,13 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
       const int arc_direction = LOCAL_LATTICE
                                     ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
                                     : state.direction;
-      const float sine = arc_direction * state.half_sine;
+      const float sine = arc_direction * state.window_sine;
       const math::Vector normal(
-          -column_sine * state.half_cosine - column_cosine * sine, 0.0f,
-          column_cosine * state.half_cosine - column_sine * sine);
+          -column_sine * state.window_cosine - column_cosine * sine, 0.0f,
+          column_cosine * state.window_cosine - column_sine * sine);
       const math::Vector back(
-          -column_sine * state.half_cosine + column_cosine * sine, 0.0f,
-          column_cosine * state.half_cosine + column_sine * sine);
+          -column_sine * state.window_cosine + column_cosine * sine, 0.0f,
+          column_cosine * state.window_cosine + column_sine * sine);
       bool lit = state.radians == 0.0f, finished = false;
       float cut = 1.0f;
       math::Vector turn;
@@ -174,8 +174,8 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
             }
             const GeodesicEdgeSampler basis = SPLIT ? piece : sampler;
             const math::Vector along(
-                column_cosine * state.half_cosine - column_sine * sine, 0.0f,
-                column_sine * state.half_cosine + column_cosine * sine);
+                column_cosine * state.window_cosine - column_sine * sine, 0.0f,
+                column_sine * state.window_cosine + column_cosine * sine);
             crossing = column_basis_crossing(
                 math::dot(basis.v1, normal), end_side,
                 math::dot(basis.v_perp, normal), math::dot(basis.v1, along),
@@ -199,8 +199,8 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           } else {
             const float start_back = math::dot(basis.v1, back);
             const math::Vector behind(
-                column_cosine * state.half_cosine + column_sine * sine, 0.0f,
-                column_sine * state.half_cosine - column_cosine * sine);
+                column_cosine * state.window_cosine + column_sine * sine, 0.0f,
+                column_sine * state.window_cosine - column_cosine * sine);
             start_column =
                 start_back * back_side > 0.0f ||
                 !column_basis_crossing(
