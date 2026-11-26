@@ -230,17 +230,7 @@ HS_HOT_FLASH_MEMBER void draw_radial_surface(
         return column;
       },
       [&](int, int x) {
-        math::Vector radial, up;
-        if (columns.azimuth) {
-          const int index = x % (W / 2);
-          radial = x < W / 2 ? columns.azimuth[index] : -columns.azimuth[index];
-          up = columns.up[index];
-        } else {
-          radial = {math::TrigLUT<W, H>::cos_theta(x), 0,
-                    math::TrigLUT<W, H>::sin_theta[x]};
-          up = math::Y_AXIS;
-        }
-        const auto tangent = math::cross(radial, up);
+        const auto [radial, tangent, up] = column_frame<W, H>(columns, x);
         auto local = [&](math::Vector v) {
           return math::Vector(math::dot(v, basis.u), math::dot(v, basis.v),
                               math::dot(v, basis.w));

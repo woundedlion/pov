@@ -377,13 +377,11 @@ void rasterize(auto &pipeline, Canvas &canvas, const Shape &shape,
     const float phi = math::DisplayGeometry<H>::row_to_phi(y);
     if (!basis || !basis->azimuth || Spacetime::flat_surface())
       return math::Vector(math::Spherical(x * (2 * math::PI_F / W), phi));
-    const int k = center % (W / 2);
-    const auto radial = center < W / 2 ? basis->azimuth[k] : -basis->azimuth[k];
-    const auto &up = basis->up[k];
-    const auto tangent = math::cross(radial, up);
+    const auto frame = column_frame<W, H>(*basis, center);
     const float d = (x - center) * (2 * math::PI_F / W);
-    return (radial * std::cos(d) + tangent * std::sin(d)) * std::sin(phi) +
-           up * std::cos(phi);
+    return (frame.radial * std::cos(d) + frame.tangent * std::sin(d)) *
+               std::sin(phi) +
+           frame.up * std::cos(phi);
   };
   const auto save_column = [&](int x) {
     center = x;

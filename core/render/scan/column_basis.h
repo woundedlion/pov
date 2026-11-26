@@ -665,6 +665,30 @@ struct ObjectColumn {
 };
 
 /**
+ * @brief Pixel frame of a column at its sweep time.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @param time Column basis; a null `azimuth` selects the fixed meridian.
+ * @param x Column in [0, W).
+ * @return The column's frame; the far arm's radial direction is the near
+ *         arm's, negated.
+ */
+template <int W, int H>
+HS_HOT_INLINE ObjectColumn column_frame(const ColumnBasis &time, int x) {
+  math::Vector radial, up;
+  if (time.azimuth) {
+    const int index = x % (W / 2);
+    radial = x < W / 2 ? time.azimuth[index] : -time.azimuth[index];
+    up = time.up[index];
+  } else {
+    radial = {math::TrigLUT<W, H>::cos_theta(x), 0,
+              math::TrigLUT<W, H>::sin_theta[x]};
+    up = math::Y_AXIS;
+  }
+  return {radial, math::cross(radial, up), up};
+}
+
+/**
  * @brief Per-column object-space pixel frames of an orientation over one
  *        effect frame.
  * @tparam W Canvas width in columns.
