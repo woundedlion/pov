@@ -86,7 +86,7 @@ HS_HOT_FLASH_MEMBER inline float
 tangent_alignment(math::Vector p, math::Vector dx, math::Vector dy,
                   math::Vector arrow, Direction normal) {
   const float scale =
-      std::max({std::abs(arrow.x), std::abs(arrow.y), std::abs(arrow.z)});
+      fmaxf(fmaxf(std::abs(arrow.x), std::abs(arrow.y)), std::abs(arrow.z));
   if (!(scale > 0) || !std::isfinite(scale))
     return 0;
   arrow = {arrow.x / scale, arrow.y / scale, arrow.z / scale};
@@ -106,8 +106,8 @@ tangent_alignment(math::Vector p, math::Vector dx, math::Vector dy,
   const auto physical =
       math::cross(dy, area) * normal.x + math::cross(area, dx) * normal.y;
   const float norm = physical.length();
-  return norm > 0 ? std::clamp(math::dot(physical, tangent) / (length * norm),
-                               -1.0f, 1.0f)
+  return norm > 0 ? hs::clamp(math::dot(physical, tangent) / (length * norm),
+                              -1.0f, 1.0f)
                   : 0;
 }
 
