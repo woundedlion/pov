@@ -260,11 +260,6 @@ def _validate_programs(document: dict, path: Path) -> None:
                      f"{path}: {program_id}.probes.{category} must be non-empty")
             referenced_probes.update(
                 f"{category}:{probe}" for probe in probes[category])
-        tolerances = program.get("tolerances")
-        _require(isinstance(tolerances, dict),
-                 f"{path}: {program_id}.tolerances must be an object")
-        _require(isinstance(tolerances.get("carriers"), dict),
-                 f"{path}: {program_id}.tolerances.carriers must be an object")
     _require(sorted(covered_presets) == list(range(preset_count)),
              f"{path}: presets must be covered exactly once")
     _require(set(probe_operations) == referenced_probes,

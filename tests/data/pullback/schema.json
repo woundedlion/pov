@@ -70,20 +70,13 @@
     },
     "program": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "presets", "topology_key", "parameter_cases", "probes", "tolerances"],
+      "required": ["id", "presets", "topology_key", "parameter_cases", "probes"],
       "properties": {
         "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
         "presets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "integer", "minimum": 0 } },
         "topology_key": { "$ref": "#/$defs/topologyKey" },
         "parameter_cases": { "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/parameterCase" } },
-        "probes": { "$ref": "#/$defs/probes" },
-        "tolerances": {
-          "type": "object", "additionalProperties": false,
-          "required": ["carriers"],
-          "properties": {
-            "carriers": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0 } }
-          }
-        }
+        "probes": { "$ref": "#/$defs/probes" }
       }
     },
     "programManifest": {

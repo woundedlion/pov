@@ -202,7 +202,7 @@ class ManifestValidation(unittest.TestCase):
         programs, _, _ = generator.load_and_validate(MANIFEST_DIR)
         schema = generator._load(MANIFEST_DIR / "schema.json")
         broken = copy.deepcopy(programs)
-        broken["programs"][0]["tolerances"]["unlicensed"] = 1
+        broken["programs"][0]["probes"]["unlicensed"] = 1
         with self.assertRaisesRegex(
             generator.ManifestError, "unexpected field unlicensed"
         ):
