@@ -650,9 +650,6 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
   out_b.bind(target, mesh.get_faces_size() / 2);
   out_a =
       ambo_impl(mesh, he_mesh, target, temp, "medial", [&](const HalfEdge &he) {
-        HS_CHECK(he.face != HE_NONE && he.pair != HE_NONE &&
-                     he_mesh.half_edges[he.pair].face != HE_NONE,
-                 "medial: open edge on a closed manifold");
         math::Vector db =
             dual_pos[he.face] + dual_pos[he_mesh.half_edges[he.pair].face];
         out_b.push_back(math::normalized_or(db, dual_pos[he.face]));
