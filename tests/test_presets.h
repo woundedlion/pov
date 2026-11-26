@@ -316,6 +316,69 @@ inline void test_preset_saturation_veto_restarts_dwell() {
   HS_EXPECT_TRUE(effect.blending());
 }
 
+/** @brief Lerp preset fixture whose transition_admitted refuses 1 -> 2 only. */
+struct AdmissionPresetEffect
+    : ChoreographedEffect<AdmissionPresetEffect, HoldParams> {
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"first",
+                                                              "second"};
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 40;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  AdmissionPresetEffect() : ChoreographedEffect(8, 8) {}
+  static constexpr PresetEntry<HoldParams> preset(size_t index) {
+    return {{index == 0 ? 1.0f : 2.0f},
+            Segue::Preset::Lerp{4, math::ease_linear}};
+  }
+  static constexpr bool valid_params(const HoldParams &) { return true; }
+  /** @brief Refuses the departure from value 1 to value 2.
+   * @param from Departing parameters.
+   * @param to Target parameters.
+   * @return False only for 1 -> 2. */
+  static bool transition_admitted(const HoldParams &from,
+                                  const HoldParams &to) {
+    return !(from.value == 1.0f && to.value == 2.0f);
+  }
+  void draw_frame() override {}
+  void arm() { begin_choreography(); }
+  bool attempt() { return advance_preset(); }
+  float value() const { return params.value; }
+  bool blending() const { return transition.active; }
+  void blend_params(float t) {
+    params.value = transition.from.value +
+                   (transition.to.value - transition.from.value) * t;
+  }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        AdmissionPresetEffect,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                             &AdmissionPresetEffect::preset>,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &AdmissionPresetEffect::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::BLEND_PARAMS,
+                             &AdmissionPresetEffect::blend_params>>{};
+  }
+};
+
+/** @brief Verifies a refused transition_admitted vetoes an automatic Lerp
+ *         departure and is called with (from, to) in that order. */
+inline void test_transition_admitted_refuses_departure() {
+  hs_test::reset_globals();
+  AdmissionPresetEffect effect;
+  effect.arm();
+  HS_EXPECT_FALSE(effect.attempt());
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_FALSE(effect.blending());
+  HS_EXPECT_EQ(effect.value(), 1.0f);
+
+  HS_EXPECT_TRUE(effect.selectPreset(1));
+  HS_EXPECT_EQ(effect.value(), 2.0f);
+  HS_EXPECT_TRUE(effect.attempt());
+  HS_EXPECT_TRUE(effect.blending());
+}
+
 /** @brief Preset fixture for fade cancellation. */
 struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
   using Origin = PresetChangeOrigin;
@@ -682,6 +745,7 @@ inline int run_presets_tests() {
   HS_RUN(test_preset_zero_supplies_startup_params);
   HS_RUN(test_hold_initial_preset_overrides_first_dwell);
   HS_RUN(test_preset_saturation_veto_restarts_dwell);
+  HS_RUN(test_transition_admitted_refuses_departure);
   HS_RUN(test_preset_crossfade_rejects_rearming);
   HS_RUN(test_completed_crossfade_adopts_exact_endpoint);
   HS_RUN(test_fade_navigation_matches_display);

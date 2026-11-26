@@ -346,7 +346,7 @@ inline void test_bump_field_envelope_gates() {
  *        |bump_field| never exceeds field_bound().
  */
 inline void test_bump_field_bound_is_conservative() {
-  hs::random().seed(20260803);
+  const hs_test::ScopedRng saved_rng(20260803);
   float worst_ratio = 0.0f;
   int nonfinite = 0;
   int over_bound = 0;
@@ -437,7 +437,7 @@ inline void test_noise_product_field_is_linear_and_separable() {
  * product bound. Near-zero point draws are skipped.
  */
 inline void test_noise_product_field_bound_is_conservative() {
-  hs::random().seed(20260801);
+  const hs_test::ScopedRng saved_rng(20260801);
   float worst_ratio = 0.0f;
   float worst_octave = 0.0f;
   int nonfinite = 0;

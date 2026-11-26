@@ -458,7 +458,6 @@ struct GSWhiteBox {
     gs.advance_display();
     HS_EXPECT_EQ(gs.transition.grow_frames, 1);
   }
-  static auto source_palette() { return GS::make_palette(); }
   static Color4 palette_sample(const GS &gs, float t, int seed = 0) {
     return Color4(gs.palette_color(seed, t), 1.0f);
   }

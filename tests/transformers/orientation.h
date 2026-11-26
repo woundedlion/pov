@@ -95,7 +95,7 @@ inline void test_mobius_known_rotation() {
  *          value comparison but must still map to finite unit vectors.
  */
 inline void test_mobius_matches_double_precision_oracle() {
-  hs::random().seed(20260720);
+  const hs_test::ScopedRng saved_rng(20260720);
   auto oracle = [](const math::Vector &v, const math::MobiusParams &p) {
     double s = 1.0 - static_cast<double>(v.y);
     double zr = static_cast<double>(v.x) / s;

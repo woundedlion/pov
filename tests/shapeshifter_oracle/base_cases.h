@@ -613,21 +613,28 @@ inline void test_timed_contours_match_frozen_columns() {
   }
 }
 
-/** @brief Preset 5 keeps its polar stroke anchor lit across small phase shifts. */
+/** @brief Preset 5's polar-walked strokes keep every lit pixel continuous
+ *         across a small phase shift. */
 inline void test_timed_preset_five_preserves_polar_anchor() {
   constexpr size_t PRESET = 4;
-  constexpr int COLUMN = 266;
-  constexpr int ROW = 37;
+  constexpr float LIT = 0.025f;
   OracleState state = preset_state(PRESET);
   state.alpha = 1.0f;
   state.phase = 0.002375f;
   const TimedContourRenderOptions options{.step = preset_phase_step(PRESET)};
   const auto before = render_timed_contours(state, options);
+  HS_EXPECT_GT(Spacetime::geometry_counters.polar_column_visits, 0u);
   state.phase += 0.00002f;
   const auto after = render_timed_contours(state, options);
-  const size_t pixel = ROW * ORACLE_W + COLUMN;
-  HS_EXPECT_GT(before[pixel], 0.025f);
-  HS_EXPECT_NEAR(after[pixel], before[pixel], 0.002f);
+  size_t lit = 0;
+  for (size_t pixel = 0; pixel < before.size(); ++pixel) {
+    if (before[pixel] <= LIT)
+      continue;
+    ++lit;
+    HS_CONTEXT("pixel", pixel);
+    HS_EXPECT_NEAR(after[pixel], before[pixel], 0.002f);
+  }
+  HS_EXPECT_GT(lit, 0u);
 }
 
 /** @brief Contour-route presets match their frozen columns at the authored speed.

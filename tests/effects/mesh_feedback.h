@@ -87,9 +87,6 @@ struct MeshFeedbackWhiteBox {
   static MF::BaseMesh active_base_mesh(const MF &fx) {
     return fx.active_base_mesh;
   }
-  static MF::BaseMesh preset_base_mesh(MF &fx, size_t index) {
-    return fx.preset_params(index).base_mesh;
-  }
   static size_t mesh_vertices(const MF &fx) { return fx.mesh.vertices.size(); }
   static size_t mesh_edges(const MF &fx) { return fx.edges.size(); }
   static const Animation::NoiseParams &noise(const MF &fx) {
@@ -243,10 +240,12 @@ inline void test_meshfeedback_base_mesh_selector() {
   HS_EXPECT_TRUE(base_mesh->animated);
   for (size_t i = 0; i < MF::PRESETS.size(); ++i) {
     HS_CONTEXT("preset", i);
-    HS_EXPECT_EQ(WB::preset_base_mesh(effect, i),
-                 MF::PRESETS[i].params.base_mesh);
-    HS_EXPECT_LT(static_cast<size_t>(WB::preset_base_mesh(effect, i)),
+    HS_EXPECT_LT(static_cast<size_t>(MF::PRESETS[i].params.base_mesh),
                  Solids::BASE_MESH_COUNT);
+    HS_EXPECT_TRUE(effect.selectPreset(i));
+    effect.draw_frame();
+    effect.advance_display();
+    HS_EXPECT_EQ(WB::active_base_mesh(effect), MF::PRESETS[i].params.base_mesh);
   }
 
   const auto selected = MF::BaseMesh::PENTAGONAL_HEXECONTAHEDRON;

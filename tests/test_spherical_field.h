@@ -250,7 +250,7 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
   constexpr hs::SphericalFieldLayout<W, 34, 3> LAYOUT(4, 4, 1, W / 4);
   std::array<int, W> source{};
   std::array<int, W> filtered{};
-  source[W - 1] = 1100;
+  source[W - 1] = 6400;
   LAYOUT.reconstruct_longitude_row<IntAccumulator>(
       source.data(), 1, [&](int x, int value) { filtered[x] = value; });
   HS_EXPECT_GT(filtered[0], 0);
@@ -260,7 +260,7 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
   LAYOUT.reconstruct_longitude_row<IntAccumulator>(
       source.data(), 0, [&](int x, int value) { filtered[x] = value; });
   for (int x = 0; x < W; ++x)
-    HS_EXPECT_EQ(filtered[x], 1100 / W);
+    HS_EXPECT_EQ(filtered[x], 6400 / W);
 
   const int SCALAR_POLES[]{-1};
   const int sample = LAYOUT.sample_bilinear(

@@ -1208,12 +1208,16 @@ template <typename Source> void check_tessellation_endpoint_fields() {
   program.capture_history();
 
   current = PB::Fields::interpolate(from, to, .2f);
-  program.set_source_morph(1, &from, &to, {1, 4, true, false});
+  program.set_source_morph(
+      1, &from, &to,
+      {.evaluation = 1, .duration = 4, .sine = true, .snap = false});
   HS_EXPECT_TRUE(program.history_continuous());
   program.prepare(ctx);
   program.capture_history();
   current = PB::Fields::interpolate(from, to, .5f);
-  program.set_source_morph(1, &from, &to, {2, 4, true, false});
+  program.set_source_morph(
+      1, &from, &to,
+      {.evaluation = 2, .duration = 4, .sine = true, .snap = false});
   HS_EXPECT_TRUE(program.history_continuous());
   constexpr float COLUMN = .5f;
   const float mix = math::ease_in_out_sin(.375f);
@@ -1243,18 +1247,26 @@ template <typename Source> void check_tessellation_endpoint_fields() {
 
   program.prepare(ctx);
   program.capture_history();
-  program.set_source_morph(1, &from, &to, {4, 4, true, false});
+  program.set_source_morph(
+      1, &from, &to,
+      {.evaluation = 4, .duration = 4, .sine = true, .snap = false});
   HS_EXPECT_FALSE(program.history_continuous());
-  program.set_source_morph(1, &from, &to, {3, 4, true, true});
+  program.set_source_morph(
+      1, &from, &to,
+      {.evaluation = 3, .duration = 4, .sine = true, .snap = true});
   HS_EXPECT_FALSE(program.history_continuous());
 
-  program.set_source_morph(1, &from, &from, {2, 4, true, false});
+  program.set_source_morph(
+      1, &from, &from,
+      {.evaluation = 2, .duration = 4, .sine = true, .snap = false});
   program.prepare(ctx);
   samples = 0;
   program.evaluate(math::UP, ctx);
   HS_EXPECT_EQ(samples, 1);
 
-  program.set_source_morph(1, &from, &to, {4, 4, true, false});
+  program.set_source_morph(
+      1, &from, &to,
+      {.evaluation = 4, .duration = 4, .sine = true, .snap = false});
   program.prepare(ctx);
   samples = 0;
   program.evaluate(math::UP, ctx);
@@ -1309,7 +1321,9 @@ inline void test_shader_chain_affine_morph_phase_wrap() {
   from.cell_scale = 2.5352101f;
   to.cell_scale = 4.774648f;
   live_source = PB::Fields::interpolate(from, to, .5f);
-  program.set_source_morph(2, &from, &to, {2, 4, true, false});
+  program.set_source_morph(
+      2, &from, &to,
+      {.evaluation = 2, .duration = 4, .sine = true, .snap = false});
   auto &clock = state_as<Op::AffineClockState>(program, 1);
   constexpr float before = .99998f, after = .00002f;
   clock = {before, .37f};

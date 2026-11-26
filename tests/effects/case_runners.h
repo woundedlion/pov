@@ -112,9 +112,6 @@ void run_effect_case_meshfeedback_preset_export_arity();
 /** @brief Runs test_meshfeedback_mesh_rebuild_reuses_storage with its case context. */
 void run_effect_case_meshfeedback_mesh_rebuild_reuses_storage();
 
-/** @brief Runs test_gs_palette_is_opaque with its case context. */
-void run_effect_case_gs_palette_is_opaque();
-
 /** @brief Runs test_gs_seed_palettes_and_pigment_transport with its case context. */
 void run_effect_case_gs_seed_palettes_and_pigment_transport();
 

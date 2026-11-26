@@ -4,12 +4,14 @@ import unittest
 from pathlib import Path
 
 GEN = Path(__file__).resolve().parent.parent
-UNPLACED_PROJECT = GEN.parent / "1.2" / "phantasm.kicad_pro"
 sys.path.insert(0, str(GEN))
 
+from committed_boards import committed_project  # noqa: E402
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, REQUIRED_SEVERITIES,  # noqa: E402
                          RULE_MINIMUMS, UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, rule_checks,
                          rule_shortfalls, apply_project_floors)
+
+UNPLACED_PROJECT = committed_project("1.2") / "phantasm.kicad_pro"
 
 
 def default_class(project):

@@ -92,6 +92,7 @@ inline void test_noise_cross_hemisphere_cap() {
   const float capped_angle = std::atan(0.5f);
 
   auto sweep = [&STYLE](float amplitude) {
+    const hs_test::ScopedRng saved_rng(20260803);
     Animation::NoiseParams p;
     p.amplitude = amplitude;
     p.frequency = STYLE.frequency;
@@ -99,7 +100,6 @@ inline void test_noise_cross_hemisphere_cap() {
     p.speed = STYLE.speed;
     p.time = 0.0f;
     p.sync();
-    hs::random().seed(20260803);
     float worst_angle = 0.0f;
     int off_sphere = 0;
     for (int i = 0; i < 4000; ++i) {

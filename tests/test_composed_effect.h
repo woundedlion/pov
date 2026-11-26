@@ -15,6 +15,7 @@
 #include "tests/composed_effect/authored_palette.h"
 #include "tests/composed_effect/parameter_schema.h"
 #include "tests/composed_effect/temporal_sampling.h"
+#include "tests/composed_effect/filigree.h"
 #include "tests/composed_effect/retained_hue.h"
 #include "tests/composed_effect/chamber_noise_cache.h"
 #include "tests/composed_effect/dodecahedral_matrix_cache.h"

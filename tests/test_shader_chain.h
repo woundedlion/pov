@@ -7,9 +7,6 @@
 #pragma once
 
 #include "tests/shader_chain_fixture.h"
-#include "effects/AlienCore.h"
-#include "effects/GridWorms.h"
-#include "effects/MobiusGrid.h"
 #include "tests/shader_chain/default_chain_mirror.h"
 #include "tests/shader_chain/lifecycle.h"
 #include "tests/shader_chain/program_cases.h"

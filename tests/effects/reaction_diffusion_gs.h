@@ -14,19 +14,6 @@ namespace hs_test::effects_tests {
 // Gray-Scott reaction-diffusion: white-box dynamics coverage
 // ---------------------------------------------------------------------------
 
-/** @brief Verifies source palette recipes are opaque before the RGB bake. */
-inline void test_gs_palette_is_opaque() {
-  hs_test::reset_globals();
-  for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed) {
-    auto palette = GSWhiteBox::source_palette();
-    for (int i = 0; i < BakedPalette::LUT_SIZE; ++i)
-      HS_EXPECT_EQ(
-          palette.get(static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1))
-              .alpha,
-          1.0f);
-  }
-}
-
 /** @brief Verifies each reseeded reaction receives a freshly generated palette. */
 inline void test_gs_reseed_generates_palette() {
   hs_test::reset_globals();

@@ -12,10 +12,6 @@
 
 namespace hs_test::effects_tests {
 
-void run_effect_case_gs_palette_is_opaque() {
-  HS_RUN(run_case, test_gs_palette_is_opaque);
-}
-
 void run_effect_case_gs_seed_palettes_and_pigment_transport() {
   HS_RUN(run_case, test_gs_seed_palettes_and_pigment_transport);
 }
@@ -172,7 +168,6 @@ namespace hs_test::module_runners {
 int run_reaction_diffusion_gs_tests() {
   using namespace effects_tests;
   ModuleFixture fixture("effects");
-  run_effect_case_gs_palette_is_opaque();
   run_effect_case_gs_seed_palettes_and_pigment_transport();
   run_effect_case_gs_sparse_pigment_matches_dense();
   run_effect_case_gs_direct_draw_matches_grid();

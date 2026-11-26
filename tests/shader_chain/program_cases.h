@@ -100,15 +100,12 @@ inline void test_shader_chain_state_restore_values() {
             field.min + 0.37f * (field.max - field.min);
     }
     if (std::string_view(op.operator_id) == In::Op::ModulateColorV1::ID) {
-      static_cast<In::Op::ModulationParams *>(
-          static_cast<void *>(params.data()))
-          ->modulation.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
-      static_cast<In::Op::ModulationParams *>(
-          static_cast<void *>(params.data()))
-          ->modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
-      static_cast<In::Op::ModulationParams *>(
-          static_cast<void *>(params.data()))
-          ->modulation.noise.scale = 4.0f;
+      auto &modulation = static_cast<In::Op::ModulationParams *>(
+                             static_cast<void *>(params.data()))
+                             ->modulation;
+      modulation.noise.variant = Pattern::NoiseVariant::OCTAVE_CONTOUR;
+      modulation.evaluation = Pattern::Evaluation::BAKED_CUBE;
+      modulation.noise.scale = 4.0f;
     }
     const auto *param_bytes = reinterpret_cast<const uint8_t *>(params.data());
     auto advanced = erased_block(op.runtime.state.size);

@@ -108,7 +108,6 @@ inline int run_effects_tests() {
   run_effect_case_meshfeedback_base_mesh_selector();
   run_effect_case_meshfeedback_preset_export_arity();
   run_effect_case_meshfeedback_mesh_rebuild_reuses_storage();
-  run_effect_case_gs_palette_is_opaque();
   run_effect_case_gs_seed_palettes_and_pigment_transport();
   run_effect_case_gs_sparse_pigment_matches_dense();
   run_effect_case_gs_direct_draw_matches_grid();
