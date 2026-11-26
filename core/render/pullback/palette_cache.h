@@ -265,8 +265,7 @@ struct GeneratedPaletteCore {
    * @return Whether the cache supplies this column's palette base. */
   static bool shared_base_ready(const Prepared &prepared) {
     if constexpr (TEMPORAL && LAB_CACHE)
-      return prepared.lab.low &&
-             !(prepared.fraction <= 0.0f || prepared.fraction > 1.0f);
+      return prepared.lab.low && interval_fraction(prepared.fraction);
     else
       return false;
   }
