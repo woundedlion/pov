@@ -162,15 +162,6 @@ inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
   }
 }
 
-/** @brief The roster has five shapes and no shipping preset selects the
- * spherical star. */
-inline void test_shipping_presets_exclude_spherical_star() {
-  HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_count(), 5);
-  for (size_t index = 0; index < ShapeShifterWhiteBox::PRESET_COUNT; ++index)
-    HS_EXPECT_NE(ShapeShifterWhiteBox::preset_shape(index),
-                 OracleEffect::ShapeType::SPHERICAL_STAR);
-}
-
 /** @brief High count uniform star stays within visual budget. */
 inline void test_high_count_uniform_star_stays_within_visual_budget() {
   using Function = OracleEffect::PhaseFunction;

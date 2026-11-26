@@ -203,14 +203,6 @@ inline void test_drift_modifier() {
  */
 inline constexpr float ACHROMATIC_TOL = 4.0f;
 
-/**
- * @brief Per-channel budget of an identity pass through OKLab.
- * @details linear RGB -> fast_cbrt LMS -> OKLab and back is not exact; with the
- * rotation angle or the chroma scale left at identity, that round trip plus the
- * float -> uint16 rounding is the whole residue.
- */
-inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
-
 /** @brief Headroom factor over the measured mean fold error. */
 inline constexpr float HUE_SPIN_MEAN_HEADROOM = 1.5f;
 /** @brief Headroom factor over the measured worst-channel fold error. */

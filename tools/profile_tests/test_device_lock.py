@@ -35,6 +35,23 @@ def write_peer_claim(directory, port, test_case, deadline_in=600, pid=None):
 
 
 class LockGuardUsageTests(unittest.TestCase):
+    def test_killed_holder_frees_the_lock_for_try_hold(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lock = Path(directory) / "fixture-lock"
+            helper = [sys.executable, str(LOCK_GUARD)]
+            with subprocess.Popen([*helper, "hold", str(lock)], stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE) as owner:
+                try:
+                    self.assertEqual(owner.stdout.readline().strip(), b"locked")
+                    busy = subprocess.run([*helper, "try-hold", str(lock)], input=b"", capture_output=True)
+                    self.assertEqual(busy.returncode, 1)
+                finally:
+                    owner.kill()
+                    owner.wait()
+            recovered = subprocess.run([*helper, "try-hold", str(lock)], input=b"", capture_output=True)
+            self.assertEqual(recovered.returncode, 0, recovered.stderr)
+            self.assertEqual(recovered.stdout.strip(), b"locked")
+
     def test_unicode_claim_roundtrips_and_releases(self):
         with tempfile.TemporaryDirectory() as directory:
             claim = Path(directory) / "claim"

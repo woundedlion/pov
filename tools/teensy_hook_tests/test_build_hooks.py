@@ -111,7 +111,7 @@ def _option_lines(cfg, section, option, depth=0):
     return out
 
 
-class TestOptionInterpolation(unittest.TestCase):
+class TestFirmwareBuildInputs(unittest.TestCase):
     def test_firmware_build_inputs_cover_every_image_changing_hook(self):
         config = _pio_config()
         excluded = {"tools/pio_ccache.py"}
@@ -162,6 +162,8 @@ class TestOptionInterpolation(unittest.TestCase):
                     with self.subTest(source=source, header=header):
                         self.assertIn(header, size_trail.BUILD_INPUTS)
 
+
+class TestEngineSources(unittest.TestCase):
     def test_every_env_builds_every_engine_source(self):
         cfg = _pio_config()
         engine = _option_lines(cfg, "engine", "sources")
@@ -175,6 +177,8 @@ class TestOptionInterpolation(unittest.TestCase):
                 resolved = _option_lines(cfg, f"env:{name}", "build_src_filter")
                 self.assertEqual(resolved[:len(engine) + 1], ["-<*>", *engine])
 
+
+class TestOptionInterpolation(unittest.TestCase):
     def test_inline_source_references_include_shared_and_local_filters(self):
         cfg = configparser.RawConfigParser()
         cfg.read_dict({

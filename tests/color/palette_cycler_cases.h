@@ -10,7 +10,6 @@
 #include "core/color/generative_palette.h"
 #include "core/color/palette_cycler.h"
 #include "core/memory.h"
-#include "tests/color/gradient_bake.h"
 #include "effects/common/palette_recipes.h"
 #include "tests/color_test_util.h"
 #include "tests/pixel_test_util.h"
@@ -736,7 +735,7 @@ inline void test_generated_palette_bank_routes_and_rechromas() {
     GenerativePalette morph;
     morph.morph_palettes(from, to, progress);
     expected.rebake(morph);
-    hs_test::color_tests::expect_baked_equal(bank.palette(mode), expected);
+    hs_test::expect_baked_equal(bank.palette(mode), expected);
   };
   // Step n of a fade sits at progress (n - 1) / FADE.
   constexpr int QUARTER_STEPS = FADE / 4 + 1;

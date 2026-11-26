@@ -16,6 +16,14 @@
 namespace hs_test {
 
 /**
+ * @brief Per-channel budget of an identity pass through OKLab.
+ * @details linear RGB -> fast_cbrt LMS -> OKLab and back is not exact; with the
+ * rotation angle or chroma scale at identity, or an oklch_to_pixel round trip,
+ * that conversion plus float -> uint16 rounding is the whole residue.
+ */
+inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
+
+/**
  * @brief Wraps a hue difference into [-PI, PI] for circular comparison.
  * @param dh Raw hue difference in radians.
  * @return The difference in [-PI, PI], or non-finite input unchanged.

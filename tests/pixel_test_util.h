@@ -94,6 +94,42 @@ inline void expect_color_within(const Color4 &actual, const Color4 &expected,
   HS_EXPECT_NEAR(actual.alpha, expected.alpha, alpha_tolerance);
 }
 
+/** @brief Asserts baked LUTs agree within FAST_MATH_CODE_SLACK per channel, alpha exact.
+ * @param a First LUT.
+ * @param b Second LUT. */
+inline void expect_baked_equal(const BakedPalette &a, const BakedPalette &b) {
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+    const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
+    const Color4 ca = a.get(t);
+    const Color4 cb = b.get(t);
+    HS_EXPECT_LE(channel_gap(ca.color.r, cb.color.r), FAST_MATH_CODE_SLACK);
+    HS_EXPECT_LE(channel_gap(ca.color.g, cb.color.g), FAST_MATH_CODE_SLACK);
+    HS_EXPECT_LE(channel_gap(ca.color.b, cb.color.b), FAST_MATH_CODE_SLACK);
+    HS_EXPECT_NEAR(ca.alpha, cb.alpha, 0.0);
+  }
+}
+
+/**
+ * @brief Asserts two baked LUTs agree within a channel tolerance.
+ * @param a First LUT.
+ * @param b Second LUT.
+ * @param tolerance Largest permitted per-channel difference, 16-bit scale.
+ * @return The worst per-channel difference seen.
+ */
+inline int expect_baked_near(const BakedPalette &a, const BakedPalette &b,
+                             int tolerance) {
+  int worst = 0;
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+    const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
+    const Pixel pa = a.get(t).color;
+    const Pixel pb = b.get(t).color;
+    const int delta = max_channel_gap(pa, pb);
+    worst = std::max(worst, delta);
+    HS_EXPECT_LE(delta, tolerance);
+  }
+  return worst;
+}
+
 /**
  * @brief Counts the non-black pixels in a pixel span.
  * @param pixels Pixels to scan.

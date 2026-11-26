@@ -9,7 +9,6 @@
 #include "core/color/color.h"
 #include "core/color/generative_palette.h"
 #include "core/memory.h"
-#include "tests/color/gradient_bake.h"
 #include "effects/common/palette_recipes.h"
 #include "tests/color_test_util.h"
 #include "tests/pixel_test_util.h"

@@ -81,11 +81,9 @@ inline void test_antialias_integer_coord_single_tap() {
   HS_EXPECT_NEAR(kept_y, 24.0f, 1e-5f);
 }
 
-/**
- * @brief Verifies a sub-pixel sample across the theta=0 seam wraps its X taps
- *        onto columns W-1 and 0 rather than collapsing onto one unwrapped column.
- */
-inline void test_antialias_seam_wraps_left_column() {
+/** @brief Checks wrapped antialias taps and their total alpha.
+ * @param x Horizontal sample coordinate on a 64-column canvas. */
+inline void expect_aa_seam_taps(float x) {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
@@ -93,13 +91,13 @@ inline void test_antialias_seam_wraps_left_column() {
   const float IN_ALPHA = 1.0f;
   float sum = 0.0f;
   bool all_in_range = true, saw_w_minus_1 = false, saw_zero = false;
-  aa.plot(-0.3f, 32.0f, Pixel(1, 1, 1), 0.0f, IN_ALPHA,
-          [&](float x, float y, const Pixel &, float, float a) {
+  aa.plot(x, 32.0f, Pixel(1, 1, 1), 0.0f, IN_ALPHA,
+          [&](float tx, float y, const Pixel &, float, float a) {
             (void)y;
             sum += a;
-            if (x < 0.0f || x >= static_cast<float>(W))
+            if (tx < 0.0f || tx >= static_cast<float>(W))
               all_in_range = false;
-            int xi = static_cast<int>(x);
+            int xi = static_cast<int>(tx);
             if (xi == W - 1)
               saw_w_minus_1 = true;
             if (xi == 0)
@@ -112,6 +110,14 @@ inline void test_antialias_seam_wraps_left_column() {
 }
 
 /**
+ * @brief Verifies a sub-pixel sample across the theta=0 seam wraps its X taps
+ *        onto columns W-1 and 0 rather than collapsing onto one unwrapped column.
+ */
+inline void test_antialias_seam_wraps_left_column() {
+  expect_aa_seam_taps(-0.3f);
+}
+
+/**
  * @brief Verifies a sample at the upper end of the [-W, 2W) x-contract
  *        (x_floor == 2W-1) wraps both taps in range instead of deriving the
  *        right tap from an unwrapped 2W column.
@@ -119,28 +125,7 @@ inline void test_antialias_seam_wraps_left_column() {
  *          fast_wrap's x < 2W precondition.
  */
 inline void test_antialias_far_seam_wraps_both_taps() {
-  constexpr int W = 64, H = 64;
-  Filter::Screen::AntiAlias<W, H> aa;
-
-  const float IN_ALPHA = 1.0f;
-  float sum = 0.0f;
-  bool all_in_range = true, saw_w_minus_1 = false, saw_zero = false;
-  aa.plot(2.0f * W - 0.3f, 32.0f, Pixel(1, 1, 1), 0.0f, IN_ALPHA,
-          [&](float x, float y, const Pixel &, float, float a) {
-            (void)y;
-            sum += a;
-            if (x < 0.0f || x >= static_cast<float>(W))
-              all_in_range = false;
-            int xi = static_cast<int>(x);
-            if (xi == W - 1)
-              saw_w_minus_1 = true;
-            if (xi == 0)
-              saw_zero = true;
-          });
-  HS_EXPECT_TRUE(all_in_range);
-  HS_EXPECT_TRUE(saw_w_minus_1);
-  HS_EXPECT_TRUE(saw_zero);
-  HS_EXPECT_NEAR(sum, IN_ALPHA, 1e-4f);
+  expect_aa_seam_taps(2.0f * 64 - 0.3f);
 }
 
 /**

@@ -46,7 +46,7 @@ inline void test_arc_angular_distance_clamps_to_minor_arc() {
  */
 inline void test_multiline_draw_covers_only_its_geodesic_edges() {
   constexpr int W = 128, H = 64;
-  const float ROW = math::PI_F / (H - 1);
+  const float ROW = math::RADIANS_PER_ROW<H>;
 
   std::vector<math::Vector> control;
   multiline_control_points(control);
@@ -91,7 +91,7 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
  */
 inline void test_multiline_draw_closed_adds_the_seam_edge() {
   constexpr int W = 128, H = 64;
-  const float ROW = math::PI_F / (H - 1);
+  const float ROW = math::RADIANS_PER_ROW<H>;
 
   std::vector<math::Vector> control;
   multiline_control_points(control);

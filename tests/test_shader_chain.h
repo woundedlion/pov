@@ -349,8 +349,12 @@ inline void test_shader_chain_modulation_preset_morph() {
       ParamSetResult::APPLIED);
   WB::advance_without_render(effect);
   const auto current = WB::frame_context(effect);
-  HS_EXPECT_NEAR(previous.modulation_morphs.front().mix, .25f, 0);
-  HS_EXPECT_NEAR(current.modulation_morphs.front().mix, .5f, 0);
+  HS_EXPECT_EQ(previous.modulation_morphs.size(), 1u);
+  HS_EXPECT_EQ(current.modulation_morphs.size(), 1u);
+  if (!previous.modulation_morphs.empty())
+    HS_EXPECT_NEAR(previous.modulation_morphs.front().mix, .25f, 0);
+  if (!current.modulation_morphs.empty())
+    HS_EXPECT_NEAR(current.modulation_morphs.front().mix, .5f, 0);
   HS_EXPECT_NEAR(WB::modulation_clocks(effect).modulation.phase.phase_turns,
                  math::wrap_t(old_phase + .0005f), 1e-6f);
   ShaderChainModulationMorphWrite bad{"modulation", b, a, 1.1f, false};

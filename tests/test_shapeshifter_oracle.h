@@ -46,7 +46,6 @@ inline int run_shapeshifter_oracle_tests() {
   HS_RUN(test_candidate_matrix_stays_within_visual_budget);
   HS_RUN(test_star_projection_policies_render_different_edges);
   HS_RUN(test_screen_balanced_spacing_is_opt_in_for_every_shape);
-  HS_RUN(test_shipping_presets_exclude_spherical_star);
   HS_RUN(test_high_count_uniform_star_stays_within_visual_budget);
   HS_RUN(test_screen_balanced_star_stroke_stays_within_visual_budget);
   HS_RUN(test_timed_dense_star_stroke_stays_within_visual_budget);

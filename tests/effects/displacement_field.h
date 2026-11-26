@@ -940,7 +940,7 @@ inline void test_displacement_field_manual_navigation() {
   hs_test::run_frames(effect, 2);
   HS_EXPECT_GE(WB::active_balls(effect),
                (WB::preview_balls<SMALL_W, SMALL_H>()));
-  HS_EXPECT_NEAR(effect.getParameters().find("Ball Amp")->get(),
+  HS_EXPECT_NEAR(required_param_value(effect, "Ball Amp"),
                  FX::PRESETS[1].ball_amp, 1e-6f);
   for (int repeat = 0; repeat < 100; ++repeat) {
     HS_EXPECT_TRUE(effect.selectPreset(repeat % 2));

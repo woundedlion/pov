@@ -267,7 +267,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   HS_EXPECT_LE(sink.plotted.size(), (size_t)hits);
   const float PROJECTED_DISC_PIXELS =
       math::PI_F * SPHERE_R * SPHERE_R /
-      ((math::TWO_PI_F / W) * (math::PI_F / (H - 1)));
+      ((math::TWO_PI_F / W) * (math::RADIANS_PER_ROW<H>));
   HS_EXPECT_GT(sink.plotted.size(),
                static_cast<size_t>(PROJECTED_DISC_PIXELS * 0.5f));
   for (const auto &[x, y] : sink.plotted) {

@@ -261,11 +261,10 @@ inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
   HS_EXPECT_EQ(mid.r, mid.g);
   HS_EXPECT_EQ(mid.g, mid.b);
 
-  constexpr float ROUND_TRIP_TOL = 16.0f;
   const Pixel green = oklch_to_pixel(srgb_to_oklch(64u, 180u, 75u));
-  HS_EXPECT_NEAR(green.r, srgb_to_linear(64u), ROUND_TRIP_TOL);
-  HS_EXPECT_NEAR(green.g, srgb_to_linear(180u), ROUND_TRIP_TOL);
-  HS_EXPECT_NEAR(green.b, srgb_to_linear(75u), ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(green.r, srgb_to_linear(64u), OKLAB_ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(green.g, srgb_to_linear(180u), OKLAB_ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(green.b, srgb_to_linear(75u), OKLAB_ROUND_TRIP_TOL);
 }
 
 // ============================================================================

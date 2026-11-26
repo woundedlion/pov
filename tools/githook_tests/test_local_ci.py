@@ -159,22 +159,6 @@ class CommitJobs(unittest.TestCase):
         self.assertEqual((self.tree / ".pio/libdeps/existing/library").read_text(), "retained")
         self.assertEqual(self.passed.read_text(), self.sha + "\n")
 
-    def test_interrupted_lock_holder_releases_the_next_waiter(self):
-        lock = self.root / "fixture-lock"
-        helper = [sys.executable, str(REPO / "tools/device_lock_guard.py")]
-        with subprocess.Popen([*helper, "hold", str(lock)], stdin=subprocess.PIPE,
-                              stdout=subprocess.PIPE) as owner:
-            try:
-                self.assertEqual(owner.stdout.readline().strip(), b"locked")
-                busy = subprocess.run([*helper, "try-hold", str(lock)], input=b"", capture_output=True)
-                self.assertEqual(busy.returncode, 1)
-            finally:
-                owner.kill()
-                owner.wait()
-        recovered = subprocess.run([*helper, "try-hold", str(lock)], input=b"", capture_output=True)
-        self.assertEqual(recovered.returncode, 0, recovered.stderr)
-        self.assertEqual(recovered.stdout.strip(), b"locked")
-
     def test_named_jobs_run_each_commit_without_creating_passed_record(self):
         (self.repo / "marker").write_text("next", encoding="utf-8")
         git_run(self.repo, "add", "marker", env=self.env)

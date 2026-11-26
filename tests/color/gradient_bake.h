@@ -58,10 +58,9 @@ inline void test_gradient_red_channel_monotone() {
 inline void test_gradient_solid_color() {
   Gradient grad{{0.0f, CPixel(10u, 20u, 30u)}, {1.0f, CPixel(10u, 20u, 30u)}};
   const Pixel want = oklch_to_pixel(srgb_to_oklch(10u, 20u, 30u));
-  constexpr float ROUND_TRIP_TOL = 16.0f;
-  HS_EXPECT_NEAR(want.r, srgb_to_linear(10u), ROUND_TRIP_TOL);
-  HS_EXPECT_NEAR(want.g, srgb_to_linear(20u), ROUND_TRIP_TOL);
-  HS_EXPECT_NEAR(want.b, srgb_to_linear(30u), ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(want.r, srgb_to_linear(10u), OKLAB_ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(want.g, srgb_to_linear(20u), OKLAB_ROUND_TRIP_TOL);
+  HS_EXPECT_NEAR(want.b, srgb_to_linear(30u), OKLAB_ROUND_TRIP_TOL);
   for (float t : {0.0f, 0.25f, 0.5f, 1.0f}) {
     const Color4 got = grad.get(t);
     HS_EXPECT_EQ(got.color.r, want.r);
@@ -679,41 +678,6 @@ inline void test_palette_wipe_arm_step_cadence() {
   HS_EXPECT_EQ(wipe.frames_remaining, 0);
   HS_EXPECT_FALSE(wipe.in_flight());
   HS_EXPECT_PIXEL(baked.get_color(0.5f), 4000, 5000, 6000);
-}
-
-/** @brief Asserts two baked LUTs agree at every sample point, to the code
- *  under IEEE math. */
-inline void expect_baked_equal(const BakedPalette &a, const BakedPalette &b) {
-  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-    const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
-    const Color4 ca = a.get(t);
-    const Color4 cb = b.get(t);
-    HS_EXPECT_LE(channel_gap(ca.color.r, cb.color.r), FAST_MATH_CODE_SLACK);
-    HS_EXPECT_LE(channel_gap(ca.color.g, cb.color.g), FAST_MATH_CODE_SLACK);
-    HS_EXPECT_LE(channel_gap(ca.color.b, cb.color.b), FAST_MATH_CODE_SLACK);
-    HS_EXPECT_NEAR(ca.alpha, cb.alpha, 0.0);
-  }
-}
-
-/**
- * @brief Asserts two baked LUTs agree within a channel tolerance.
- * @param a First LUT.
- * @param b Second LUT.
- * @param tolerance Largest permitted per-channel difference, 16-bit scale.
- * @return The worst per-channel difference seen.
- */
-inline int expect_baked_near(const BakedPalette &a, const BakedPalette &b,
-                             int tolerance) {
-  int worst = 0;
-  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
-    const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
-    const Pixel pa = a.get(t).color;
-    const Pixel pb = b.get(t).color;
-    const int delta = max_channel_gap(pa, pb);
-    worst = std::max(worst, delta);
-    HS_EXPECT_LE(delta, tolerance);
-  }
-  return worst;
 }
 
 /** @brief

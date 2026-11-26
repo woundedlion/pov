@@ -234,7 +234,7 @@ inline void test_circle_extent_follows_its_radius() {
     // No lit pixel past the rim, and the cap is sampled close enough to it
     // that the widest lit direction is within two rows of the rim.
     HS_EXPECT_LT(widest, rim);
-    HS_EXPECT_GT(widest, rim - 2.0f * (math::PI_F / (H - 1)));
+    HS_EXPECT_GT(widest, rim - 2.0f * (math::RADIANS_PER_ROW<H>));
     previous_lit = lit;
   }
 }
