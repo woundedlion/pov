@@ -16,6 +16,7 @@
 
 #include "core/platform/platform.h"
 #include "core/math/3dmath.h"
+#include "core/math/cube_projection.h"
 #include "core/memory.h"
 #include <cmath>
 
@@ -208,46 +209,9 @@ public:
   static __attribute__((always_inline)) Projection
   project(const math::Vector &p) {
     HS_AUDIT_CHECK(std::fabs(p.x * p.x + p.y * p.y + p.z * p.z - 1.0f) < 1e-3f);
-    float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);
-    int face = 0;
-    float u = 0, v = 0;
-
-    if (ax >= ay && ax >= az) {
-      float inv = 1.0f / ax;
-      if (p.x >= 0) {
-        face = 0;
-        u = -p.z * inv;
-        v = p.y * inv;
-      } else {
-        face = 1;
-        u = p.z * inv;
-        v = p.y * inv;
-      }
-    } else if (ay >= ax && ay >= az) {
-      float inv = 1.0f / ay;
-      if (p.y >= 0) {
-        face = 2;
-        u = p.x * inv;
-        v = -p.z * inv;
-      } else {
-        face = 3;
-        u = p.x * inv;
-        v = p.z * inv;
-      }
-    } else {
-      float inv = 1.0f / az;
-      if (p.z >= 0) {
-        face = 4;
-        u = p.x * inv;
-        v = p.y * inv;
-      } else {
-        face = 5;
-        u = -p.x * inv;
-        v = p.y * inv;
-      }
-    }
-
-    return {face, u, v};
+    const auto f = math::project_cube_face(p);
+    const float inv = 1.0f / f.major;
+    return {f.face, f.u * inv, f.v * inv};
   }
 
   /**
@@ -284,13 +248,13 @@ private:
   static math::Vector texel_direction(int face, float u, float v) {
     math::Vector dir;
     if (face == 0)
-      dir = math::Vector(1.0f, v, -u); // +X
+      dir = math::Vector(1.0f, v, u); // +X
     else if (face == 1)
-      dir = math::Vector(-1.0f, v, u); // -X
+      dir = math::Vector(-1.0f, v, -u); // -X
     else if (face == 2)
-      dir = math::Vector(u, 1.0f, -v); // +Y
+      dir = math::Vector(u, 1.0f, v); // +Y
     else if (face == 3)
-      dir = math::Vector(u, -1.0f, v); // -Y
+      dir = math::Vector(u, -1.0f, -v); // -Y
     else if (face == 4)
       dir = math::Vector(u, v, 1.0f); // +Z
     else

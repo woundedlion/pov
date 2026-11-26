@@ -432,16 +432,16 @@ inline void test_cubemap_coherent_seeds() {
         math::Vector q;
         switch (face) {
         case 0:
-          q = {1, v, -u};
+          q = {1, v, u};
           break;
         case 1:
-          q = {-1, v, u};
+          q = {-1, v, -u};
           break;
         case 2:
-          q = {u, 1, -v};
+          q = {u, 1, v};
           break;
         case 3:
-          q = {u, -1, v};
+          q = {u, -1, -v};
           break;
         case 4:
           q = {u, v, 1};

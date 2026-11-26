@@ -54,8 +54,8 @@ inline void test_gs_shared_cube_projection() {
           const auto projection = ReactionGraph::CubemapLUT::project(direction);
           if (fabsf(u) < 1.0f && fabsf(v) < 1.0f) {
             HS_EXPECT_EQ(projection.face, face);
-            HS_EXPECT_NEAR(projection.u, face < 2 ? -u : u, 2e-7f);
-            HS_EXPECT_NEAR(projection.v, face >= 2 && face < 4 ? -v : v, 2e-7f);
+            HS_EXPECT_NEAR(projection.u, u, 2e-7f);
+            HS_EXPECT_NEAR(projection.v, v, 2e-7f);
           }
           HS_EXPECT_EQ(GSWhiteBox::projected_color_noise(gs, direction),
                        GSWhiteBox::color_noise(gs, direction));

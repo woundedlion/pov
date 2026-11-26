@@ -564,11 +564,8 @@ private:
 
   HS_O3_FN HS_HOT_INLINE float sample_color_noise(
       const ReactionGraph::CubemapLUT::Projection &projection) const {
-    const int face = projection.face;
-    const float u = face < 2 ? -projection.u : projection.u;
-    const float v = face >= 2 && face < 4 ? -projection.v : projection.v;
-    const Pattern::SphereLutSample sample =
-        Pattern::prepare_sphere_lut_face(face, u, v);
+    const Pattern::SphereLutSample sample = Pattern::prepare_sphere_lut_face(
+        projection.face, projection.u, projection.v);
     const float now = sample.sample({color_noise_lut, true});
     if (!slab_noise.previous)
       return now;
