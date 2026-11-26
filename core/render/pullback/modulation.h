@@ -454,7 +454,7 @@ struct Params {
     if constexpr (AllowDisplacement)
       return supports_source(row.source) && row.evaluation == EvaluationV &&
              row.mechanic.kind == initial.mechanic.kind;
-    return row.source == initial.source &&
+    return row.source == initial.source && row.evaluation == EvaluationV &&
            row.mechanic.kind == initial.mechanic.kind;
   }
   /// Whether a document edit preserves this family's topology.
