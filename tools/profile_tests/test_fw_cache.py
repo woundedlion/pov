@@ -155,6 +155,12 @@ class CacheKey(FirmwareCacheFixture):
                       / "package.json", "1.150202.0")
         self.assertNotEqual(self.key(PLATFORMIO_BUILD_FLAGS="-D A -D B"), base)
 
+        single_line = self.core / "packages" / "toolchain-gccarmnoneeabi-teensy" / "package.json"
+        single_line.write_text('{"name":"x","version":"1.150203.0"}', encoding="utf-8")
+        first = self.key(PLATFORMIO_BUILD_FLAGS="-D A -D B")
+        single_line.write_text('{"name":"x","version":"1.150204.0"}', encoding="utf-8")
+        self.assertNotEqual(self.key(PLATFORMIO_BUILD_FLAGS="-D A -D B"), first)
+
     def test_whitespace_inside_quotes_changes_the_key_and_build_directory(self):
         first = '-I "include one"'
         second = '-I "include  one"'

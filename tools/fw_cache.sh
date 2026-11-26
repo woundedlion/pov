@@ -50,13 +50,13 @@ hs_fw_cache_tree() {
   git rev-parse 'HEAD^{tree}'
 }
 
-_hs_fw_manifest_versions() {
-  local label=$1 root=$2 manifest version
+_hs_fw_manifest_digests() {
+  local label=$1 root=$2 manifest digest
   shift 2
   for manifest in "$@"; do
     [ -f "$manifest" ] || continue
-    version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' "$manifest" | head -n 1)
-    printf '%s/%s %s\n' "$label" "${manifest#"$root"/}" "$version"
+    digest=$(sha256sum < "$manifest" | cut -c1-64)
+    printf '%s/%s %s\n' "$label" "${manifest#"$root"/}" "$digest"
   done
 }
 
@@ -65,8 +65,8 @@ hs_fw_cache_toolchain() {
   local platforms=${PLATFORMIO_PLATFORMS_DIR:-$core/platforms}
   local packages=${PLATFORMIO_PACKAGES_DIR:-$core/packages}
   pio --version || return 2
-  _hs_fw_manifest_versions platforms "$platforms" "$platforms"/teensy*/platform.json
-  _hs_fw_manifest_versions packages "$packages" "$packages"/*teensy*/package.json
+  _hs_fw_manifest_digests platforms "$platforms" "$platforms"/teensy*/platform.json
+  _hs_fw_manifest_digests packages "$packages" "$packages"/*teensy*/package.json
 }
 
 # Collapse argument separators while keeping quoted and escaped bytes.
