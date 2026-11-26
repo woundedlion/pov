@@ -109,7 +109,7 @@ struct SphereInterference {
    * @param params Source controls.
    * @return Wrapped phase. */
   static State advance(const State &state, const Params &params) {
-    HS_CHECK(valid(params), "pattern interference: invalid advance parameters");
+    HS_CHECK(valid(params), "pattern wave pair: invalid advance parameters");
     return DirectionalSine::advance(state, params);
   }
   /** @brief Prepares both waves with their shared clock.
@@ -118,7 +118,7 @@ struct SphereInterference {
    * @return Immutable wave pair. */
   static Prepared prepare(const Params &params, const State &state) {
     HS_CHECK(valid(params),
-             "pattern interference: invalid preparation parameters");
+             "pattern wave pair: invalid preparation parameters");
     return {DirectionalSine::prepare(params, state),
             DirectionalSine::prepare({params.axis_b, params.frequency_b,
                                       params.offset_b, params.speed},
