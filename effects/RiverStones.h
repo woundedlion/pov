@@ -20,8 +20,8 @@
 struct RiverStonesSpec : Pullback::Spec {
   /// Samples the authored tessellation endpoints during a preset edge.
   static constexpr bool SOURCE_MORPH = true;
-#if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) ||                  \
-    (HS_ENABLE_TEST_HOOKS && defined(HS_TEST_RIVER_STONES_HEX_TABLE))
+#if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
+  /// Samples the prewarmed endpoint hex-cell tables on device.
   static constexpr bool HEX_MORPH_TABLE = true;
 #endif
   /// Uses the radial lookup for coincident ripple waves.
