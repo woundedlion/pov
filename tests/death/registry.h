@@ -2301,7 +2301,7 @@ inline const Case *all_cases(int &n) {
               {"pullback_invalid_color_mechanic",
                case_pullback_invalid_color_mechanic,
                "core/render/pullback/color_state.h",
-               "(mechanic.kind == ColorModulation::Mechanic::OPACITY) unknown modulation mechanic",
+               "(mechanic.kind == ColorModulation::Mechanic::OPACITY)",
                false, "death: admitted"},
               {"pullback_unbound_modulation_column",
                case_pullback_unbound_modulation_column,

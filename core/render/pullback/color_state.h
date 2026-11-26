@@ -586,8 +586,7 @@ apply_mechanic_scalar(ColorSample &sample, float scalar,
       mechanic.kind == ColorModulation::Mechanic::POSITIVE_LIGHTNESS_LIFT)
     apply_perceptual_scalar(sample, scalar, mechanic);
   else {
-    HS_CHECK(mechanic.kind == ColorModulation::Mechanic::OPACITY,
-             "unknown modulation mechanic");
+    HS_AUDIT_CHECK(mechanic.kind == ColorModulation::Mechanic::OPACITY);
     sample.color = ColorModulation::Opacity::apply(sample.color, scalar,
                                                    {mechanic.amount});
   }
