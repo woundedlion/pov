@@ -148,6 +148,8 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
     rasterize<W, H>(pipeline, canvas, shape, shader);
     return;
   }
+  require_scan_shape<W, H, Shape>();
+  check_canvas_dims<W, H>(canvas);
   check_pipeline_prepared(pipeline, canvas);
   const auto field = [&](int x, int y, uint64_t time) {
     SDF::DistanceResult hit;
@@ -176,7 +178,7 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
     pipeline.plot(canvas, x, y, straight, result.age, alpha);
   };
   if constexpr (std::is_same_v<Shape, SDF::Star>) {
-    if (!canvas.column_basis()) {
+    if (!column_basis(pipeline, canvas)) {
       ScratchScope storage(scratch_arena_b);
       if (!prepared) {
         auto *local = scratch_arena_b.make<ProjectedStar<W, H>>();
@@ -243,7 +245,7 @@ void rasterize_four_stroke_sdf(auto &pipeline, Canvas &canvas,
   const auto pieces = window_pieces<W>(clip.x_clip(), canvas.time_window());
   const float halo =
       2 * math::PI_F / W + math::DisplayGeometry<H>::RADIANS_PER_ROW;
-  const auto *basis = canvas.column_basis();
+  const auto *basis = column_basis(pipeline, canvas);
   const bool moving = basis && basis->azimuth && !Spacetime::flat_surface();
   const float padding =
       halo + (moving ? basis->sweep_arc + basis->drift.length() : 0.f);
@@ -361,7 +363,7 @@ void rasterize(auto &pipeline, Canvas &canvas, const Shape &shape,
                              FourStroke::Direction n) {
     return material.arrow ? tangent(x, y, time, n) : output(x, y, time, n);
   };
-  const auto *basis = canvas.column_basis();
+  const auto *basis = column_basis(pipeline, canvas);
   std::optional<ScratchScope> drift_scratch;
   std::optional<DriftColumns<W>> drifted;
   if (basis && basis->azimuth && !Spacetime::flat_surface() &&
