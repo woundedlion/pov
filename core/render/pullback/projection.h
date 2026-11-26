@@ -27,6 +27,20 @@ inline math::Quaternion projection_frame_base(bool tilted) {
                 : math::Quaternion();
 }
 
+/** @brief Projection orientation policy. SPIN_WANDER_TILTED composes spin
+    and wander onto projection_frame_base(true). */
+enum class ProjectionFrame : uint8_t {
+  IDENTITY,
+  SPIN_WANDER,
+  SPIN_WANDER_TILTED
+};
+
+/** @brief Frame topology values, in ProjectionFrame order. */
+inline constexpr const char *PROJECTION_FRAME_IDS[] = {
+    "identity", "spin-wander", "spin-wander-tilted"};
+static_assert(std::size(PROJECTION_FRAME_IDS) ==
+              static_cast<size_t>(ProjectionFrame::SPIN_WANDER_TILTED) + 1);
+
 namespace Projection {
 
 /** @brief Bonne hemisphere catalog values. */

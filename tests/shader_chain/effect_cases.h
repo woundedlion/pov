@@ -47,7 +47,7 @@ inline void test_shader_chain_composed_frame_parity() {
   param_as<In::Op::RotateChainParams>(program, 0).wander =
       params.template get<"projection">().camera_wander;
   auto &projection = param_as<In::Op::GnomonicChainParams>(program, 2);
-  projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  projection.frame = static_cast<uint8_t>(Pullback::ProjectionFrame::IDENTITY);
   projection.singularity_fade =
       params.template get<"projection">().singularity_fade;
   static_cast<PB::MirrorParams &>(param_as<In::Op::MirrorWarpParams>(

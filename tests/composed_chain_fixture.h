@@ -101,8 +101,8 @@ void verify_export(size_t preset, int channel_tolerance, float alpha_tolerance,
                           program, index)
                           .frame;
         if (frame ==
-            static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER_TILTED))
-          frame = static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER);
+            static_cast<uint8_t>(Pullback::ProjectionFrame::SPIN_WANDER_TILTED))
+          frame = static_cast<uint8_t>(Pullback::ProjectionFrame::SPIN_WANDER);
       }
       state.spin_phase = 0.0f;
       if (id == "sphere.rotate.v2")

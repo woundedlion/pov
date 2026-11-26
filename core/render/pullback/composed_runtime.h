@@ -886,16 +886,18 @@ private:
    * @return False for an identity projection frame. */
   bool projection_frame_active() const {
     if constexpr (requires { params.template get<"projection">().frame; })
-      return params.template get<"projection">().frame != 0;
+      return params.template get<"projection">().frame !=
+             static_cast<uint8_t>(ProjectionFrame::IDENTITY);
     return true;
   }
 
   /** @brief Whether the projection frame is the tilted spin-wander frame.
-   * @return The authored frame value 2 when the frame is a parameter, else
-   *         `TILTED_PROJECTION_FRAME`. */
+   * @return Whether the authored frame is `SPIN_WANDER_TILTED` when the
+   *         frame is a parameter, else `TILTED_PROJECTION_FRAME`. */
   bool projection_frame_tilted() const {
     if constexpr (requires { params.template get<"projection">().frame; })
-      return params.template get<"projection">().frame == 2;
+      return params.template get<"projection">().frame ==
+             static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER_TILTED);
     return Traits::TILTED_PROJECTION_FRAME;
   }
 

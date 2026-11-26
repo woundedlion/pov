@@ -465,7 +465,8 @@ struct AtlasProjectionParams : ProjectionParams {
   float area_correction = 0.0f; ///< Polyhedral atlas blend toward equal area.
   uint8_t layout = 1;           ///< Peirce or Airocean layout.
   uint8_t hemisphere = 0;       ///< Gnomonic or Bonne hemisphere.
-  uint8_t frame = 1; ///< Identity, spin-wander or tilted spin-wander frame.
+  uint8_t frame = static_cast<uint8_t>(
+      ProjectionFrame::SPIN_WANDER); ///< ProjectionFrame topology value.
   /// Projection fields and atlas-specific controls.
   static constexpr auto FIELDS = concat_fields<AtlasProjectionParams>(
       ProjectionParams::FIELDS,
@@ -486,9 +487,6 @@ struct AtlasProjectionParams : ProjectionParams {
               "area-correction", &AtlasProjectionParams::area_correction,
               "Area Correction", 0.0f, 1.0f, FieldCurve::LERP,
               FieldGate::AREA_CORRECTION}});
-  /// Catalog ids of the camera frame modes.
-  static constexpr const char *FRAME_IDS[] = {"identity", "spin-wander",
-                                              "spin-wander-tilted"};
   /// Catalog ids of the atlas layouts.
   static constexpr const char *LAYOUT_IDS[] = {"diamond", "square",
                                                "horizontal", "vertical"};
@@ -498,7 +496,8 @@ struct AtlasProjectionParams : ProjectionParams {
   /// Frame, layout and hemisphere selectors.
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<AtlasProjectionParams>{
-          "frame", &AtlasProjectionParams::frame, FRAME_IDS, 1},
+          "frame", &AtlasProjectionParams::frame, PROJECTION_FRAME_IDS,
+          static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER)},
       TopologyField<AtlasProjectionParams>{
           "layout", &AtlasProjectionParams::layout, LAYOUT_IDS, 1},
       TopologyField<AtlasProjectionParams>{

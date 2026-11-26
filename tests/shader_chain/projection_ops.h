@@ -146,7 +146,7 @@ inline void test_shader_chain_atlas_full_face_edge_fade() {
     return;
   auto &projection = param_as<In::Op::PolyhedralAtlasChainParams>(program, 1);
   auto &source = param_as<In::Op::GridSampleParams>(program, 2);
-  projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  projection.frame = static_cast<uint8_t>(Pullback::ProjectionFrame::IDENTITY);
   source.coverage_mode =
       static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE);
   const auto *width_field = schema_field(*program.ops()[2].op, "edge-width");
@@ -229,7 +229,7 @@ template <typename Model> inline void expect_project_frame_policy() {
   const uint32_t walk_time = state.walk_time;
   const float spin = state.spin_phase;
   const math::Quaternion wander = state.wander;
-  params.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  params.frame = static_cast<uint8_t>(Pullback::ProjectionFrame::IDENTITY);
   for (int frame = 0; frame < 3; ++frame)
     program.advance();
   HS_EXPECT_EQ(state.walk_time, walk_time);
@@ -249,7 +249,7 @@ template <typename Model> inline void expect_project_frame_policy() {
     const auto expected = PB::Kernel::project(seed, view, projected);
     HS_EXPECT_TRUE(plane_identical(actual, expected));
   }
-  params.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER);
+  params.frame = static_cast<uint8_t>(Pullback::ProjectionFrame::SPIN_WANDER);
   program.advance();
   HS_EXPECT_EQ(state.walk_time, walk_time + 1);
   HS_EXPECT_NE(state.spin_phase, spin);
@@ -259,7 +259,7 @@ template <typename Model> inline void expect_project_frame_policy() {
   HS_EXPECT_EQ(
       std::memcmp(&prepared.conjugate, &expected, sizeof(math::Quaternion)), 0);
   params.frame =
-      static_cast<uint8_t>(In::Op::ProjectionFrame::SPIN_WANDER_TILTED);
+      static_cast<uint8_t>(Pullback::ProjectionFrame::SPIN_WANDER_TILTED);
   program.advance();
   HS_EXPECT_EQ(state.walk_time, walk_time + 2);
   program.prepare(ctx);
@@ -552,7 +552,7 @@ inline void test_shader_chain_projection_plane_bound() {
     if (!expect_compiled(program.compile(chain)))
       return;
     param_as<In::Op::ProjectChainParams>(program, 0).frame =
-        static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+        static_cast<uint8_t>(Pullback::ProjectionFrame::IDENTITY);
     HS_EXPECT_TRUE(op.runtime.plane_bound != nullptr);
     if (op.runtime.plane_bound == nullptr)
       continue;

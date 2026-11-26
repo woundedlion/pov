@@ -549,7 +549,7 @@ inline void test_shader_chain_composed_noise_domain() {
   if (!expect_compiled(program.compile(CHAIN)))
     return;
   auto &projection = param_as<In::Op::ProjectChainParams>(program, 0);
-  projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+  projection.frame = static_cast<uint8_t>(Pullback::ProjectionFrame::IDENTITY);
   for (int index = 1; index <= 6; ++index) {
     auto &params = param_as<In::Op::AffineWarpParams>(program, index);
     params.scale_x = params.scale_y = 1.0f / 64.0f;
