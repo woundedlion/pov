@@ -16,12 +16,13 @@ A DRC gate runs kicad-cli on each candidate. KICAD_CLI overrides discovery
 and must name an existing kicad-cli of the pinned KiCad release; a mismatched
 override is fatal. With no pinned KiCad installed the ranking still runs, ungated.
 
-Errors are split: 'refill-fixable' clearance/hole errors against a zone (they clear
-on a KiCad zone refill) vs 'REAL FAULTS' (shorts/crossings/opens, and track-to-track
-clearance), which disqualify a candidate from the recommended pick. A candidate
-whose DRC did not produce a result reports as NOT GATED and is likewise
-ineligible, as is one with vias below the fabrication floor or any footprint off F.Cu. Project-rule and zone floors
-run independently of KiCad availability; refusals report as RULES.
+Errors are split: 'refill-fixable' clearance/hole errors against a zone (they
+clear on a KiCad zone refill) vs 'REAL FAULTS' (shorts/crossings/opens, and
+track-to-track clearance), which disqualify a candidate from the recommended
+pick. A candidate whose DRC did not produce a result reports as NOT GATED and is
+likewise ineligible, as is one with vias below the fabrication floor or any
+footprint off F.Cu. Project-rule and zone floors run independently of KiCad
+availability; refusals report as RULES.
 
 Scoring favors fewer fast-net vias and shorter fast nets. Placement distances
 are reported unscored.
@@ -371,14 +372,6 @@ def _print_overall_routing(results):
                 err, unc = dc["errors"], dc["unconnected"]
                 line += f" {err:>7} {unc:>6}  {flag}"
         print(line)
-    if drc_ran:
-        print("  note: 'refill-fixable' = clearance/hole errors against a zone, which clear"
-              " on a KiCad zone refill (Quilter omits via antipads); 'REAL FAULTS' ="
-              " shorts/crossings/opens and track-to-track clearance;"
-              f" 'SMALL VIAS' = below {MIN_STANDARD_VIA_DIAMETER_MM:g}/"
-              f"{MIN_STANDARD_VIA_DRILL_MM:.2f} mm; 'NOT GATED' = no DRC result,"
-              " candidate can't be recommended; 'BACK-SIDE FOOTPRINTS' = a footprint"
-              " not on F.Cu; 'RULES' = project/zone floor refusal; both ineligible.")
 
 
 
@@ -453,6 +446,14 @@ def _print_candidate_ranking(results):
 
     for si, k in sorted(ranked, reverse=True):
         print(f"{k:>6} {si:>12.1f}  {drc_tag(k)}")
+    print("  eligible: 'ok' = clean; 'refill' = refill-fixable, clearance/hole errors"
+          " against a zone, which clear on a KiCad zone refill (Quilter omits via"
+          " antipads).")
+    print(f"  ineligible: 'VIA' = SMALL VIAS, below {MIN_STANDARD_VIA_DIAMETER_MM:g}/"
+          f"{MIN_STANDARD_VIA_DRILL_MM:.2f} mm; '?' and 'FAILED' = NOT GATED, no DRC"
+          " result; 'BACK' = BACK-SIDE FOOTPRINTS, a footprint not on F.Cu;"
+          " 'RULES' = project/zone floor refusal; 'REAL' = REAL FAULTS,"
+          " shorts/crossings/opens and track-to-track clearance.")
     if ranked:
         # A candidate must pass the placement, via and DRC gates.
         eligible = [t for t in ranked if drc_tag(t[1]) in ("ok", "refill")]
@@ -467,7 +468,7 @@ def _print_candidate_ranking(results):
             return 1
         print(f"\n>> best by signal integrity: Candidate {best}{note}")
         print("   verify by eye -- these are auto-routed; refill zones + DRC, then"
-              " hand-polish the winner. 'refill'-tagged DRC clears on a KiCad zone refill.")
+              " hand-polish the winner.")
     return 0
 
 

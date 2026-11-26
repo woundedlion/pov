@@ -3,6 +3,7 @@ import io
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -422,6 +423,18 @@ class MainTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn("No eligible candidate", output)
         self.assertNotIn("best by signal integrity", output)
+
+    def test_tag_legend_prints_without_drc(self):
+        result, output = self.rank_sources(
+            [SYNTHETIC_BOARD],
+            [analyze_candidates.no_drc(analyze_candidates.DRC_MISSING)])
+        self.assertEqual(result, 1)
+        self.assertIn("DRC skipped", output)
+        self.assertRegex(output, r"eligible: 'ok' = clean; 'refill' = ")
+        for tag in ("'VIA' = SMALL VIAS", "'?' and 'FAILED' = NOT GATED",
+                    "'BACK' = BACK-SIDE FOOTPRINTS", "'RULES' = ",
+                    "'REAL' = REAL FAULTS"):
+            self.assertRegex(output, r"ineligible: .*" + re.escape(tag))
 
     def test_floor_refusals_have_a_distinct_report(self):
         result, output = self.rank_sources(
