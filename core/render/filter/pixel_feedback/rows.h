@@ -433,9 +433,8 @@ template <int W, int H>
 inline HS_HOT_INLINE typename Feedback<W, H>::Sample
 Feedback<W, H>::sample_lane(const FlushContext &ctx, int arm,
                             Lane &lane) const {
-  const bool across = lane.side == Side::BEHIND  ? ctx.frames.back != nullptr
-                      : lane.side == Side::AHEAD ? ctx.coverage.cover != nullptr
-                                                 : false;
+  HS_AUDIT_CHECK(lane.side != Side::AHEAD || !ctx.coverage.cover);
+  const bool across = lane.side == Side::BEHIND && ctx.frames.back != nullptr;
   if (across)
     return sample_across(ctx, arm, lane.read.x, lane.read.y);
   if (lane.side != Side::WITHIN)
