@@ -697,6 +697,25 @@ fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
     return 1.0f;
 }
 
+/** @brief Representative of @p delta in the repeat basis cell, reduced in
+    double for basis coordinates too large for an exact float floor.
+    @param delta Stage displacement.
+    @param repeat Reduced repeat basis.
+    @return @p delta minus the lattice vector at the corner of its cell. */
+HS_FLASH_MEMBER inline math::Complex
+wide_repeat_base(const math::Complex &delta, const PreparedRepeat &repeat) {
+  const double ax = repeat.a.re, ay = repeat.a.im;
+  const double bx = repeat.b.re, by = repeat.b.im;
+  const double x = delta.re, y = delta.im;
+  const double det = ax * by - ay * bx;
+  const double u = (x * by - y * bx) / det;
+  const double v = (y * ax - x * ay) / det;
+  const double a = u - std::floor(u);
+  const double b = v - std::floor(v);
+  return {static_cast<float>(a * ax + b * bx),
+          static_cast<float>(a * ay + b * by)};
+}
+
 /** @brief Shortest representative of @p delta modulo a GENERAL repeat.
     @param delta Stage displacement.
     @param repeat Reduced repeat basis.
@@ -708,24 +727,12 @@ closest_repeat_offset(const math::Complex &delta,
   const float u = repeat.dual_a.re * delta.re + repeat.dual_a.im * delta.im;
   const float v = repeat.dual_b.re * delta.re + repeat.dual_b.im * delta.im;
   math::Complex base;
-  if (fabsf(u) < 0x1p12f && fabsf(v) < 0x1p12f) {
+  if (fabsf(u) < 0x1p12f && fabsf(v) < 0x1p12f) [[likely]] {
     const float a = floorf(u), b = floorf(v);
     base = {delta.re - a * repeat.a.re - b * repeat.b.re,
             delta.im - a * repeat.a.im - b * repeat.b.im};
   } else {
-    const double ax = repeat.a.re, ay = repeat.a.im;
-    const double bx = repeat.b.re, by = repeat.b.im;
-    const double x = delta.re, y = delta.im;
-    const double det = ax * by - ay * bx;
-    const auto fraction = [det](double p, double q) {
-      const double reduced = std::fmod(p, det) - std::fmod(q, det);
-      const double coordinate = reduced / det;
-      return coordinate - std::floor(coordinate);
-    };
-    const double a = fraction(x * by, y * bx);
-    const double b = fraction(y * ax, x * ay);
-    base = {static_cast<float>(a * ax + b * bx),
-            static_cast<float>(a * ay + b * by)};
+    base = wide_repeat_base(delta, repeat);
   }
   math::Complex best = base;
   for (const math::Complex &corner :
