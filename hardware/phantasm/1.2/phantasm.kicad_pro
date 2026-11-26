@@ -15,7 +15,8 @@
         "solder_mask_to_copper_clearance": 0.1
       },
       "rule_severities": {
-        "silk_over_copper": "error"
+        "silk_over_copper": "error",
+        "hole_to_hole": "error"
       }
     }
   },

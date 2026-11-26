@@ -14,8 +14,9 @@ import json
 import os
 import builder as B
 import sexp
-from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,
-                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, apply_project_floors)
+from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, REQUIRED_SEVERITIES,
+                         RULE_MINIMUMS, UNPLACED_DEFAULT_CLASS, UNPLACED_RULES,
+                         apply_project_floors)
 from kicad_common import atomic_write_text
 from kicad_common import require_writable, reset_uid_sequence
 from revision_policy import (DEFAULT_OUT, DEFAULT_SCH, GENERATION_REVISIONS,
@@ -42,7 +43,7 @@ def project_seed(root_uuid):
     return json.dumps({
         "board": {"design_settings": {
             "rules": {**RULE_MINIMUMS, **NEW_LAYOUT_RULES},
-            "rule_severities": {"silk_over_copper": "error"},
+            "rule_severities": dict(REQUIRED_SEVERITIES),
         }},
         "boards": [],
         "cvpcb": {"equivalence_files": []},

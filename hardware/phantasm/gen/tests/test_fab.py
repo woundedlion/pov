@@ -19,7 +19,7 @@ from committed_boards import committed_project  # noqa: E402
 from constraints import ZONE_DEFAULTS, ZONE_FAB_MINIMUMS  # noqa: E402
 import heal_clearance  # noqa: E402
 import sexp  # noqa: E402
-from constraints import NEW_LAYOUT_RULES  # noqa: E402
+from constraints import NEW_LAYOUT_RULES, REQUIRED_SEVERITIES  # noqa: E402
 from kicad_common import F, property_value  # noqa: E402
 from kicad_env import expected_nodes, footprints_by_ref  # noqa: E402
 
@@ -34,7 +34,7 @@ class ProjectRulesTests(unittest.TestCase):
         document = {
             "board": {"design_settings": {
                 "rules": {**fab.RULE_MINIMUMS, **NEW_LAYOUT_RULES},
-                "rule_severities": {"silk_over_copper": "error"}}},
+                "rule_severities": dict(REQUIRED_SEVERITIES)}},
             "net_settings": {
                 "classes": [dict(fab.DEFAULT_CLASS_MINIMUMS, name="Default")]
             },
@@ -93,18 +93,18 @@ class ProjectRulesTests(unittest.TestCase):
                 with self.assertRaisesRegex(fab.ProjectRulesError, field):
                     fab.validate_project_rules(project)
 
-    def test_heal_restores_silk_severity(self):
-        with tempfile.TemporaryDirectory() as directory:
-            project = self.write_project(directory)
-            document = json.loads(project.read_text(encoding="utf-8"))
-            document["board"]["design_settings"]["rule_severities"][
-                "silk_over_copper"] = "warning"
-            project.write_text(json.dumps(document), encoding="utf-8")
-            with self.assertRaisesRegex(fab.ProjectRulesError, "silk_over_copper"):
+    def test_heal_restores_required_severities(self):
+        for name in REQUIRED_SEVERITIES:
+            with self.subTest(severity=name), tempfile.TemporaryDirectory() as directory:
+                project = self.write_project(directory)
+                document = json.loads(project.read_text(encoding="utf-8"))
+                document["board"]["design_settings"]["rule_severities"][name] = "warning"
+                project.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(fab.ProjectRulesError, name):
+                    fab.validate_project_rules(project)
+                self.assertTrue(heal_clearance.heal_project(project))
                 fab.validate_project_rules(project)
-            self.assertTrue(heal_clearance.heal_project(project))
-            fab.validate_project_rules(project)
-            self.assertFalse(heal_clearance.heal_project(project))
+                self.assertFalse(heal_clearance.heal_project(project))
 
 
 class ViaGeometryTests(unittest.TestCase):

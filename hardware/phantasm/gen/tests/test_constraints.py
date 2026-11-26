@@ -7,8 +7,8 @@ GEN = Path(__file__).resolve().parent.parent
 UNPLACED_PROJECT = GEN.parent / "1.2" / "phantasm.kicad_pro"
 sys.path.insert(0, str(GEN))
 
-from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,  # noqa: E402
-                         UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, rule_checks,
+from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, REQUIRED_SEVERITIES,  # noqa: E402
+                         RULE_MINIMUMS, UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, rule_checks,
                          rule_shortfalls, apply_project_floors)
 
 
@@ -34,7 +34,9 @@ class UnplacedProjectConstraintTests(unittest.TestCase):
         for field, minimum in NEW_LAYOUT_RULES.items():
             with self.subTest(field=field):
                 self.assertGreaterEqual(settings["rules"][field], minimum)
-        self.assertEqual(settings["rule_severities"]["silk_over_copper"], "error")
+        for name, required in REQUIRED_SEVERITIES.items():
+            with self.subTest(severity=name):
+                self.assertEqual(settings["rule_severities"][name], required)
 
     def test_default_net_class_matches_the_captured_values(self):
         default = default_class(self.project)
@@ -58,15 +60,16 @@ class RuleCheckTests(unittest.TestCase):
         return {
             "board": {"design_settings": {
                 "rules": {**RULE_MINIMUMS, **NEW_LAYOUT_RULES},
-                "rule_severities": {"silk_over_copper": "error"}}},
+                "rule_severities": dict(REQUIRED_SEVERITIES)}},
             "net_settings": {"classes": [dict(DEFAULT_CLASS_MINIMUMS, name="Default")]},
         }
 
-    def test_checks_every_floor_and_the_silk_severity(self):
+    def test_checks_every_floor_and_severity(self):
         checks = rule_checks(self.project(), RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS)
         self.assertEqual(
             set(checks),
             {*RULE_MINIMUMS, *NEW_LAYOUT_RULES, "rule_severities.silk_over_copper",
+             "rule_severities.hole_to_hole",
              *(f"Default.{field}" for field in DEFAULT_CLASS_MINIMUMS)})
         self.assertTrue(all(met for _, _, met in checks.values()))
         self.assertEqual(rule_shortfalls(self.project(), RULE_MINIMUMS,
@@ -95,10 +98,12 @@ class RuleCheckTests(unittest.TestCase):
     def test_shortfalls_are_the_unmet_checks(self):
         project = self.project()
         project["board"]["design_settings"]["rule_severities"]["silk_over_copper"] = "warning"
+        del project["board"]["design_settings"]["rule_severities"]["hole_to_hole"]
         project["net_settings"]["classes"][0]["via_drill"] = 0
         self.assertEqual(
             rule_shortfalls(project, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS),
             {"rule_severities.silk_over_copper": ("warning", "error"),
+             "rule_severities.hole_to_hole": (None, "error"),
              "Default.via_drill": (0, DEFAULT_CLASS_MINIMUMS["via_drill"])})
 
 

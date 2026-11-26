@@ -54,6 +54,12 @@ NEW_LAYOUT_RULES = {
     "solder_mask_to_copper_clearance": 0.1,
 }
 
+# DRC rule severities that `kicad-cli pcb drc --severity-error` must report.
+REQUIRED_SEVERITIES = {
+    "silk_over_copper": "error",
+    "hole_to_hole": "error",
+}
+
 MIN_SOLDER_MASK_WEB_MM = 0.1
 MIN_THERMAL_GAP_MM = 0.3
 MIN_THERMAL_SPOKE_MM = 0.4
@@ -114,9 +120,10 @@ def rule_checks(d, rule_minimums, class_minimums):
         met = meets_floor(current, minimum)
         checks[field] = (current, minimum, met)
 
-    severity = d.get("board", {}).get("design_settings", {}).get(
-        "rule_severities", {}).get("silk_over_copper")
-    checks["rule_severities.silk_over_copper"] = (severity, "error", severity == "error")
+    severities = d.get("board", {}).get("design_settings", {}).get("rule_severities", {})
+    for name, required in REQUIRED_SEVERITIES.items():
+        severity = severities.get(name)
+        checks[f"rule_severities.{name}"] = (severity, required, severity == required)
 
     classes = d.get("net_settings", {}).get("classes", [])
     default = next((item for item in classes
