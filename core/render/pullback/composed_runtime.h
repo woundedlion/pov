@@ -544,23 +544,13 @@ protected:
    *  @param target Parameters to adopt. */
   HS_FLASH_MEMBER void adopt_params(const Params &target) {
     params = target;
-    if constexpr (HAS_PLANAR)
-      adopt_source();
-    if constexpr (Traits::SOURCE_MORPH)
-      clear_source_morph();
-    palette.adopt(target.template get<"color">());
-    this->refresh_modulation_controls();
+    readopt_derived_state();
   }
 
   /** @brief Re-derives the palette mapping weights after a slider write. */
   HS_FLASH_MEMBER void parameter_written() override {
     Choreography::parameter_written();
-    if constexpr (HAS_PLANAR)
-      adopt_source();
-    if constexpr (Traits::SOURCE_MORPH)
-      clear_source_morph();
-    palette.adopt(this->params.template get<"color">());
-    this->refresh_modulation_controls();
+    readopt_derived_state();
   }
 
   /** @brief Captures the palette-mapping endpoints of an arming crossfade.
@@ -730,6 +720,17 @@ public:
   }
 
 private:
+  /** @brief Re-derives the planar blend, source morph, palette mapping and
+      modulation controls from the current parameters. */
+  HS_FLASH_MEMBER void readopt_derived_state() {
+    if constexpr (HAS_PLANAR)
+      adopt_source();
+    if constexpr (Traits::SOURCE_MORPH)
+      clear_source_morph();
+    palette.adopt(params.template get<"color">());
+    this->refresh_modulation_controls();
+  }
+
   /** @brief Checks whether an authored endpoint can use a stationary cubic table.
    * Fixed chamber noise already has its own phase cache. */
   template <typename Resource>
