@@ -110,7 +110,7 @@ public:
             if (length_sq == 0)
               continue;
             const float t =
-                std::clamp((rx * vx + ry * vy) / length_sq, 0.0f, 1.0f);
+                hs::clamp((rx * vx + ry * vy) / length_sq, 0.0f, 1.0f);
             const float ex = rx - t * vx, ey = ry - t * vy;
             const float distance = std::sqrt(ex * ex + ey * ey);
             if (distance <= nearest.depth) {

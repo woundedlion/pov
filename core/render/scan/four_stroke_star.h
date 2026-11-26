@@ -151,8 +151,8 @@ public:
     RowEdges result{};
     for (int i = 0; i < count; ++i) {
       const auto &edge = edges[i];
-      if (std::max(edge.a.y, edge.b.y) >= top &&
-          std::min(edge.a.y, edge.b.y) <= bottom)
+      if (fmaxf(edge.a.y, edge.b.y) >= top &&
+          fminf(edge.a.y, edge.b.y) <= bottom)
         result.indices[result.size++] = static_cast<uint8_t>(i);
     }
     return result;
@@ -168,7 +168,7 @@ public:
       const auto &edge = edges[row.indices[i]];
       const float dx = edge.b.x - edge.a.x, dy = edge.b.y - edge.a.y;
       const float px = x - edge.a.x, py = y - edge.a.y;
-      if (y < std::min(edge.a.y, edge.b.y) || y > std::max(edge.a.y, edge.b.y))
+      if (y < fminf(edge.a.y, edge.b.y) || y > fmaxf(edge.a.y, edge.b.y))
         continue;
       const float cross = px * dy - py * dx;
       if (cross == 0 && px * dx + py * dy >= 0 &&
@@ -201,9 +201,9 @@ public:
       const float dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
       if ((e.a.y > y) != (e.b.y > y) && x < e.a.x + (y - e.a.y) * dx / dy)
         result.inside = !result.inside;
-      const float u = std::clamp(((x - e.a.x) * dx + (y - e.a.y) * dy) *
-                                     e.inv_length * e.inv_length,
-                                 0.f, 1.f);
+      const float u = hs::clamp(((x - e.a.x) * dx + (y - e.a.y) * dy) *
+                                    e.inv_length * e.inv_length,
+                                0.0f, 1.0f);
       const float px = x - (u == 1 ? e.b.x : e.a.x + u * dx),
                   py = y - (u == 1 ? e.b.y : e.a.y + u * dy);
       const float sq = px * px + py * py;
