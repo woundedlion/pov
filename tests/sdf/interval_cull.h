@@ -610,7 +610,8 @@ inline void test_line_antipodal_cull_covers_interior() {
 }
 
 /**
- * @brief Verifies the cull covers a Line whose bounding cap radius exceeds pi.
+ * @brief Verifies the cull covers a Line whose bounding cap radius exceeds pi,
+ *        and its swept proxy.
  * @details A quarter arc with a stroke this wide gives half-length + thickness
  *   ≈ 3.39 rad, past the pi where cos turns back up.
  */
@@ -620,6 +621,9 @@ inline void test_line_thick_cap_past_pi_cull_covers_interior() {
                /*thickness=*/2.6f);
   expect_cull_covers_interior<W, H>(ln, "line thick cap", false);
   expect_cull_covers_painted<W, H>(ln, "line thick cap", false);
+  const SDF::Line swept = ln.swept(0.05f);
+  HS_EXPECT_LE(swept.cap.cos_radius, ln.cap.cos_radius);
+  expect_cull_covers_interior<W, H>(swept, "swept line thick cap", false);
 }
 
 /**

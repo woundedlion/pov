@@ -532,15 +532,10 @@ struct Line {
   math::Vector edge_a; ///< Inward arc-start half-plane normal.
   math::Vector edge_b; ///< Inward arc-end half-plane normal.
   float len;           /**< Arc length (radians). */
-  float phi_min;       ///< Lower colatitude bound (radians).
-  float phi_max;       ///< Upper colatitude bound (radians).
 
-  // Bounding-cap geometry, precomputed in the ctor.
-  math::Vector mid;       /**< Arc midpoint axis (bounding-cap center). */
-  float mid_ny = 0.0f;    ///< Midpoint axis y-component.
-  float mid_r = 0.0f;     ///< Length of the midpoint axis' XZ projection.
-  float mid_alpha = 0.0f; ///< Azimuth of the midpoint axis' XZ projection.
-  float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */
+  math::Vector mid; /**< Arc midpoint axis (bounding-cap center). */
+  /// Bounding cap about `mid`, with the arc's latitude band.
+  CapBounds cap{};
   bool cap_horiz_valid =
       false; /**< False when the cap yields no horizontal cull: a ~vertical cap
                 axis, or antipodal endpoints (whose rendered great circle no cap
@@ -603,20 +598,25 @@ struct Line {
       phi_hi = std::max(phi_hi, phi_ext);
     }
     float margin = thickness + BOUNDS_MARGIN;
-    phi_min = std::max(0.0f, phi_lo - margin);
-    phi_max = std::min(math::PI_F, phi_hi + margin);
 
     // Bounding cap centered on the segment midpoint. Antipodal endpoints sum to
     // ~0 (no defined midpoint); guard the normalize.
     mid = math::normalized_or(a + b, math::Vector(1, 0, 0));
-    mid_ny = mid.y;
-    mid_r = sqrtf(mid.x * mid.x + mid.z * mid.z);
-    mid_alpha = atan2f(mid.z, mid.x);
+    const AxisProjection axis = project_axis(mid);
     // A cap wider than pi covers the sphere; cos turns back up past pi, so an
     // unclamped radius would report a tighter cap than the arc occupies.
     float cap_radius = std::min(len * 0.5f + thickness, math::PI_F);
-    cap_D_min = cosf(cap_radius);
-    cap_horiz_valid = mid_r >= MIN_HORIZONTAL_PROJ;
+    // sinf(PI_F) rounds negative; swept_cap() reads the radius back through
+    // atan2f.
+    const float cap_sine = fmaxf(0.0f, sinf(cap_radius));
+    cap = {axis.ny,
+           axis.r_val,
+           axis.alpha_angle,
+           std::max(0.0f, phi_lo - margin),
+           std::min(math::PI_F, phi_hi + margin),
+           cosf(cap_radius),
+           cap_sine};
+    cap_horiz_valid = cap.r_val >= MIN_HORIZONTAL_PROJ;
 
     if (antipodal) {
       len = 2.0f * math::PI_F;
@@ -624,8 +624,8 @@ struct Line {
       // latitudes between its two extrema and every azimuth: no half-circle cap
       // bounds it, so drop the horizontal cull.
       float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
-      phi_min = std::max(0.0f, acosf(peak) - margin);
-      phi_max = std::min(math::PI_F, acosf(-peak) + margin);
+      cap.phi_min = std::max(0.0f, acosf(peak) - margin);
+      cap.phi_max = std::min(math::PI_F, acosf(-peak) + margin);
       cap_horiz_valid = false;
     }
   }
@@ -636,7 +636,7 @@ struct Line {
    * @return Row bounds covering the arc plus thickness margin.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(phi_min, phi_max);
+    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
   }
 
   /**
@@ -647,9 +647,7 @@ struct Line {
    */
   Line swept(float arc) const {
     Line out = *this;
-    out.phi_min = std::max(0.0f, phi_min - arc);
-    out.phi_max = std::min(math::PI_F, phi_max + arc);
-    out.cap_D_min = cosf(std::min(len * 0.5f + thickness + arc, math::PI_F));
+    out.cap = swept_cap(cap, arc);
     return out;
   }
 
@@ -702,8 +700,8 @@ struct Line {
     float cos_phi = math::TrigLUT<W, H>::cos_phi[y];
     float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
 
-    return emit_cap_interval<W>(cap_D_min, mid_ny, mid_r, mid_alpha, cos_phi,
-                                sin_phi, out);
+    return emit_cap_interval<W>(cap.cos_radius, cap.ny, cap.r_val,
+                                cap.alpha_angle, cos_phi, sin_phi, out);
   }
 };
 
