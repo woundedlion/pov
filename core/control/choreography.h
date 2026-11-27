@@ -160,14 +160,7 @@ public:
    * @return The preset's departure.
    */
   static constexpr Segue::Preset::Departure preset_departure(size_t index) {
-    if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
-      return decltype(Derived::choreography_hooks())::template invoke_static<
-                 Control::ChoreographyHook::PRESET_ROW>(index)
-          .segue;
-    else if constexpr (requires { Derived::PRESETS; })
-      return Derived::PRESETS[index].segue;
-    else
-      return Segue::Preset::Snap{};
+    return preset_row(index).segue;
   }
 
   /** @brief Conservative show budget: all dwells plus every departure
@@ -601,8 +594,9 @@ protected:
   /** @brief The row of the preset at @p index: the `PRESET_ROW` hook with
       `PRESET_IDS`, else the `PRESETS` table, else a single startup preset.
       @param index Preset row index.
-      @return Requested preset row. */
-  static constexpr auto preset_row(size_t index) {
+      @return Requested preset row; a reference into `PRESETS` for a tabled
+      effect. */
+  static constexpr decltype(auto) preset_row(size_t index) {
     if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
           Control::ChoreographyHook::PRESET_ROW>(index);
@@ -659,12 +653,9 @@ private:
     if constexpr (has_hook<Control::ChoreographyHook::INITIAL_PARAMS>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
           Control::ChoreographyHook::INITIAL_PARAMS>();
-    else if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
-      return decltype(Derived::choreography_hooks())::template invoke_static<
-                 Control::ChoreographyHook::PRESET_ROW>(size_t{0})
-          .params;
-    else if constexpr (requires { Derived::PRESETS; })
-      return Derived::PRESETS[0].params;
+    else if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>() ||
+                       requires { Derived::PRESETS; })
+      return preset_row(size_t{0}).params;
     else
       return Params{};
   }
