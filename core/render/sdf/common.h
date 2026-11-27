@@ -849,6 +849,7 @@ struct CapBounds {
   float alpha_angle; ///< Azimuth of the XZ projection (radians).
   float phi_min;     ///< Lower colatitude bound (radians).
   float phi_max;     ///< Upper colatitude bound (radians).
+  float radius;      ///< Cap radius (radians).
   float cos_radius;  ///< Cosine of the cap radius.
   float sin_radius;  ///< Sine of the cap radius.
 };
@@ -860,7 +861,7 @@ struct CapBounds {
  * @param invert When true the shape fills the complement, which touches every
  *        row, so the band opens to the whole sphere.
  * @return Axis projection, the bounding band widened by BOUNDS_MARGIN_WIDE, and
- *         the cap radius' cosine and sine.
+ *         the cap radius with its cosine and sine.
  */
 inline CapBounds cap_bounds(const math::Vector &axis, float radius,
                             bool invert) {
@@ -872,6 +873,7 @@ inline CapBounds cap_bounds(const math::Vector &axis, float radius,
           ap.alpha_angle,
           invert ? 0.0f : std::max(0.0f, center_phi - margin),
           invert ? math::PI_F : std::min(math::PI_F, center_phi + margin),
+          radius,
           cosf(radius),
           sinf(radius)};
 }
@@ -884,13 +886,11 @@ inline CapBounds cap_bounds(const math::Vector &axis, float radius,
  */
 inline CapBounds swept_cap(const CapBounds &cap, float arc) {
   CapBounds out = cap;
-  // fabsf: sinf(PI_F) rounds negative, which atan2f reads as -pi.
-  const float radius =
-      fminf(fabsf(atan2f(cap.sin_radius, cap.cos_radius)) + arc, math::PI_F);
+  out.radius = fminf(cap.radius + arc, math::PI_F);
   out.phi_min = std::max(0.0f, cap.phi_min - arc);
   out.phi_max = std::min(math::PI_F, cap.phi_max + arc);
-  out.cos_radius = cosf(radius);
-  out.sin_radius = sinf(radius);
+  out.cos_radius = cosf(out.radius);
+  out.sin_radius = sinf(out.radius);
   return out;
 }
 
@@ -931,29 +931,28 @@ inline float moved_azimuth(float alpha, const math::Vector &from,
 
 /**
  * @brief Re-centres a bounding cap on another axis and grows it by an arc.
- * @param cap Cap covering the shape about @p from.
- * @param radius The cap's angular radius (radians), at most PI / 2.
+ * @param cap Cap covering the shape about @p from, radius at most PI / 2.
  * @param from The cap's own axis (unit).
  * @param axis New cap axis (unit).
  * @param arc Growth (radians), including MOVED_AXIS_SLACK.
- * @return A cap about @p axis whose radius cosine and sine bound
- *         cos(radius + arc) from below and sin(radius + arc) from above, with
- *         the latitude band widened to match.
+ * @return A cap about @p axis of radius `cap.radius + arc`, whose cosine and
+ *         sine bound cos(radius + arc) from below and sin(radius + arc) from
+ *         above, with the latitude band widened to match.
  * @details sin(a) <= a and cos(a) >= 1 - a * a / 2 give the bounds without a
  * transcendental call.
  */
-inline CapBounds moved_cap(const CapBounds &cap, float radius,
-                           const math::Vector &from, const math::Vector &axis,
-                           float arc) {
+inline CapBounds moved_cap(const CapBounds &cap, const math::Vector &from,
+                           const math::Vector &axis, float arc) {
   CapBounds out;
   out.ny = axis.y;
   out.r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
   out.alpha_angle = moved_azimuth(cap.alpha_angle, from, axis);
   const float center_phi =
       math::fast_acos(std::max(-1.0f, std::min(1.0f, axis.y)));
-  const float margin = radius + BOUNDS_MARGIN_WIDE + arc;
+  const float margin = cap.radius + BOUNDS_MARGIN_WIDE + arc;
   out.phi_min = std::max(0.0f, center_phi - margin);
   out.phi_max = std::min(math::PI_F, center_phi + margin);
+  out.radius = cap.radius + arc;
   out.cos_radius =
       cap.cos_radius * (1.0f - 0.5f * arc * arc) - cap.sin_radius * arc;
   out.sin_radius = cap.sin_radius + cap.cos_radius * arc;

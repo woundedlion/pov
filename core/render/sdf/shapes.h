@@ -385,8 +385,7 @@ struct Star : CapBoundedLeaf<Star> {
    */
   Star moved(const math::Vector &axis, float arc) const {
     Star out = *this;
-    out.cap =
-        moved_cap(cap, circumradius, basis.v, axis, arc + MOVED_AXIS_SLACK);
+    out.cap = moved_cap(cap, basis.v, axis, arc + MOVED_AXIS_SLACK);
     return out;
   }
 
@@ -611,6 +610,7 @@ struct Line {
            axis.alpha_angle,
            std::max(0.0f, phi_lo - margin),
            std::min(math::PI_F, phi_hi + margin),
+           cap_radius,
            cosf(cap_radius),
            sinf(cap_radius)};
     cap_horiz_valid = cap.r_val >= MIN_HORIZONTAL_PROJ;
