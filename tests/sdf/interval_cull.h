@@ -626,6 +626,15 @@ inline void test_line_thick_cap_past_pi_cull_covers_interior() {
   expect_cull_covers_interior<W, H>(swept, "swept line thick cap", false);
 }
 
+/** @brief Verifies swept_cap never shrinks a cap whose radius is pi. */
+inline void test_swept_cap_keeps_full_sphere_cap() {
+  const SDF::CapBounds cap =
+      SDF::cap_bounds(math::Vector(0, 1, 0), math::PI_F, false);
+  const SDF::CapBounds swept = SDF::swept_cap(cap, 0.05f);
+  HS_EXPECT_LE(swept.cos_radius, cap.cos_radius);
+  HS_EXPECT_NEAR(swept.cos_radius, -1.0f, 1e-6f);
+}
+
 /**
  * @brief Verifies the Ring interval cull covers interior pixels for thin rings
  *        whose band wraps a pole, where annular_band_spans merges the two

@@ -884,8 +884,9 @@ inline CapBounds cap_bounds(const math::Vector &axis, float radius,
  */
 inline CapBounds swept_cap(const CapBounds &cap, float arc) {
   CapBounds out = cap;
+  // fabsf: sinf(PI_F) rounds negative, which atan2f reads as -pi.
   const float radius =
-      fminf(atan2f(cap.sin_radius, cap.cos_radius) + arc, math::PI_F);
+      fminf(fabsf(atan2f(cap.sin_radius, cap.cos_radius)) + arc, math::PI_F);
   out.phi_min = std::max(0.0f, cap.phi_min - arc);
   out.phi_max = std::min(math::PI_F, cap.phi_max + arc);
   out.cos_radius = cosf(radius);

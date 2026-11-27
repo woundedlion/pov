@@ -215,6 +215,7 @@ inline int run_sdf_tests() {
   HS_RUN(test_face_arc_extrema_bounds);
   HS_RUN(test_line_antipodal_cull_covers_interior);
   HS_RUN(test_line_thick_cap_past_pi_cull_covers_interior);
+  HS_RUN(test_swept_cap_keeps_full_sphere_cap);
   HS_RUN(test_ring_pole_wrap_cull_covers_interior);
   HS_RUN(test_distorted_ring_cull_covers_interior_high_freq);
   HS_RUN(test_face_cull_covers_aa_fringe);

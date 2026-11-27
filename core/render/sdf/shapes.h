@@ -606,16 +606,13 @@ struct Line {
     // A cap wider than pi covers the sphere; cos turns back up past pi, so an
     // unclamped radius would report a tighter cap than the arc occupies.
     float cap_radius = std::min(len * 0.5f + thickness, math::PI_F);
-    // sinf(PI_F) rounds negative; swept_cap() reads the radius back through
-    // atan2f.
-    const float cap_sine = fmaxf(0.0f, sinf(cap_radius));
     cap = {axis.ny,
            axis.r_val,
            axis.alpha_angle,
            std::max(0.0f, phi_lo - margin),
            std::min(math::PI_F, phi_hi + margin),
            cosf(cap_radius),
-           cap_sine};
+           sinf(cap_radius)};
     cap_horiz_valid = cap.r_val >= MIN_HORIZONTAL_PROJ;
 
     if (antipodal) {
