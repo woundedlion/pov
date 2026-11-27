@@ -137,6 +137,50 @@ struct FeedbackWhiteBox {
       HS_EXPECT_EQ(x, FORWARD);
   }
 
+  /** @brief A cached warp field acquired after frames without a cached
+   *  acquisition is not blended with the field from before the gap. */
+  static void test_warp_blend_skips_after_gap() {
+    constexpr int W = 64, H = 64;
+    using Feedback = Filter::Pixel::Feedback<W, H>;
+    const ScopedTemporalSampling sampling(true);
+    ScratchScope persistent_scope(persistent_arena);
+    StubEffect effect(W, H);
+    Animation::NoiseParams noise;
+    noise.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    noise.set_seed(7);
+    ::Feedback::Style style = ::Feedback::Style::LooseWormhole();
+    style.noise = &noise;
+    style.sync_noise();
+    Feedback feedback(style);
+    feedback.init_storage(persistent_arena);
+    // One canvas; when flushed at a noise time, reports whether its lit-time
+    // warp starts from a prior field.
+    auto frame = [&](bool flush, float time) {
+      bool blended = false;
+      {
+        Canvas canvas(effect);
+        if (flush) {
+          noise.time = time;
+          ScratchScope scope(scratch_arena_a);
+          const auto ctx =
+              feedback.prepare_flush(canvas, 1.0f, scope.get_arena());
+          HS_EXPECT_TRUE(holds(feedback, canvas));
+          blended = ctx.geometry.warp.x_offsets != ctx.geometry.end.x_offsets;
+        }
+        canvas(W / 2, H / 2) = Pixel(40000, 40000, 40000);
+      }
+      effect.advance_display();
+      return blended;
+    };
+    frame(false, 0.0f);
+    HS_EXPECT_FALSE(frame(true, 1.0f));
+    HS_EXPECT_TRUE(frame(true, 2.0f));
+    frame(false, 0.0f);
+    frame(false, 0.0f);
+    HS_EXPECT_FALSE(frame(true, 5.0f));
+    HS_EXPECT_TRUE(frame(true, 6.0f));
+  }
+
   /** @brief Whether the warp cache holds the canvas's current band.
    *  @tparam W Feedback width.
    *  @tparam H Feedback height.

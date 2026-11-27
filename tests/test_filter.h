@@ -143,6 +143,7 @@ inline int run_filter_tests() {
   HS_RUN(test_feedback_fade_table_entries);
   HS_RUN(test_feedback_fade_table_invalidates_stored_entries);
   HS_RUN(test_feedback_warp_cache_keys_column_time);
+  HS_RUN(FeedbackWhiteBox::test_warp_blend_skips_after_gap);
   HS_RUN(test_feedback_column_time_oracle);
   HS_RUN(test_feedback_sourced_column_time_oracle);
   HS_RUN(test_feedback_split_frame_covers_forward_bands);

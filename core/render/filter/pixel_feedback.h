@@ -449,12 +449,15 @@ private:
   /**
    * @brief The frame's populated warp field: the cache's when the Style and
    * band allow it, otherwise a scratch field.
+   * @param frame Number of the canvas the field is acquired for.
    * @param reused Set when the frame reuses the cached field unchanged.
-   * @param prior Receives the field one noise step before the returned one.
+   * @param prior Receives the field one noise step before the returned one
+   *        when the cache filled it for the previous frame, otherwise the
+   *        returned field.
    */
-  __attribute__((always_inline)) WarpField
-  acquire_warp_field(Arena &scratch, const CoarseGrid &grid,
-                     const RenderBand &band, bool &reused, WarpField &prior);
+  __attribute__((always_inline)) WarpField acquire_warp_field(
+      Arena &scratch, const CoarseGrid &grid, const RenderBand &band,
+      uint32_t frame, bool &reused, WarpField &prior);
 
   /**
    * @brief Fills @p warp's cells for the band from the Style's warp.
@@ -1387,6 +1390,8 @@ private:
   SplitHold split_hold; /**< Held split frame and its floors. */
   WarpCache warp_cache; /**< Persistent warp field, lattice origins and
                            reach. */
+  /** Canvas frame number of the last cacheable warp acquisition. */
+  uint32_t cached_frame = 0;
   FadeTable fade_table; /**< Persistent per-elapsed-time transforms. */
 
 public:

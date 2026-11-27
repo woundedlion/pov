@@ -216,8 +216,8 @@ Feedback<W, H>::warp_cache_key(const RenderBand &band) const {
 template <int W, int H>
 inline __attribute__((always_inline)) typename Feedback<W, H>::WarpField
 Feedback<W, H>::acquire_warp_field(Arena &scratch, const CoarseGrid &grid,
-                                   const RenderBand &band, bool &reused,
-                                   WarpField &prior) {
+                                   const RenderBand &band, uint32_t frame,
+                                   bool &reused, WarpField &prior) {
   const bool stock_transform =
       feedback_style->space_fn == &::Feedback::noise_warp ||
       feedback_style->space_fn == &::Feedback::melt_warp;
@@ -244,7 +244,10 @@ Feedback<W, H>::acquire_warp_field(Arena &scratch, const CoarseGrid &grid,
 
   HS_PROFILE(feedback_populate);
   reused = cacheable;
-  return warp_cache.acquire(
+  const bool next_frame = cacheable && frame == cached_frame + 1;
+  if (cacheable)
+    cached_frame = frame;
+  const WarpField field = warp_cache.acquire(
       cacheable ? &key : nullptr, uncached,
       [&](const WarpField &warp) __attribute__((always_inline)) {
         reused = false;
@@ -258,6 +261,9 @@ Feedback<W, H>::acquire_warp_field(Arena &scratch, const CoarseGrid &grid,
         populate_warp_field(grid, band, warp, controls, sample_caps);
       },
       &prior);
+  if (!next_frame)
+    prior = field;
+  return field;
 }
 
 template <int W, int H>
@@ -377,7 +383,8 @@ Feedback<W, H>::prepare_flush(Canvas &cv, float alpha, Arena &scratch,
   const RenderBand &band = ctx.geometry.band;
   bool reused = false;
   WarpField prior{};
-  ctx.geometry.end = acquire_warp_field(scratch, grid, band, reused, prior);
+  ctx.geometry.end =
+      acquire_warp_field(scratch, grid, band, cv.frame_number(), reused, prior);
   ctx.geometry.warp = ctx.geometry.end;
   ctx.frames.filtered_row =
       (!band.x_clip.active &&
